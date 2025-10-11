@@ -1,0 +1,32 @@
+[tool.ruff][tool.poetry]
+
+line-length = 100name = "mind-q-v4"
+
+version = "0.0.0"
+
+[tool.pytest.ini_options]description = "Mind-Q Logistics — Data Intelligence Framework (v4)"
+
+addopts = "-q"authors = ["Haitham H."]
+
+packages = [{ include = "src" }, { include = "cli" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+polars = "*"
+pyarrow = "*"
+duckdb = "*"
+pydantic = ">=2.0"
+python-json-logger = "*"
+
+[tool.poetry.dev-dependencies]
+pytest = "*"
+ruff = "*"
+black = "*"
+mypy = "*"
+
+[tool.ruff]
+line-length = 88
+
+[tool.mypy]
+python_version = 3.11
+warn_unused_configs = true

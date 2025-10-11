@@ -1,0 +1,9 @@
+pandas
+polars
+pyarrow
+scikit-learn
+numpy
+pydantic>=2
+ydata-profiling
+great-expectations
+python-json-logger
