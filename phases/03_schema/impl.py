@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Any, Dict
 import os, json
+from pathlib import Path
 
 try:
     import polars as pl  # type: ignore
@@ -20,6 +21,12 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
             n_rows = int(df.height)
         except Exception:
             n_rows = 0
+    # Guard (no row changes expected)
+    try:
+        from shared import validate  # type: ignore
+        validate.assert_row_stability(n_in=n_rows, n_out=n_rows, allow_drop=False, phase="03", out_dir=Path(out_dir))
+    except SystemExit:
+        pass
     with open(os.path.join(out_dir, "schema_v1.json"), "w", encoding="utf-8") as f:
         json.dump({"info": "stub schema output"}, f)
     with open(os.path.join(out_dir, "row_meta.json"), "w", encoding="utf-8") as f:
