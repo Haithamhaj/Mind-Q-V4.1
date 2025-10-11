@@ -1,0 +1,5 @@
+canonical:
+  order_id: [orderid, order id, awb, awb_no, shipment_id]
+  created_at: [created, order_date, created date]
+  region: [city, area, state, governorate]
+  carrier: [courier, provider, vendor]
