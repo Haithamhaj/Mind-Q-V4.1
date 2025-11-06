@@ -1,0 +1,36 @@
+{
+  "column": "LATITUDE",
+  "mappings": [
+    {
+      "original": "lat",
+      "normalized": "خط العرض",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "geo latitude",
+      "normalized": "خط العرض",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "خط العرض",
+      "normalized": "خط العرض",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الإحداثية الجغرافية",
+      "normalized": "خط العرض",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "LATITUDE",
+      "normalized": "خط العرض",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-31T23:57:45.901545"
+}

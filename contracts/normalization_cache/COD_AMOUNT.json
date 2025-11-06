@@ -1,0 +1,84 @@
+{
+  "column": "COD_AMOUNT",
+  "mappings": [
+    {
+      "original": "COD Amount",
+      "normalized": "مبلغ الدفع عند الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Cash on Delivery Value",
+      "normalized": "مبلغ الدفع عند الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "مبلغ الدفع عند الاستلام",
+      "normalized": "مبلغ الدفع عند الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "قيمة الدفع عند الاستلام",
+      "normalized": "مبلغ الدفع عند الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "0",
+      "normalized": "0",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "220",
+      "normalized": "220",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "185",
+      "normalized": "185",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "357.25",
+      "normalized": "357.25",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "511.25",
+      "normalized": "511.25",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "526",
+      "normalized": "526",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "136.4",
+      "normalized": "136.4",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Cash on Delivery",
+      "normalized": "مبلغ الدفع عند الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الدفع عند الاستلام",
+      "normalized": "مبلغ الدفع عند الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-26T19:53:00.852529"
+}

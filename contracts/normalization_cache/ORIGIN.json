@@ -1,0 +1,288 @@
+{
+  "column": "ORIGIN",
+  "mappings": [
+    {
+      "original": "source",
+      "normalized": "المصدر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "departure location",
+      "normalized": "المصدر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "المصدر",
+      "normalized": "المصدر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "موقع الانطلاق",
+      "normalized": "المصدر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "ORIGIN",
+      "normalized": "المصدر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Jeddah",
+      "normalized": "جدة",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "JED",
+      "normalized": "جدة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "جدة",
+      "normalized": "جدة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "RIYADH",
+      "normalized": "الرياض",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "RUH",
+      "normalized": "الرياض",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "الرياض",
+      "normalized": "الرياض",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "MAKKAH",
+      "normalized": "مكة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Mecca",
+      "normalized": "مكة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "مكة",
+      "normalized": "مكة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "DAMMAM",
+      "normalized": "الدمام",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "DMM",
+      "normalized": "الدمام",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "الدمام",
+      "normalized": "الدمام",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "AL KHOBAR",
+      "normalized": "الخبر",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "HAIL",
+      "normalized": "حائل",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "BISHA",
+      "normalized": "بيشة",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "TABUK",
+      "normalized": "تبوك",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "Buraydah",
+      "normalized": "بريدة",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "ABHA",
+      "normalized": "أبها",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "Al Quwaiiyah",
+      "normalized": "القويعية",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "Khamis Mushait",
+      "normalized": "خميس مشيط",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "Al Makhwah",
+      "normalized": "المخواة",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "departure city",
+      "normalized": "المصدر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "مدينة المغادرة",
+      "normalized": "المصدر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "مدينة الانطلاق",
+      "normalized": "المصدر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "موقع المغادرة",
+      "normalized": "المصدر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Riyadh Province",
+      "normalized": "منطقة الرياض",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Ar Rass",
+      "normalized": "الرس",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "MEDINA",
+      "normalized": "المدينة المنورة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Umluj",
+      "normalized": "أملج",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "TAIF",
+      "normalized": "الطائف",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Riyadh Al Khabra",
+      "normalized": "الرياض الخبرا",
+      "confidence": 0.7,
+      "source": "llm"
+    },
+    {
+      "original": "Jubail",
+      "normalized": "الجبيل",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Ad Diriyah",
+      "normalized": "الدرعية",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Muhayil",
+      "normalized": "محيط",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Shaqra",
+      "normalized": "شقراء",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Jazan city",
+      "normalized": "مدينة جازان",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "Ahad Rafidah",
+      "normalized": "أحد رفيدة",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "Baljurashi",
+      "normalized": "بلجرشي",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Al Qurayyat",
+      "normalized": "القريات",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Ad Dilam",
+      "normalized": "الدلم",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "departure point",
+      "normalized": "المصدر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "نقطة الانطلاق",
+      "normalized": "المصدر",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-11-01T01:09:49.026463"
+}

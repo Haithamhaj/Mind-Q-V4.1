@@ -1,0 +1,54 @@
+{
+  "column": "SHIPPER_REF_No",
+  "mappings": [
+    {
+      "original": "Shipper ID",
+      "normalized": "رقم مرجع الشاحن",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "reference number",
+      "normalized": "رقم مرجع الشاحن",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرف الشاحن",
+      "normalized": "رقم مرجع الشاحن",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم المرجع",
+      "normalized": "رقم مرجع الشاحن",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "SHIPPER_REF_No",
+      "normalized": "رقم مرجع الشاحن",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم مرجع الشاحن",
+      "normalized": "رقم مرجع الشاحن",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Shipment Reference",
+      "normalized": "رقم مرجع الشاحن",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "مرجع الشحنة",
+      "normalized": "رقم مرجع الشاحن",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-24T22:46:25.089191"
+}

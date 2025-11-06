@@ -1,0 +1,40 @@
+numeric:
+  strategy: groupwise_then_median
+  winsor_limits: [0.005, 0.995]
+  group_keys: ["City","Carrier","ServiceType"]
+  group_valid_min_rows: 500
+  indicator_if_missing_pct_gt: 0.05
+categorical:
+  strategy: mode_with_unknown
+  unknown_token: "Unknown"
+  group_keys: ["City","Carrier","ServiceType"]
+time_aware:
+  enable: true
+  within_entity: ["order_id","account_id"]
+  max_gap_hours: 24
+  timezone: "Asia/Riyadh"
+geo:
+  strategy: drop_for_model_only
+  columns:
+    LATITUDE:
+      strategy: drop_for_model_only
+    LONGITUDE:
+      strategy: drop_for_model_only
+  impute:
+    strategy: groupwise_then_median
+    indicator: true
+    dtype: numeric
+  missing_warn_threshold: 0.3
+  missing_stop_threshold: 0.5
+  allow_high_missing_columns: ["LATITUDE","LONGITUDE"]
+  # NOTE: البيئات اللوجستية تسجّل الإحداثيات اختيارياً؛ عندما يتجاوز الفقد 40% نعامل العمود كمصدر غير موثوق.
+  #       يتم تعويضه بالقيمة المجمّعة (median حسب المدينة/الناقل/نوع الخدمة) أو استبعاده من النمذجة، مع إبقاء مؤشر missing.
+high_missing_exclude_threshold: 0.95
+advanced:
+  knn: { enable: false, k: 5 }
+  mice: { enable: true, max_missing_pct: 0.2, iters: 5 }
+gates:
+  stop_if_rowcount_changes: true
+  psi_warn: 0.2
+  psi_stop: 0.3
+  psi_keys: ["COD_AMOUNT","WEIGHT","DELIVERY_DAYS"]

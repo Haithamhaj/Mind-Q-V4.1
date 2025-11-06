@@ -1,0 +1,1 @@
+"""MindQ backend adapters."""

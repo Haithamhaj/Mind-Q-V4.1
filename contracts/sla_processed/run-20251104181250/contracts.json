@@ -1,0 +1,22 @@
+{
+  "run_id": "run-20251104181250",
+  "generated_at": "2025-11-04T18:13:07.835348+00:00",
+  "entries": [
+    {
+      "source_path": "/home/runner/workspace/frontend/uploads/1762279985572-4af488ab-ce9c-4dc9-b97f-8a4eb560e228-DIGGIPACKS_Client_s_SOPs___SLAs_.pdf",
+      "stored_path": "/home/runner/workspace/artifacts/run-20251104181250/stage_01_ingestion/sla_raw/1762279985572-4af488ab-ce9c-4dc9-b97f-8a4eb560e228-DIGGIPACKS_Client_s_SOPs___SLAs__26abf9ca39.pdf",
+      "normalized_path": "contracts/sla_processed/run-20251104181250/1762279985572-4af488ab-ce9c-4dc9-b97f-8a4eb560e228-DIGGIPACKS_Client_s_SOPs___SLAs__26abf9ca39.pdf.json",
+      "media_type": "application/pdf",
+      "size_bytes": 1753193,
+      "sha256": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc",
+      "terms": [],
+      "notes": [
+        "pypdf_unavailable::No module named 'pypdf'"
+      ],
+      "document_id": "1762279985572-4af488ab-ce9c-4dc9-b97f-8a4eb560e228-DIGGIPACKS_Client_s_SOPs___SLAs__26abf9ca39.pdf",
+      "title": "1762279985572 4af488ab ce9c 4dc9 b97f 8a4eb560e228 DIGGIPACKS Client s SOPs SLAs"
+    }
+  ],
+  "notes": [],
+  "processed_root": "contracts/sla_processed/run-20251104181250"
+}

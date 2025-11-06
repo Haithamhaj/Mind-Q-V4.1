@@ -1,0 +1,306 @@
+{
+  "column": "Sub_Category_Comment",
+  "mappings": [
+    {
+      "original": "sub_category_note",
+      "normalized": "تعليق الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "delivery_comment",
+      "normalized": "تعليق الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "ملاحظة الفئة الفرعية",
+      "normalized": "تعليق الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "تعليق_التوصيل",
+      "normalized": "تعليق الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Sub_Category_Comment",
+      "normalized": "تعليق الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "تعليق الفئة الفرعية",
+      "normalized": "تعليق الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "لم يرد",
+      "normalized": "لم يرد",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "كنسل",
+      "normalized": "إلغاء",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "تأجيل للغد",
+      "normalized": "تأجيل للغد",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "reschedule for tomorrow delivery",
+      "normalized": "إعادة جدولة للتوصيل غدًا",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "costmer not in location",
+      "normalized": "العميل غير موجود في الموقع",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "خطأ في الموقع العميل",
+      "normalized": "خطأ في موقع العميل",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "no answer",
+      "normalized": "لا يوجد رد",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Customer not answered",
+      "normalized": "العميل لم يرد",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "out sude",
+      "normalized": "خارج الموقع",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "رفض استلام",
+      "normalized": "رفض استلام",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "الموقع غلط",
+      "normalized": "الموقع خاطئ",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "خارج الرياض",
+      "normalized": "خارج الرياض",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "No response from the customer",
+      "normalized": "لا يوجد رد من العميل",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Customer did not answer",
+      "normalized": "العميل لم يرد",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "cancel",
+      "normalized": "إلغاء",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "موقع العميل خارج الرياض",
+      "normalized": "موقع العميل خارج الرياض",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "العميل في الدوام",
+      "normalized": "العميل في العمل",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "العميل لايرد أيضآ اتصال",
+      "normalized": "العميل لا يرد أيضًا على الاتصال",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "العميل ارسلي من رقم ثاني و قال انه مسافر",
+      "normalized": "العميل أرسل من رقم آخر وقال إنه مسافر",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "العميله غير جادة في الشحنه",
+      "normalized": "العميلة غير جادة في الشحنة",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "subcategory_remark",
+      "normalized": "تعليق الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "reschedule for tomorrow",
+      "normalized": "تاجيل لبكرا",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "لان لا يرغب باستلام الطلبيه",
+      "normalized": "لا يرغب باستلام الطلبيه",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "no answer plus no what\\'s app",
+      "normalized": "لا يوجد رد ولا واتس اب",
+      "confidence": 0.85,
+      "source": "llm"
+    },
+    {
+      "original": "مايرد ماعنده واتس",
+      "normalized": "لا يرد ولا يملك واتس اب",
+      "confidence": 0.75,
+      "source": "llm"
+    },
+    {
+      "original": "العميل لا يرد",
+      "normalized": "لا يرد",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "تاجيل لبكرا",
+      "normalized": "تاجيل لبكرا",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "sub_category_feedback",
+      "normalized": "تعليق الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Subcategory Note",
+      "normalized": "تعليق الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "no cash",
+      "normalized": "لا يوجد نقد",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "outside city",
+      "normalized": "خارج المدينة",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "tomorrow",
+      "normalized": "غدًا",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "customer available in Friday",
+      "normalized": "العميل متاح يوم الجمعة",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "لم يتم الرد",
+      "normalized": "لم يتم الرد",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "العميل لم يرد",
+      "normalized": "العميل لم يرد",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "خارج الرياض الدمام",
+      "normalized": "خارج الرياض - الدمام",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "بكره",
+      "normalized": "غدًا",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "الموقع غلط الرياض",
+      "normalized": "الموقع غير صحيح في الرياض",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "AT3097718281",
+      "normalized": "AT3097718281",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "العميل في مدينة القصيم يرجى تحويل الشحنه للقصيم",
+      "normalized": "العميل في القصيم، يرجى تحويل الشحنة للقصيم",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "خارج منطقتي",
+      "normalized": "خارج منطقتي",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "رفض الاستلام",
+      "normalized": "رفض الاستلام",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "العميل خارج السعودية وطلب الغاء الشحنه وارجاع المبلغ",
+      "normalized": "العميل خارج السعودية وطلب إلغاء الشحنة وإرجاع المبلغ",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "Subcategory Feedback",
+      "normalized": "تعليق الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-26T19:35:07.092041"
+}

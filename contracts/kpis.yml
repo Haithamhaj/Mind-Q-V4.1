@@ -1,0 +1,17 @@
+kpis:
+  cod_amount:
+    - COD_AMOUNT
+    - cod
+    - collect_amount
+    - cod_value
+  sla_achieved:
+    - SLA_ACHIEVED
+    - on_time_flag
+    - delivered_within_sla
+  rto_rate:
+    - RTO_RATE
+    - rto_ratio
+  rto_flag:
+    - RTO
+    - RETURNED
+    - rto_flag

@@ -1,0 +1,34 @@
+problem_name: "logistics_delivery"
+description: "Estimated effect under assumptions of express lane opt-in on delivery success."
+
+treatment: "express_lane_flag"
+outcome: "delivery_success_rate"
+
+common_causes:
+  - "ORIGIN"
+  - "DESTINATION"
+  - "vehicle_type"
+  - "courier_tenure_months"
+effect_modifiers:
+  - "delivery_window"
+  - "package_category"
+instrumental_variables:
+  - "weather_score_bucket"
+frontdoor_variables:
+  - "hub_handling_time_bucket"
+
+min_sample_size: 1500
+confidence_level: 0.9
+test_size: 0.25
+
+estimation_methods:
+  - "backdoor.psm"
+  - "backdoor.iptw"
+  - "meta.xlearner"
+
+refutation_tests:
+  - "placebo_treatment_refuter"
+  - "data_subset_refuter"
+  - "add_unobserved_common_cause"
+
+bi_publish_rule: "SUPPORTED_ONLY"

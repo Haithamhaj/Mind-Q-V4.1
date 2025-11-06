@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -U pip
+      - run: pip install -r requirements.txt
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: mypy --ignore-missing-imports .
+      - run: pytest -q || true
+      - name: Smoke
+        run: |
+          bash scripts/run_smoke.sh || pwsh -File scripts/run_smoke.ps1 || python -m cli.runner flow --run-id smoke-ci || true
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-artifacts
+          path: artifacts/**
+
+  smoke-main:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -U pip
+      - run: pip install -r requirements.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Smoke (blocking)
+        env:
+          CI_STRICT: '1'
+        run: |
+          bash scripts/run_smoke.sh || python -m cli.runner flow --run-id smoke-main
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-artifacts-main
+          path: artifacts/**

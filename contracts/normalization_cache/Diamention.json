@@ -1,0 +1,150 @@
+{
+  "column": "Diamention",
+  "mappings": [
+    {
+      "original": "size",
+      "normalized": "الأبعاد",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "measurements",
+      "normalized": "الأبعاد",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حجم",
+      "normalized": "الأبعاد",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "قياسات",
+      "normalized": "الأبعاد",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Diamention",
+      "normalized": "البعد",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "الأبعاد",
+      "normalized": "الأبعاد",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "34*24*14",
+      "normalized": "34*24*14",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "34*25*15",
+      "normalized": "34*25*15",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "15*34*28",
+      "normalized": "15*34*28",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "16*32*26",
+      "normalized": "16*32*26",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "17*43*27",
+      "normalized": "17*43*27",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "24*40*31",
+      "normalized": "24*40*31",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "40*25*15",
+      "normalized": "40*25*15",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "34*22*18",
+      "normalized": "34*22*18",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "aspect",
+      "normalized": "البعد",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "category",
+      "normalized": "البعد",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "feature",
+      "normalized": "البعد",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "جانب",
+      "normalized": "البعد",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "فئة",
+      "normalized": "البعد",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "ميزة",
+      "normalized": "البعد",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "البعد",
+      "normalized": "البعد",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "31*20*14",
+      "normalized": "31*20*14",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "J&T",
+      "normalized": "J&T",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "YME100355146494",
+      "normalized": "YME100355146494",
+      "confidence": 1.0,
+      "source": "llm"
+    }
+  ],
+  "updated_at": "2025-10-31T23:59:23.032604"
+}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://www.knime.org/2008/09/XMLConfig" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.knime.org/2008/09/XMLConfig http://www.knime.org/XMLConfig_2008_09.xsd" key="settings.xml">
+    <!-- Table View (generic JS) to visualize the data inside KNIME -->
+    <entry key="node_type" type="xstring" value="org.knime.js.base.node.viz.table.TableView2NodeFactory"/>
+    <config key="factory_settings"/>
+    <config key="model">
+        <entry key="title" type="xstring" value="Preview Table"/>
+        <entry key="enable_download" type="xboolean" value="true"/>
+        <entry key="page_size" type="xint" value="50"/>
+    </config>
+</config>

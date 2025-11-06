@@ -1,0 +1,14 @@
+# Placeholder KPI mapping for future LLM linking.
+kpis:
+  cod_amount:
+    id: KPI_COD_AMOUNT
+    unit: "sar"
+    description: "Cash on delivery amount captured at shipment level."
+    equation: "sum(COD_AMOUNT)"
+    scopes: ["all", "metro", "city"]
+  sla_achieved:
+    id: KPI_SLA_ACHIEVED
+    unit: "pct"
+    description: "Share of shipments delivered within SLA window."
+    equation: "on_time_deliveries / total_deliveries"
+    scopes: ["all", "lane", "city"]

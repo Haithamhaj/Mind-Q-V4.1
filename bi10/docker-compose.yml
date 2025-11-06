@@ -1,0 +1,10 @@
+services:
+  bi10:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - ARTIFACTS_ROOT=/app/artifacts
+      - RUN_ID=fastcoo-latest
+    volumes:
+      - ./artifacts:/app/artifacts:ro

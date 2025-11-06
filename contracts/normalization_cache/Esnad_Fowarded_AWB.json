@@ -1,0 +1,60 @@
+{
+  "column": "Esnad_Fowarded_AWB",
+  "mappings": [
+    {
+      "original": "Esnad_Fowarded_AWB",
+      "normalized": "رقم بوليصة الشحن المحولة من إسناد",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم بوليصة الشحن المحولة من إسناد",
+      "normalized": "رقم بوليصة الشحن المحولة من إسناد",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "R99972025901",
+      "normalized": "رقم بوليصة الشحن المحولة من إسناد: R99972025901",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Riyadh",
+      "normalized": "Riyadh",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "NO",
+      "normalized": "NO",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "رقم بوليصة الشحن المرسلة من إسناد",
+      "normalized": "رقم بوليصة الشحن المرسلة من إسناد",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم بوليصة الشحن المرسلة (Esnad)",
+      "normalized": "رقم بوليصة الشحن المرسلة (Esnad)",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "152g/ Qty:1",
+      "normalized": "152g/ Qty:1",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "رقم الشحن المرسل عبر إسناد",
+      "normalized": "رقم الشحن المرسل عبر إسناد",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-30T11:56:38.523476"
+}

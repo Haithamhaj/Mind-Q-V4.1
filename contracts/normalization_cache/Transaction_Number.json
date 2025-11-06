@@ -1,0 +1,54 @@
+{
+  "column": "Transaction_Number",
+  "mappings": [
+    {
+      "original": "transaction ID",
+      "normalized": "رقم المعاملة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "txn number",
+      "normalized": "رقم المعاملة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرف المعاملة",
+      "normalized": "رقم المعاملة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم المعاملة",
+      "normalized": "رقم المعاملة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Transaction_Number",
+      "normalized": "رقم المعاملة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Trans ID",
+      "normalized": "رقم المعاملة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "C1006920251002",
+      "normalized": "C1006920251002",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "OM123045592558",
+      "normalized": "OM123045592558",
+      "confidence": 1.0,
+      "source": "llm"
+    }
+  ],
+  "updated_at": "2025-10-26T19:35:10.987481"
+}

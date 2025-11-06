@@ -1,0 +1,180 @@
+{
+  "column": "STATUS",
+  "mappings": [
+    {
+      "original": "delivery state",
+      "normalized": "حالة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Status of Delivery",
+      "normalized": "حالة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة التوصيل",
+      "normalized": "حالة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة التسليم",
+      "normalized": "حالة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "STATUS",
+      "normalized": "حالة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Booked-Pickup Scheduled",
+      "normalized": "تم حجز موعد الاستلام",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Delivered",
+      "normalized": "تم التوصيل",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Forward to Delivery Station",
+      "normalized": "تم الإرسال إلى محطة التوصيل",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Return On Process",
+      "normalized": "قيد الإرجاع",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Received Inbound",
+      "normalized": "In Transit",
+      "confidence": 0.6,
+      "source": "llm"
+    },
+    {
+      "original": "Cancel",
+      "normalized": "إلغاء",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Return",
+      "normalized": "إرجاع",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Out for delivery",
+      "normalized": "في مرحلة التوصيل",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "In Transit",
+      "normalized": "في الطريق",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Delivery On Process",
+      "normalized": "التوصيل قيد التنفيذ",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Not Delivered",
+      "normalized": "Not Delivered",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Booked-reverse pick",
+      "normalized": "Pickup Scheduled",
+      "confidence": 0.6,
+      "source": "llm"
+    },
+    {
+      "original": "Pickup Process",
+      "normalized": "Pickup Scheduled",
+      "confidence": 0.6,
+      "source": "llm"
+    },
+    {
+      "original": "Shipping Status",
+      "normalized": "حالة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة الشحن",
+      "normalized": "حالة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Pick Up Collected",
+      "normalized": "تم جمع الاستلام",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Failed Delivery",
+      "normalized": "فشل التوصيل",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Reverse Delivered",
+      "normalized": "تم التوصيل العكسي",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Unknown",
+      "normalized": "غير معروف",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "السعودية\"",
+      "normalized": "السعودية",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "المظيلف",
+      "normalized": "المظيلف",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "shipment status",
+      "normalized": "حالة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة الشحنة",
+      "normalized": "حالة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "delivery status",
+      "normalized": "حالة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-11-04T17:08:23.066752"
+}

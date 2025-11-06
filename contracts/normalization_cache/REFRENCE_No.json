@@ -1,0 +1,96 @@
+{
+  "column": "REFRENCE_No",
+  "mappings": [
+    {
+      "original": "Tracking Number",
+      "normalized": "رقم المرجع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "order number",
+      "normalized": "رقم المرجع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم التتبع",
+      "normalized": "رقم المرجع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم الطلب",
+      "normalized": "رقم المرجع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "REFRENCE_No",
+      "normalized": "رقم المرجع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم المرجع",
+      "normalized": "رقم المرجع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "shipment ID",
+      "normalized": "رقم المرجع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرف الشحنة",
+      "normalized": "رقم المرجع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "shipment reference",
+      "normalized": "رقم المرجع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "مرجع الشحنة",
+      "normalized": "رقم المرجع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "ref no",
+      "normalized": "رقم المرجع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "reference ID",
+      "normalized": "رقم المرجع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرف المرجع",
+      "normalized": "رقم المرجع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "reference number",
+      "normalized": "رقم المرجع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم الإحالة",
+      "normalized": "رقم المرجع",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-31T23:56:48.084741"
+}

@@ -1,0 +1,60 @@
+{
+  "column": "RECEIVER_NAME",
+  "mappings": [
+    {
+      "original": "recipient name",
+      "normalized": "اسم المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "delivery recipient",
+      "normalized": "اسم المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "اسم المستلم",
+      "normalized": "اسم المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "المستلم للتوصيل",
+      "normalized": "اسم المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "RECEIVER_NAME",
+      "normalized": "اسم المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "المستلم",
+      "normalized": "اسم المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "مستلم التوصيل",
+      "normalized": "اسم المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "delivery receiver",
+      "normalized": "اسم المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "اسم المتلقي للتوصيل",
+      "normalized": "اسم المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-26T17:36:33.006844"
+}

@@ -1,0 +1,78 @@
+{
+  "column": "DESCRIPTION",
+  "mappings": [
+    {
+      "original": "product description",
+      "normalized": "الوصف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "item details",
+      "normalized": "الوصف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "وصف المنتج",
+      "normalized": "الوصف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "تفاصيل العنصر",
+      "normalized": "الوصف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "DESCRIPTION",
+      "normalized": "الوصف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الوصف",
+      "normalized": "الوصف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "item description",
+      "normalized": "الوصف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "shipment details",
+      "normalized": "الوصف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "وصف العنصر",
+      "normalized": "الوصف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "تفاصيل الشحنة",
+      "normalized": "الوصف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "product details",
+      "normalized": "الوصف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "تفاصيل المنتج",
+      "normalized": "الوصف",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-26T19:34:14.325753"
+}

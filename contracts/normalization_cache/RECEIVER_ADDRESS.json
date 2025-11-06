@@ -1,0 +1,36 @@
+{
+  "column": "RECEIVER_ADDRESS",
+  "mappings": [
+    {
+      "original": "delivery address",
+      "normalized": "عنوان المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "recipient address",
+      "normalized": "عنوان المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "عنوان التوصيل",
+      "normalized": "عنوان المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "عنوان المستلم",
+      "normalized": "عنوان المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "RECEIVER_ADDRESS",
+      "normalized": "عنوان المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-22T15:31:09.239049"
+}

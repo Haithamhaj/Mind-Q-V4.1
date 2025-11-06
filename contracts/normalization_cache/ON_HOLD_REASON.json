@@ -1,0 +1,108 @@
+{
+  "column": "ON_HOLD_REASON",
+  "mappings": [
+    {
+      "original": "reason for hold",
+      "normalized": "سبب التوقف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "shipment hold reason",
+      "normalized": "سبب التوقف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "سبب التوقف",
+      "normalized": "سبب التوقف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "سبب تعليق الشحنة",
+      "normalized": "سبب التوقف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "ON_HOLD_REASON",
+      "normalized": "سبب التوقف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "shipment On hold by CSA",
+      "normalized": "سبب التوقف: الشحنة معلقة بواسطة CSA",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "On Hold due to delivery attempt exceed",
+      "normalized": "سبب التوقف: تجاوز محاولة التسليم",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "On Hold due to Out of Coverage Area - خارج منطقة التغطية",
+      "normalized": "سبب التوقف: خارج منطقة التغطية",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "NO",
+      "normalized": "لا يوجد سبب للتوقف",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "سبب التوقف للشحنة",
+      "normalized": "سبب التوقف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "On Hold due to Customer Does Not Have Cash - العميل ليس لديه كاش",
+      "normalized": "سبب التوقف: العميل ليس لديه كاش",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "hold reason",
+      "normalized": "سبب التوقف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "سبب توقف الشحنة",
+      "normalized": "سبب التوقف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "سبب الانتظار",
+      "normalized": "سبب التوقف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "On Hold due to Duplicate Order - طلب مكرر",
+      "normalized": "سبب التوقف: بسبب طلب مكرر",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "shipment delay reason",
+      "normalized": "سبب التوقف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "سبب تأخير الشحنة",
+      "normalized": "سبب التوقف",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-11-04T17:12:38.565429"
+}

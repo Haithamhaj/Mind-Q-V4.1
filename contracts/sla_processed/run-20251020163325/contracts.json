@@ -1,0 +1,20 @@
+{
+  "run_id": "run-20251020163325",
+  "generated_at": "2025-10-20T16:33:49.454655+00:00",
+  "entries": [
+    {
+      "source_path": "C:/Github - MindQ/Mind-Q-V4-BI/frontend/uploads/1760978025679-ab487117-956a-4d9f-9ee8-d718d4a3bab0-DiggiPacks____3PLs_SLA.pdf",
+      "stored_path": "C:/Github - MindQ/Mind-Q-V4-BI/backend/artifacts/run-20251020163325/stage_01_ingestion/sla_raw/1760978025679-ab487117-956a-4d9f-9ee8-d718d4a3bab0-DiggiPacks____3PLs_SLA_df52c9d3bb.pdf",
+      "normalized_path": "contracts/sla_processed/run-20251020163325/1760978025679-ab487117-956a-4d9f-9ee8-d718d4a3bab0-DiggiPacks____3PLs_SLA_df52c9d3bb.pdf.json",
+      "media_type": "application/pdf",
+      "size_bytes": 298251,
+      "sha256": "df52c9d3bb65829aaff3fd2b1cc89db5d8d10b16a73fabe2fda95c3d6660a238",
+      "terms": [],
+      "notes": [
+        "pypdf_unavailable::No module named 'pypdf'"
+      ]
+    }
+  ],
+  "notes": [],
+  "processed_root": "contracts/sla_processed/run-20251020163325"
+}

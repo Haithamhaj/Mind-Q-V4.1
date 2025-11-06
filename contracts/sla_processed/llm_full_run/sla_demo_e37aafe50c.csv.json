@@ -1,0 +1,86 @@
+{
+  "run_id": "llm_full_run",
+  "created_at": "2025-10-14T08:51:02.346815+00:00",
+  "source": "C:/Users/h.hussain/OneDrive/المستندات/GitHub/Mind-Q V3/Mind-Q-V4/artifacts/llm_full_run/stage_01_ingestion/sla_raw/sla_demo_e37aafe50c.csv",
+  "original_name": "sla_demo.csv",
+  "media_type": "application/vnd.ms-excel",
+  "size_bytes": 89,
+  "sha256": "e37aafe50c3fabf7b1a2a6ced13cbb52e5f8be87020b5b03bd15c4226d7ab1e7",
+  "text_excerpt": null,
+  "tables": [
+    {
+      "name": "sla_demo_e37aafe50c.csv",
+      "row_count": 2,
+      "columns": [
+        "Metric",
+        "Target",
+        "WARN",
+        "STOP",
+        "Window"
+      ],
+      "sample_rows": [
+        {
+          "Metric": "OnTimeDelivery",
+          "Target": "0.95",
+          "WARN": "0.93",
+          "STOP": "0.9",
+          "Window": "7d"
+        },
+        {
+          "Metric": "CODRate",
+          "Target": "0.7",
+          "WARN": "0.65",
+          "STOP": "0.6",
+          "Window": "14d"
+        }
+      ]
+    }
+  ],
+  "notes": [],
+  "terms": [
+    {
+      "kpi": "OnTimeDelivery",
+      "direction": "gte",
+      "target": 0.95,
+      "warn": 0.93,
+      "stop": 0.9,
+      "window": "7d",
+      "unit": null,
+      "source": {
+        "table": "sla_demo_e37aafe50c.csv",
+        "row_index": 0
+      },
+      "raw": {
+        "metric": "OnTimeDelivery",
+        "Metric": "OnTimeDelivery",
+        "Target": "0.95",
+        "WARN": "0.93",
+        "STOP": "0.9",
+        "Window": "7d"
+      },
+      "notes": []
+    },
+    {
+      "kpi": "CODRate",
+      "direction": "gte",
+      "target": 0.7,
+      "warn": 0.65,
+      "stop": 0.6,
+      "window": "14d",
+      "unit": null,
+      "source": {
+        "table": "sla_demo_e37aafe50c.csv",
+        "row_index": 1
+      },
+      "raw": {
+        "metric": "CODRate",
+        "Metric": "CODRate",
+        "Target": "0.7",
+        "WARN": "0.65",
+        "STOP": "0.6",
+        "Window": "14d"
+      },
+      "notes": []
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "run_id": "run-20251026183055",
+  "created_at": "2025-10-26T18:33:30.263704+00:00",
+  "source": "C:/Github - MindQ/Mind-Q-V4-BI/backend/artifacts/run-20251026183055/stage_01_ingestion/sla_raw/1761503607105-b43a2d9c-4b56-4022-a840-c3ee2866b175-DIGGIPACKS_Client_s_SOPs___SLAs__26abf9ca39.pdf",
+  "original_name": "1761503607105-b43a2d9c-4b56-4022-a840-c3ee2866b175-DIGGIPACKS_Client_s_SOPs___SLAs_.pdf",
+  "media_type": "application/pdf",
+  "size_bytes": 1753193,
+  "sha256": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc",
+  "text_excerpt": null,
+  "tables": [],
+  "notes": [
+    "pypdf_unavailable::No module named 'pypdf'"
+  ],
+  "terms": [],
+  "document_id": "1761503607105-b43a2d9c-4b56-4022-a840-c3ee2866b175-DIGGIPACKS_Client_s_SOPs___SLAs__26abf9ca39.pdf",
+  "title": "1761503607105 b43a2d9c 4b56 4022 a840 c3ee2866b175 DIGGIPACKS Client s SOPs SLAs"
+}

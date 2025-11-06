@@ -1,0 +1,174 @@
+{
+  "column": "DRIVER_CODE",
+  "mappings": [
+    {
+      "original": "driver_id",
+      "normalized": "رمز السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "driver_identifier",
+      "normalized": "رمز السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرف السائق",
+      "normalized": "رمز السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رمز السائق",
+      "normalized": "رمز السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "DRIVER_CODE",
+      "normalized": "رمز السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "JED  000010029",
+      "normalized": "JED 000010029",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "JED  000010016",
+      "normalized": "JED 000010016",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "FOLD 0014",
+      "normalized": "fold0014",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "JED  000010011",
+      "normalized": "JED 000010011",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "JED  000010030",
+      "normalized": "JED 000010030",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "fold 0012",
+      "normalized": "fold0012",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "fold 009",
+      "normalized": "fold009",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "fold006",
+      "normalized": "fold006",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "por778",
+      "normalized": "por778",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "JED  000010026",
+      "normalized": "JED 000010026",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "236547",
+      "normalized": "236547",
+      "confidence": 0.7,
+      "source": "llm"
+    },
+    {
+      "original": "112500",
+      "normalized": "112500",
+      "confidence": 0.7,
+      "source": "llm"
+    },
+    {
+      "original": "65877",
+      "normalized": "65877",
+      "confidence": 0.7,
+      "source": "llm"
+    },
+    {
+      "original": "JED  000010081",
+      "normalized": "JED 000010081",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "JED  000010010",
+      "normalized": "JED 000010010",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "JED  000010025",
+      "normalized": "JED 000010025",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "VOLT 33",
+      "normalized": "VOLT 33",
+      "confidence": 0.6,
+      "source": "llm"
+    },
+    {
+      "original": "JED  000010014",
+      "normalized": "JED 000010014",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "fold008",
+      "normalized": "fold008",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "V01",
+      "normalized": "V01",
+      "confidence": 0.6,
+      "source": "llm"
+    },
+    {
+      "original": "رقم السائق",
+      "normalized": "رمز السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرّف السائق",
+      "normalized": "رمز السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رمز السائقين",
+      "normalized": "رمز السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-11-04T18:21:22.858745"
+}

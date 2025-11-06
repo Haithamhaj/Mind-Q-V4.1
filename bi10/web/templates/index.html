@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <div id="kpi1" class="card chart"></div>
+  <div id="kpi2" class="card chart"></div>
+  <div id="kpi3" class="card chart"></div>
+</section>
+
+<section class="chat">
+  <form id="qform">
+    <button id="try-examples" type="button">Try examples</button>
+    <input id="q" placeholder="Ask: SLA% trend this month by city? or 'bar RTO% by carrier'" />
+    <button type="submit">Run</button>
+    <button id="copy-sql" type="button">Copy SQL</button>
+    <button id="download-csv" type="button">Download CSV</button>
+  </form>
+</section>
+
+<section class="grid">
+  <div id="chart" class="card chart"></div>
+  <div id="explain" class="card"></div>
+  <div id="catalog" class="card"></div>
+</section>
+{% endblock %}

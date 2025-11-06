@@ -1,0 +1,150 @@
+{
+  "column": "Recievable_Status",
+  "mappings": [
+    {
+      "original": "Receivables Status",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Outstanding Receivables",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة المستحقات",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "المستحقات غير المسددة",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Recievable_Status",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "NO",
+      "normalized": "لا",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Unknown",
+      "normalized": "غير معروف",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Delivered",
+      "normalized": "Delivered",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Receivable Condition",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Receivable State",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "وضع المستحقات",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "2.91489E+11",
+      "normalized": "2.91489E+11",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "المستحقات غير المدفوعة",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "المستحقات المعلقة",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "المستحقات المتأخرة",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "المستحقات القائمة",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Outstanding Status",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة المبالغ المستحقة",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "المستحقات المستحقة",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة المستحقات المستحقة",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "C99972025901",
+      "normalized": "C99972025901",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "OM129735564216",
+      "normalized": "OM129735564216",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "JTE000685256664",
+      "normalized": "JTE000685256664",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "OM128955038664",
+      "normalized": "OM128955038664",
+      "confidence": 1.0,
+      "source": "llm"
+    }
+  ],
+  "updated_at": "2025-11-04T17:09:39.010655"
+}

@@ -1,0 +1,20 @@
+{
+  "run_id": "run-20251026192619",
+  "generated_at": "2025-10-26T19:28:38.042739+00:00",
+  "entries": [
+    {
+      "source_path": "C:/Github - MindQ/Mind-Q-V4-BI/frontend/uploads/1761506796666-8296a68e-ec58-4160-b7b8-5d0822f35407-Fastcoo_LM_Data_AUG_2025_20251015_104226.csv",
+      "stored_path": "C:/Github - MindQ/Mind-Q-V4-BI/backend/artifacts/run-20251026192619/stage_01_ingestion/sla_raw/1761506796666-8296a68e-ec58-4160-b7b8-5d0822f35407-Fastcoo_LM_Data_AUG_2025_20251015_104226_5fa5f25bce.csv",
+      "normalized_path": "contracts/sla_processed/run-20251026192619/1761506796666-8296a68e-ec58-4160-b7b8-5d0822f35407-Fastcoo_LM_Data_AUG_2025_20251015_104226_5fa5f25bce.csv.json",
+      "media_type": "application/vnd.ms-excel",
+      "size_bytes": 31609184,
+      "sha256": "5fa5f25bce3c0a5a1fdd51ab081bffb893f5bae210e0746494f25a71d7afb1f3",
+      "terms": [],
+      "notes": [],
+      "document_id": "1761506796666-8296a68e-ec58-4160-b7b8-5d0822f35407-Fastcoo_LM_Data_AUG_2025_20251015_104226_5fa5f25bce.csv",
+      "title": "1761506796666 8296a68e ec58 4160 b7b8 5d0822f35407 Fastcoo LM Data AUG 2025 20251015 104226"
+    }
+  ],
+  "notes": [],
+  "processed_root": "contracts/sla_processed/run-20251026192619"
+}

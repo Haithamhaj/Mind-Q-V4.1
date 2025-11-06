@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Explorer</h2>
+<div class="row">
+  <select id="metric"></select>
+  <select id="dim"></select>
+  <button id="run">Run</button>
+</div>
+<div id="chart" class="card chart"></div>
+{% endblock %}

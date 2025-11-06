@@ -1,0 +1,42 @@
+{
+  "column": "LONGITUDE",
+  "mappings": [
+    {
+      "original": "longitudinal coordinate",
+      "normalized": "خط الطول",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الإحداثي الطولي",
+      "normalized": "خط الطول",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "LONGITUDE",
+      "normalized": "خط الطول",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "خط الطول",
+      "normalized": "خط الطول",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "geo longitude",
+      "normalized": "خط الطول",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "خط الطول الجغرافي",
+      "normalized": "خط الطول",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-11-01T01:11:21.426193"
+}

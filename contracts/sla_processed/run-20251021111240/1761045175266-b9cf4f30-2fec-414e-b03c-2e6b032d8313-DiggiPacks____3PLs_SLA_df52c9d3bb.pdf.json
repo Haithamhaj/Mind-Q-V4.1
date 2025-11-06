@@ -1,0 +1,15 @@
+{
+  "run_id": "run-20251021111240",
+  "created_at": "2025-10-21T11:13:00.804711+00:00",
+  "source": "C:/Github - MindQ/Mind-Q-V4-BI/backend/artifacts/run-20251021111240/stage_01_ingestion/sla_raw/1761045175266-b9cf4f30-2fec-414e-b03c-2e6b032d8313-DiggiPacks____3PLs_SLA_df52c9d3bb.pdf",
+  "original_name": "1761045175266-b9cf4f30-2fec-414e-b03c-2e6b032d8313-DiggiPacks____3PLs_SLA.pdf",
+  "media_type": "application/pdf",
+  "size_bytes": 298251,
+  "sha256": "df52c9d3bb65829aaff3fd2b1cc89db5d8d10b16a73fabe2fda95c3d6660a238",
+  "text_excerpt": null,
+  "tables": [],
+  "notes": [
+    "pypdf_unavailable::No module named 'pypdf'"
+  ],
+  "terms": []
+}

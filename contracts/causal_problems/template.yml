@@ -1,0 +1,26 @@
+problem_name: "<unique_snake_case>"
+description: "<short business description>"
+
+treatment: "<binary_or_exposure_col>"
+outcome: "<numeric_or_binary_kpi>"
+
+common_causes: []
+effect_modifiers: []
+instrumental_variables: []
+frontdoor_variables: []
+
+min_sample_size: 1000
+confidence_level: 0.95
+test_size: 0.3
+
+estimation_methods:
+  - "backdoor.psm"
+  - "backdoor.iptw"
+  - "meta.xlearner"
+
+refutation_tests:
+  - "placebo_treatment_refuter"
+  - "data_subset_refuter"
+  - "add_unobserved_common_cause"
+
+bi_publish_rule: "SUPPORTED_ONLY"

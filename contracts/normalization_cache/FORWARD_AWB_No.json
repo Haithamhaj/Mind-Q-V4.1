@@ -1,0 +1,48 @@
+{
+  "column": "FORWARD_AWB_No",
+  "mappings": [
+    {
+      "original": "AWB Number",
+      "normalized": "رقم بوليصة الشحن الأمامية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Air Waybill Number",
+      "normalized": "رقم بوليصة الشحن الأمامية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم بوليصة الشحن",
+      "normalized": "رقم بوليصة الشحن الأمامية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم بوليصة الشحن الجوية",
+      "normalized": "رقم بوليصة الشحن الأمامية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "FORWARD_AWB_No",
+      "normalized": "رقم بوليصة الشحن الأمامية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم بوليصة الشحن الأمامية",
+      "normalized": "رقم بوليصة الشحن الأمامية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم بوليصة الشحن الجوي",
+      "normalized": "رقم بوليصة الشحن الأمامية",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-26T19:54:16.995116"
+}

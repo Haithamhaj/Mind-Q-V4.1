@@ -1,0 +1,78 @@
+{
+  "column": "AREA_STREET",
+  "mappings": [
+    {
+      "original": "street name",
+      "normalized": "شارع المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "area name",
+      "normalized": "شارع المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "اسم الشارع",
+      "normalized": "شارع المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "اسم المنطقة",
+      "normalized": "شارع المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "AREA_STREET",
+      "normalized": "شارع المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "شارع المنطقة",
+      "normalized": "شارع المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "location",
+      "normalized": "شارع المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الموقع",
+      "normalized": "شارع المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "delivery area",
+      "normalized": "شارع المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "منطقة التوصيل",
+      "normalized": "شارع المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "location street",
+      "normalized": "شارع المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "شارع الموقع",
+      "normalized": "شارع المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-29T12:40:40.753351"
+}

@@ -1,0 +1,72 @@
+version: "1.0"
+seed: 42
+timezone: "Asia/Riyadh"
+inputs:
+  shipments_path: "raw/shipments/*.parquet"
+  docs_path: "raw/docs"
+  notes_path: "raw/notes"
+sources:
+  domain_dict: "artifacts/{run_id}/stage_03/domain_dict.json"
+  text_catalog: "artifacts/{run_id}/stage_03/text_columns_catalog.json"
+  kpi_map: "config/kpi_map.yaml"
+  dim_keys: "config/dim_keys.yaml"
+privacy:
+  mask_pii: false
+  pii_tool: "rules"
+lang:
+  detect_topk: 2
+normalize:
+  unify_alef_ya_ta: true
+  strip_diacritics: true
+  unify_digits: true
+  unescape_html: true
+vectorization:
+  mode: "hash"
+  tfidf_max_features: 100000
+  hash_n_features: 262144
+  svd_components: 64
+sentiment:
+  engine: "lite"
+  model_name: null
+embeddings:
+  provider: "openai"
+  model: "text-embedding-3-large"
+  dimensions: 3072
+  batch_size: 64
+  max_retries: 5
+  timeout_sec: 60
+  use_batch_api: false
+  api_key: null
+rag:
+  enabled: true
+  index_path: "artifacts/{run_id}/stage_03_5_textops/embeddings.faiss"
+  map_parquet: "artifacts/{run_id}/stage_03_5_textops/embeddings.map.parquet"
+  doc_segments: "artifacts/{run_id}/stage_03_5_textops/doc_segments.parquet"
+  top_k: 6
+  max_ctx_tokens: 1500
+vector_store:
+  type: "faiss"
+  qdrant:
+    host: "http://localhost"
+    port: 6333
+    collection: "textops_{run_id}"
+    prefer_batch: false
+handoff:
+  write_manifest: true
+  ready_flag: true
+thresholds:
+  stop_unreadable_docs_pct: 25
+  warn_lang_conflict_pct: 15
+  warn_sparse_coverage_pct: 30
+  svd_min_explained_var_pct: 0.7
+  join_sample_min: 1000
+llm:
+  enabled: true
+  provider: "openai"
+  model: "gpt-4o-mini"
+  temperature: 0.0
+  top_p: 0.0
+  max_tokens: 512
+  timeout_sec: 180
+  credentials_file: "C:/Users/h.hussain/OneDrive/Documents/Haitham/EDA project/Mind-Q-V4/.env.txt"
+  tasks: ["extract_sla", "extract_sop", "summarize"]

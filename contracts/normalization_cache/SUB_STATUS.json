@@ -1,0 +1,186 @@
+{
+  "column": "SUB_STATUS",
+  "mappings": [
+    {
+      "original": "Delivery Sub Status",
+      "normalized": "الحالة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Status",
+      "normalized": "الحالة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الحالة الفرعية للتوصيل",
+      "normalized": "الحالة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الحالة",
+      "normalized": "الحالة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "SUB_STATUS",
+      "normalized": "الحالة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الحالة الفرعية",
+      "normalized": "الحالة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Return to Client - تم الارجاع للمتجر",
+      "normalized": "Return to Client - تم الارجاع للمتجر",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Delivered",
+      "normalized": "Delivered",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Reschedule For Future Date - جدولة الى تاريخ اخر",
+      "normalized": "Reschedule For Future Date - جدولة الى تاريخ اخر",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Status of Delivery",
+      "normalized": "الحالة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة التوصيل",
+      "normalized": "الحالة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "NO",
+      "normalized": "NO",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Return Status",
+      "normalized": "الحالة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة الإرجاع",
+      "normalized": "الحالة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Reschedule For Tomorrow - إعادة الجدولة للغد",
+      "normalized": "Reschedule For Tomorrow - إعادة الجدولة للغد",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Customer Refused - رفض الاستلام",
+      "normalized": "Customer Refused - رفض الاستلام",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Wrong Area/CS Issue - خطاء في العنوان/ جدولة خدمة العملاء",
+      "normalized": "Wrong Area/CS Issue - خطاء في العنوان/ جدولة خدمة العملاء",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Ready to return to Client - جاهزه للاسترجاع",
+      "normalized": "Ready to return to Client - جاهزه للاسترجاع",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Out of Coverage Area - خارج منطقة التغطية",
+      "normalized": "Out of Coverage Area - خارج منطقة التغطية",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Customer Cancelled - العميل طلب الغاء الشحنة",
+      "normalized": "Customer Cancelled - العميل طلب الغاء الشحنة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "No Answer - لم يتم الرد",
+      "normalized": "No Answer - لم يتم الرد",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Mobile Wrong - رقم الجوال غير صحيح",
+      "normalized": "Mobile Wrong - رقم الجوال غير صحيح",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Customer Does Not Have Cash - العميل ليس لديه كاش",
+      "normalized": "Customer Does Not Have Cash - العميل ليس لديه كاش",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Customer Not in location - العميل ليس في الموقع",
+      "normalized": "Customer Not in location - العميل ليس في الموقع",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Duplicate Order - طلب مكرر",
+      "normalized": "Duplicate Order - طلب مكرر",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Status Detail",
+      "normalized": "الحالة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "تفاصيل الحالة",
+      "normalized": "الحالة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Order Sub Status",
+      "normalized": "الحالة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الحالة الفرعية للطلب",
+      "normalized": "الحالة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "0000-00-00 00:00:00",
+      "normalized": "0000-00-00 00:00:00",
+      "confidence": 1.0,
+      "source": "llm"
+    }
+  ],
+  "updated_at": "2025-11-04T15:08:34.596153"
+}

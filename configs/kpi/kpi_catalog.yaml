@@ -1,0 +1,14 @@
+version: 1
+thresholds:
+  kpi_abs_delta_max: 1.0e-06
+  kpi_rel_delta_pct_warn: 2.0
+  kpi_rel_delta_pct_stop: 5.0
+kpis:
+  - name: orders_cnt
+    expr: "COUNT(*)"
+  - name: cod_total
+    expr: "SUM(COD_AMOUNT)"
+  - name: cod_avg
+    expr: "AVG(COD_AMOUNT)"
+  - name: cod_rate
+    expr: "AVG(CASE WHEN RECEIVER_MODE='COD' THEN 1 ELSE 0 END)"

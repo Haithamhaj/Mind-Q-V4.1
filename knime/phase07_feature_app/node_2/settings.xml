@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://www.knime.org/2008/09/XMLConfig" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.knime.org/2008/09/XMLConfig http://www.knime.org/XMLConfig_2008_09.xsd" key="settings.xml">
+    <entry key="node_type" type="xstring" value="org.knime.python3.nodes.PythonScriptNodeFactory"/>
+    <config key="factory_settings"/>
+    <config key="model">
+        <entry key="script" type="xstring" value="import knime_io as knio&#xa;import pandas as pd&#xa;import json&#xa;&#xa;# Get input table&#xa;input_table = knio.input_tables[0].to_pandas()&#xa;&#xa;# Simple DQ validation (placeholder for 55 rules)&#xa;dq_results = {&#xa;    'total_rows': len(input_table),&#xa;    'total_columns': len(input_table.columns),&#xa;    'null_counts': input_table.isnull().sum().to_dict(),&#xa;    'data_types': {col: str(dtype) for col, dtype in input_table.dtypes.items()}&#xa;}&#xa;&#xa;# Convert DQ report to a column (optional)&#xa;output_table = input_table.copy()&#xa;knio.output_tables[0] = knio.Table.from_pandas(output_table)&#xa;"/>
+    </config>
+</config>

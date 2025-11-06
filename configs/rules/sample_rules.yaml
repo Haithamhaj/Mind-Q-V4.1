@@ -1,0 +1,26 @@
+- rule_id: "cod_amount_non_negative"
+  level: "STOP"
+  type: "range"
+  column: "COD_AMOUNT"
+  min: 0.0
+  message: "COD amount must not be negative"
+  suggested_fix: "Correct COD amount source or clamp at zero."
+  severity: "high"
+- rule_id: "status_enum"
+  level: "WARN"
+  type: "enum"
+  column: "STATUS"
+  allowed: ["DELIVERED", "IN_TRANSIT", "CANCELLED", "RETURNED"]
+  message: "STATUS outside canonical set"
+  suggested_fix: "Map status codes to canonical values."
+  severity: "medium"
+- rule_id: "sla_within_7_days"
+  level: "STOP"
+  type: "time_window"
+  metadata:
+    start_column: "PICKUP_DATE"
+    end_column: "DELIVERY_DATE"
+    window_days: 7
+  message: "Delivery exceeded SLA window"
+  suggested_fix: "Investigate delay root cause and re-baseline SLA."
+  severity: "high"

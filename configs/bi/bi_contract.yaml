@@ -1,0 +1,24 @@
+version: 1
+bi_contract_id: "default"
+dashboards:
+  - id: "ops_overview"
+    time_grain: "day"
+    kpis:
+      - "orders_cnt"
+      - "cod_total"
+      - "cod_avg"
+      - "cod_rate"
+      - "sla_on_time_pct"
+      - "rto_pct"
+formatting:
+  locale: "ar"
+  currency: "SAR"
+  channel: "canary"
+  explain_url_template: "https://bi.example.com/explain?entity_id={entity_id}&token={explain_key}"
+color_rules:
+  cod_rate:
+    warn: ">=0.7"
+    stop: ">=0.8"
+  rto_pct:
+    warn: ">=0.06"
+    stop: ">=0.08"

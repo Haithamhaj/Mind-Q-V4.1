@@ -1,0 +1,144 @@
+{
+  "column": "DRIVER_NAME",
+  "mappings": [
+    {
+      "original": "driver",
+      "normalized": "اسم السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "delivery driver",
+      "normalized": "اسم السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "سائق",
+      "normalized": "اسم السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "سائق توصيل",
+      "normalized": "اسم السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "DRIVER_NAME",
+      "normalized": "اسم السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "اسم السائق",
+      "normalized": "اسم السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "سائق التوصيل",
+      "normalized": "اسم السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Mohamad farhan",
+      "normalized": "محمد فرحان",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Rabe johnson",
+      "normalized": "رابي جونسون",
+      "confidence": 0.7,
+      "source": "llm"
+    },
+    {
+      "original": "Nadeem FOLD",
+      "normalized": "نديم فولد",
+      "confidence": 0.6,
+      "source": "llm"
+    },
+    {
+      "original": "Saeed Faisal",
+      "normalized": "سعيد فيصل",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "Amar ibrahim",
+      "normalized": "عمار إبراهيم",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "Naveed nawaz fold",
+      "normalized": "نويد نواز فولد",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Abdullah Omar",
+      "normalized": "عبد الله عمر",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "AMMAR FAROOQ PRO",
+      "normalized": "عمار فاروق برو",
+      "confidence": 0.6,
+      "source": "llm"
+    },
+    {
+      "original": "Hamza zafer",
+      "normalized": "حمزة زافر",
+      "confidence": 0.7,
+      "source": "llm"
+    },
+    {
+      "original": "hassan faisal",
+      "normalized": "حسن فيصل",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Ahmed hamdi",
+      "normalized": "أحمد حمدي",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Kareem Zafeer",
+      "normalized": "كريم زفير",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "courier",
+      "normalized": "اسم السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "موصل",
+      "normalized": "اسم السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "السائق",
+      "normalized": "اسم السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الناقل",
+      "normalized": "اسم السائق",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-26T17:38:00.164796"
+}

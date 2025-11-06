@@ -1,0 +1,22 @@
+{
+  "run_id": "run-20251026204801",
+  "generated_at": "2025-10-26T20:48:15.247682+00:00",
+  "entries": [
+    {
+      "source_path": "C:/Github - MindQ/Mind-Q-V4-BI/frontend/uploads/1761511692078-ec0020a6-8bc9-4fd3-9ac6-98ded0b75012-DIGGIPACKS_Client_s_SOPs___SLAs_.pdf",
+      "stored_path": "C:/Github - MindQ/Mind-Q-V4-BI/backend/artifacts/run-20251026204801/stage_01_ingestion/sla_raw/1761511692078-ec0020a6-8bc9-4fd3-9ac6-98ded0b75012-DIGGIPACKS_Client_s_SOPs___SLAs__26abf9ca39.pdf",
+      "normalized_path": "contracts/sla_processed/run-20251026204801/1761511692078-ec0020a6-8bc9-4fd3-9ac6-98ded0b75012-DIGGIPACKS_Client_s_SOPs___SLAs__26abf9ca39.pdf.json",
+      "media_type": "application/pdf",
+      "size_bytes": 1753193,
+      "sha256": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc",
+      "terms": [],
+      "notes": [
+        "pypdf_unavailable::No module named 'pypdf'"
+      ],
+      "document_id": "1761511692078-ec0020a6-8bc9-4fd3-9ac6-98ded0b75012-DIGGIPACKS_Client_s_SOPs___SLAs__26abf9ca39.pdf",
+      "title": "1761511692078 ec0020a6 8bc9 4fd3 9ac6 98ded0b75012 DIGGIPACKS Client s SOPs SLAs"
+    }
+  ],
+  "notes": [],
+  "processed_root": "contracts/sla_processed/run-20251026204801"
+}

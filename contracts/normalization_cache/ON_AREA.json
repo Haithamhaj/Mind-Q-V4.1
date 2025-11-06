@@ -1,0 +1,30 @@
+{
+  "column": "ON_AREA",
+  "mappings": [
+    {
+      "original": "ON_AREA",
+      "normalized": "على المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "على المنطقة",
+      "normalized": "على المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "المليدا",
+      "normalized": "المليدا",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Abha_al manhal",
+      "normalized": "أبها المنهل",
+      "confidence": 0.9,
+      "source": "llm"
+    }
+  ],
+  "updated_at": "2025-10-31T23:57:45.462301"
+}

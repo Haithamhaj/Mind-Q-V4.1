@@ -1,0 +1,90 @@
+{
+  "column": "Recievable_Invoice_No",
+  "mappings": [
+    {
+      "original": "invoice number",
+      "normalized": "رقم الفاتورة المستحقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "receivable number",
+      "normalized": "رقم الفاتورة المستحقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم الفاتورة",
+      "normalized": "رقم الفاتورة المستحقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم المستحقات",
+      "normalized": "رقم الفاتورة المستحقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Recievable_Invoice_No",
+      "normalized": "رقم الفاتورة المستحقة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "رقم الفاتورة المستحقة",
+      "normalized": "رقم الفاتورة المستحقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "receivable invoice",
+      "normalized": "رقم الفاتورة المستحقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "فاتورة مستحقة",
+      "normalized": "رقم الفاتورة المستحقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Invoice No",
+      "normalized": "رقم الفاتورة المستحقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Receivable No",
+      "normalized": "رقم الفاتورة المستحقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "R1006920251002",
+      "normalized": "R1006920251002",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Receivable Invoice ID",
+      "normalized": "رقم الفاتورة المستحقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرف الفاتورة المستحقة",
+      "normalized": "رقم الفاتورة المستحقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "NO",
+      "normalized": "رقم الفاتورة المستحقة",
+      "confidence": 0.8,
+      "source": "llm"
+    }
+  ],
+  "updated_at": "2025-11-01T09:33:40.293998"
+}

@@ -1,0 +1,33 @@
+problem_name: "driver_performance"
+description: "Estimated effect under assumptions of coaching completion on on-time delivery."
+
+treatment: "coaching_completed_flag"
+outcome: "on_time_delivery_rate"
+
+common_causes:
+  - "distribution_center"
+  - "shift_window"
+  - "experience_months"
+  - "route_distance_km"
+effect_modifiers:
+  - "route_complexity_bucket"
+  - "vehicle_type"
+instrumental_variables: []
+frontdoor_variables:
+  - "training_hours_bucket"
+
+min_sample_size: 2000
+confidence_level: 0.95
+test_size: 0.3
+
+estimation_methods:
+  - "backdoor.psm"
+  - "backdoor.iptw"
+  - "meta.xlearner"
+
+refutation_tests:
+  - "placebo_treatment_refuter"
+  - "data_subset_refuter"
+  - "add_unobserved_common_cause"
+
+bi_publish_rule: "SUPPORTED_ONLY"

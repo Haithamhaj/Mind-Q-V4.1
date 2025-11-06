@@ -1,0 +1,54 @@
+{
+  "column": "RECEIVER_PHONE",
+  "mappings": [
+    {
+      "original": "recipient phone",
+      "normalized": "رقم هاتف المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "delivery phone",
+      "normalized": "رقم هاتف المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "هاتف المستلم",
+      "normalized": "رقم هاتف المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "هاتف التوصيل",
+      "normalized": "رقم هاتف المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "RECEIVER_PHONE",
+      "normalized": "رقم هاتف المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم هاتف المستلم",
+      "normalized": "رقم هاتف المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "delivery phone number",
+      "normalized": "رقم هاتف المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم هاتف التوصيل",
+      "normalized": "رقم هاتف المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-11-01T09:32:01.967213"
+}

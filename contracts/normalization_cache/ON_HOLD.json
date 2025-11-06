@@ -1,0 +1,120 @@
+{
+  "column": "ON_HOLD",
+  "mappings": [
+    {
+      "original": "Hold Status",
+      "normalized": "حالة الانتظار",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Pending Status",
+      "normalized": "حالة الانتظار",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة الانتظار",
+      "normalized": "حالة الانتظار",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة التعليق",
+      "normalized": "حالة الانتظار",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "ON_HOLD",
+      "normalized": "حالة الانتظار",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "NO",
+      "normalized": "لا",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "YES",
+      "normalized": "نعم",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "0",
+      "normalized": "لا",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Pending",
+      "normalized": "حالة الانتظار",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Awaiting",
+      "normalized": "حالة الانتظار",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معلق",
+      "normalized": "حالة الانتظار",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "في انتظار",
+      "normalized": "حالة الانتظار",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Delayed",
+      "normalized": "حالة الانتظار",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "متأخر",
+      "normalized": "حالة الانتظار",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة المعلقة",
+      "normalized": "حالة الانتظار",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة المعلق",
+      "normalized": "حالة الانتظار",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة معلقة",
+      "normalized": "حالة الانتظار",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Delivered",
+      "normalized": "NO",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "102",
+      "normalized": "NO",
+      "confidence": 0.7,
+      "source": "llm"
+    }
+  ],
+  "updated_at": "2025-11-04T18:20:57.979213"
+}

@@ -1,0 +1,114 @@
+{
+  "column": "SENDER_ADDRESS",
+  "mappings": [
+    {
+      "original": "shipping address",
+      "normalized": "عنوان المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "dispatch address",
+      "normalized": "عنوان المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "عنوان الشحن",
+      "normalized": "عنوان المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "عنوان الإرسال",
+      "normalized": "عنوان المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "SENDER_ADDRESS",
+      "normalized": "عنوان المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "عنوان المرسل",
+      "normalized": "عنوان المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "origin address",
+      "normalized": "عنوان المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "عنوان الأصل",
+      "normalized": "عنوان المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Al-Ghanamiya District",
+      "normalized": "Al-Ghanamiya District",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "المدينة المنورة، السعودية\nحي العزيزية، شارع صخر بن العيلة البجلي",
+      "normalized": "المدينة المنورة، السعودية حي العزيزية، شارع صخر بن العيلة البجلي",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "F5QM+4JH Nada Market - Al-Balad, Jeddah",
+      "normalized": "F5QM+4JH Nada Market - Al-Balad, Jeddah",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "2256 Al Mahjar District",
+      "normalized": "2256 Al Mahjar District",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "الأحساء، السعودية\nحي محاسن السلام،",
+      "normalized": "الأحساء، السعودية حي محاسن السلام",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "H54J+38J, District alqandeel Street Aziziyah Jeddah 23334, Saudi Arabia",
+      "normalized": "H54J+38J, District Alqandeel Street Aziziyah Jeddah 23334, Saudi Arabia",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "الرياض، السعودية\nحي الملك عبدالله، شارع أحمد الزهري،",
+      "normalized": "الرياض، السعودية حي الملك عبدالله، شارع أحمد الزهري",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "sully",
+      "normalized": "Al-Suly",
+      "confidence": 0.7,
+      "source": "llm"
+    },
+    {
+      "original": "السواعد",
+      "normalized": "السواعد",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Istanbul Street, near from Fetchr warehouse no 7 AlSuly, Almashael",
+      "normalized": "Istanbul Street, near from Fetchr warehouse no 7 Al-Suly, Almashael",
+      "confidence": 0.9,
+      "source": "llm"
+    }
+  ],
+  "updated_at": "2025-10-26T19:33:27.929938"
+}

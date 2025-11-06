@@ -1,0 +1,252 @@
+{
+  "column": "Super_ID",
+  "mappings": [
+    {
+      "original": "Identifier",
+      "normalized": "معرف السوبر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "ID",
+      "normalized": "معرف السوبر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرف",
+      "normalized": "معرف السوبر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم تعريف",
+      "normalized": "معرف السوبر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Super_ID",
+      "normalized": "معرف السوبر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرف السوبر",
+      "normalized": "معرف السوبر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "1772",
+      "normalized": "1772",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "2957",
+      "normalized": "2957",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "893",
+      "normalized": "893",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "1101",
+      "normalized": "1101",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "468",
+      "normalized": "468",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "115",
+      "normalized": "115",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "2293",
+      "normalized": "2293",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "3264",
+      "normalized": "3264",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "2337",
+      "normalized": "2337",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "2927",
+      "normalized": "2927",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "222",
+      "normalized": "222",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Super Identifier",
+      "normalized": "معرف السوبر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Unique ID",
+      "normalized": "معرف السوبر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرف فريد",
+      "normalized": "معرف السوبر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرف سوبر",
+      "normalized": "معرف السوبر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرّف سوبر",
+      "normalized": "معرّف السوبر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرّف فريد",
+      "normalized": "معرّف السوبر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرّف السوبر",
+      "normalized": "معرّف السوبر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرّف",
+      "normalized": "معرّف السوبر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Entity ID",
+      "normalized": "معرف السوبر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرف الكيان",
+      "normalized": "معرف السوبر",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "NO",
+      "normalized": "NO",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "2136",
+      "normalized": "2136",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "229",
+      "normalized": "229",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "1305",
+      "normalized": "1305",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "1982",
+      "normalized": "1982",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "1419",
+      "normalized": "1419",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "2912",
+      "normalized": "2912",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "1143",
+      "normalized": "1143",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "1336",
+      "normalized": "1336",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "3268",
+      "normalized": "3268",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "1",
+      "normalized": "1",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "2981",
+      "normalized": "2981",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "554",
+      "normalized": "554",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "3106",
+      "normalized": "3106",
+      "confidence": 1.0,
+      "source": "llm"
+    }
+  ],
+  "updated_at": "2025-11-01T08:44:16.134782"
+}

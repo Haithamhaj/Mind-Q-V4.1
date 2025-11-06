@@ -1,0 +1,16 @@
+# Placeholder dimension keys for downstream BI consumption.
+dimensions:
+  shipment:
+    primary_key: "AWB_NO"
+    attributes:
+      - "city"
+      - "service_type"
+      - "product_type"
+  customer:
+    primary_key: "customer_id"
+    attributes:
+      - "segment"
+      - "region"
+joins:
+  sentiment_features: "AWB_NO"
+  svd_components: "AWB_NO"

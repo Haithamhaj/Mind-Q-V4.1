@@ -1,0 +1,84 @@
+{
+  "column": "Payable_Status",
+  "mappings": [
+    {
+      "original": "payment status",
+      "normalized": "حالة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "due status",
+      "normalized": "حالة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة الدفع",
+      "normalized": "حالة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة الاستحقاق",
+      "normalized": "حالة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Payable_Status",
+      "normalized": "حالة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "NO",
+      "normalized": "غير مدفوع",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Unknown",
+      "normalized": "غير معروف",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Delivered",
+      "normalized": "تم التسليم",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "status of payment",
+      "normalized": "حالة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "وضع الدفع",
+      "normalized": "حالة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "shipmet delivered to سعود العثيمين and receiver mobile no.is  966535260006 (APP)",
+      "normalized": "تم تسليم الشحنة",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "invoice status",
+      "normalized": "حالة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة الفاتورة",
+      "normalized": "حالة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-11-04T16:45:07.654022"
+}

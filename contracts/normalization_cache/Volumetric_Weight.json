@@ -1,0 +1,60 @@
+{
+  "column": "Volumetric_Weight",
+  "mappings": [
+    {
+      "original": "dimensional weight",
+      "normalized": "الوزن الحجمي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "volumetric mass",
+      "normalized": "الوزن الحجمي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الوزن البعدي",
+      "normalized": "الوزن الحجمي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الكتلة الحجمية",
+      "normalized": "الوزن الحجمي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Volumetric_Weight",
+      "normalized": "الوزن الحجمي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الوزن الحجمي",
+      "normalized": "الوزن الحجمي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الوزن الأبعاد",
+      "normalized": "الوزن الحجمي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الكتلة الحجمي",
+      "normalized": "الوزن الحجمي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الوزن البُعدي",
+      "normalized": "الوزن الحجمي",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-28T20:24:14.565627"
+}

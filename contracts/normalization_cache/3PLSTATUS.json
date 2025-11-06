@@ -1,0 +1,240 @@
+{
+  "column": "3PLSTATUS",
+  "mappings": [
+    {
+      "original": "3PL Shipment Status",
+      "normalized": "حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Logistics Status",
+      "normalized": "حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة شحنة 3PL",
+      "normalized": "حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة الخدمات اللوجستية",
+      "normalized": "حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "3PLSTATUS",
+      "normalized": "حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة 3PL",
+      "normalized": "حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "In Transit - في المرحلة الانتقالية",
+      "normalized": "In Transit - في المرحلة الانتقالية",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Return On Process - قيد الارجاع",
+      "normalized": "Return On Process - قيد الارجاع",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Return to Client - تم الارجاع للمتجر",
+      "normalized": "Return to Client - تم الارجاع للمتجر",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Out for Delivery - جاري التوصيل",
+      "normalized": "Out for Delivery - جاري التوصيل",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Failed Delivery - فشل في التوصيل",
+      "normalized": "Failed Delivery - فشل في التوصيل",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Delivery On Process - جاري التوصيل",
+      "normalized": "Out for Delivery - جاري التوصيل",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "حالة اللوجستيات",
+      "normalized": "حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Third Party Logistics Status",
+      "normalized": "حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة الخدمات اللوجستية من طرف ثالث",
+      "normalized": "حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Reschedule For Future Date - جدولة الى تاريخ اخر",
+      "normalized": "Reschedule For Future Date - جدولة الى تاريخ اخر",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Unknown",
+      "normalized": "Unknown",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Creative Generations",
+      "normalized": "Creative Generations",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "R951",
+      "normalized": "R951",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "J&T",
+      "normalized": "J&T",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "R159",
+      "normalized": "R159",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Vemont box/ Qty:1,Purple Bakhor 100ml/ Qty:1,Sample Red Wine 3ml/ Qty:1,Sample Purple Bakhor 3ml/ Qty:1,Perfume Red Wine 100ml/ Qty:1",
+      "normalized": "Vemont box/ Qty:1,Purple Bakhor 100ml/ Qty:1,Sample Red Wine 3ml/ Qty:1,Sample Purple Bakhor 3ml/ Qty:1,Perfume Red Wine 100ml/ Qty:1",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Cerave Moisturising cream - for dry to very dry skin 454g/ Qty:1\"",
+      "normalized": "Cerave Moisturising cream - for dry to very dry skin 454g/ Qty:1",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "SMSA v2",
+      "normalized": "SMSA v2",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "3PL Delivery Status",
+      "normalized": "حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة توصيل 3PL",
+      "normalized": "حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Reschedule For Tomorrow - إعادة الجدولة للغد",
+      "normalized": "Reschedule For Tomorrow - إعادة الجدولة للغد",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Out of Coverage Area - خارج منطقة التغطية",
+      "normalized": "Out of Coverage Area - خارج منطقة التغطية",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Customer Cancelled - العميل طلب الغاء الشحنة",
+      "normalized": "Customer Cancelled - العميل طلب الغاء الشحنة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Ready to return to Client - جاهزه للاسترجاع",
+      "normalized": "Ready to return to Client - جاهزه للاسترجاع",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Wrong Area/CS Issue - خطاء في العنوان/ جدولة خدمة العملاء",
+      "normalized": "Wrong Area/CS Issue - خطاء في العنوان/ جدولة خدمة العملاء",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "No Answer - لم يتم الرد",
+      "normalized": "No Answer - لم يتم الرد",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Mobile Wrong - رقم الجوال غير صحيح",
+      "normalized": "Mobile Wrong - رقم الجوال غير صحيح",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Customer Refused - رفض الاستلام",
+      "normalized": "Customer Refused - رفض الاستلام",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Customer Does Not Have Cash - العميل ليس لديه كاش",
+      "normalized": "Customer Does Not Have Cash - العميل ليس لديه كاش",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Customer Not in location - العميل ليس في الموقع",
+      "normalized": "Customer Not in location - العميل ليس في الموقع",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Duplicate Order - طلب مكرر",
+      "normalized": "Duplicate Order - طلب مكرر",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "حالة الشحنات من طرف ثالث",
+      "normalized": "حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة شحنات 3PL",
+      "normalized": "حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-11-04T17:09:06.147553"
+}

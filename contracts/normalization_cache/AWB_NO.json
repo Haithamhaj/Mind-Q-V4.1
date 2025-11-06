@@ -1,0 +1,72 @@
+{
+  "column": "AWB_NO",
+  "mappings": [
+    {
+      "original": "AWB Number",
+      "normalized": "رقم بوليصة الشحن الجوي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Airbill Number",
+      "normalized": "رقم بوليصة الشحن الجوي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم AWB",
+      "normalized": "رقم بوليصة الشحن الجوي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم بوليصة الشحن",
+      "normalized": "رقم بوليصة الشحن الجوي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "AWB_NO",
+      "normalized": "رقم بوليصة الشحن الجوي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم بوليصة الشحن الجوي",
+      "normalized": "رقم بوليصة الشحن الجوي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Air Bill Number",
+      "normalized": "رقم بوليصة الشحن الجوي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم الشحن الجوي",
+      "normalized": "رقم بوليصة الشحن الجوي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "AWB",
+      "normalized": "رقم بوليصة الشحن الجوي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Air Waybill",
+      "normalized": "رقم بوليصة الشحن الجوي",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "بوليصة الشحن الجوي",
+      "normalized": "رقم بوليصة الشحن الجوي",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-28T12:33:42.385945"
+}

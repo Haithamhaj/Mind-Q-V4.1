@@ -1,0 +1,240 @@
+{
+  "column": "System_Name",
+  "mappings": [
+    {
+      "original": "Logistics System",
+      "normalized": "اسم النظام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Delivery System",
+      "normalized": "اسم النظام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "نظام لوجستي",
+      "normalized": "اسم النظام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "نظام توصيل",
+      "normalized": "اسم النظام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "System_Name",
+      "normalized": "اسم النظام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "اسم النظام",
+      "normalized": "اسم النظام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "محمد عزت",
+      "normalized": "محمد عزت",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Ashal alsareah",
+      "normalized": "Ashal alsareah",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Anwan",
+      "normalized": "Anwan",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Tariq",
+      "normalized": "Tariq",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Ahmed Ibrahim",
+      "normalized": "Ahmed Ibrahim",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Arabexa",
+      "normalized": "Arabexa",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "AlSaif Home",
+      "normalized": "AlSaif Home",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Ataq",
+      "normalized": "Ataq",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Fastcoo",
+      "normalized": "Fastcoo",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Batal tea company",
+      "normalized": "Batal tea company",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Between",
+      "normalized": "Between",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "system identifier",
+      "normalized": "اسم النظام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Logistics System Name",
+      "normalized": "اسم النظام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرف النظام",
+      "normalized": "اسم النظام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "اسم نظام اللوجستيات",
+      "normalized": "اسم النظام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "نظام اللوجستيات",
+      "normalized": "اسم النظام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "نظام التوصيل",
+      "normalized": "اسم النظام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "system title",
+      "normalized": "اسم النظام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "عنوان النظام",
+      "normalized": "اسم النظام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "NO",
+      "normalized": "NO",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Brightness Hope",
+      "normalized": "Brightness Hope",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Bluesky Express",
+      "normalized": "Bluesky Express",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Boxex",
+      "normalized": "Boxex",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Deliver Now Logistics",
+      "normalized": "Deliver Now Logistics",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Fast Cloud",
+      "normalized": "Fast Cloud",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "GULF SOLUTIONS",
+      "normalized": "Gulf Solutions",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "Mawked",
+      "normalized": "Mawked",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Zahrat AlKhazan",
+      "normalized": "Zahrat Al Khazan",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "Smart Express",
+      "normalized": "Smart Express",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Abdulaziz abou Ethnen",
+      "normalized": "Abdulaziz Abou Ethnen",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "Loma Store",
+      "normalized": "Loma Store",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "entity name",
+      "normalized": "اسم النظام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "اسم الكيان",
+      "normalized": "اسم النظام",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-11-04T18:22:46.342296"
+}

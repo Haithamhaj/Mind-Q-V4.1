@@ -1,0 +1,264 @@
+{
+  "column": "FORWARD_COMPANY",
+  "mappings": [
+    {
+      "original": "shipping company",
+      "normalized": "شركة الشحن",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "delivery service",
+      "normalized": "شركة الشحن",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "شركة الشحن",
+      "normalized": "شركة الشحن",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "خدمة التوصيل",
+      "normalized": "خدمة التوصيل",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "FORWARD_COMPANY",
+      "normalized": "شركة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "delivery company",
+      "normalized": "شركة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "logistics provider",
+      "normalized": "شركة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "شركة توصيل",
+      "normalized": "شركة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "مزود خدمات لوجستية",
+      "normalized": "شركة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "شركة التوصيل",
+      "normalized": "شركة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Aramex International",
+      "normalized": "Aramex",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "Ajex",
+      "normalized": "Ajex",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Labaih",
+      "normalized": "شركة التوصيل",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "NAQEL",
+      "normalized": "NAQEL",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Yamama (LT)",
+      "normalized": "شركة التوصيل",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Naqel International",
+      "normalized": "NAQEL",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "مزود اللوجستيات",
+      "normalized": "شركة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "SMSA v2",
+      "normalized": "شركة التوصيل",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Aramex",
+      "normalized": "شركة التوصيل",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "J&T",
+      "normalized": "شركة التوصيل",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "J&T Reverse",
+      "normalized": "شركة الشحن",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "iMile",
+      "normalized": "شركة الشحن",
+      "confidence": 0.6,
+      "source": "llm"
+    },
+    {
+      "original": "SMSA B2B",
+      "normalized": "شركة الشحن",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Aymakan",
+      "normalized": "شركة الشحن",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Unknown",
+      "normalized": "غير معروف",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Creative Generations",
+      "normalized": "أجيال إبداعية",
+      "confidence": 0.7,
+      "source": "llm"
+    },
+    {
+      "original": "Thabit",
+      "normalized": "ثابت",
+      "confidence": 0.6,
+      "source": "llm"
+    },
+    {
+      "original": "Wepik Express",
+      "normalized": "Wepik Express",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Red Box",
+      "normalized": "Red Box",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "fastlo",
+      "normalized": "شركة الشحن",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "غلاية كهربائية مع ترمس",
+      "normalized": "غلاية كهربائية مع ترمس",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "غلاية كهربائية زجاج ٢ لتر",
+      "normalized": "غلاية كهربائية زجاج ٢ لتر",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "مبخرة كهربائية",
+      "normalized": "مبخرة كهربائية",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Vichy Deodorant 96H Clinical Control Detranspirant Anti/ Qty:1",
+      "normalized": "Vichy Deodorant 96H Clinical Control Detranspirant Anti/ Qty:1",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "8/27/2025 13:44",
+      "normalized": "8/27/2025 13:44",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "1",
+      "normalized": "1",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "courier company",
+      "normalized": "شركة الشحن",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "مزود لوجستي",
+      "normalized": "شركة التوصيل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Logistiq",
+      "normalized": "شركة التوصيل",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Kasib Logistic",
+      "normalized": "شركة التوصيل",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "ARTZ",
+      "normalized": "شركة التوصيل",
+      "confidence": 0.7,
+      "source": "llm"
+    },
+    {
+      "original": "High Performance Company",
+      "normalized": "شركة التوصيل",
+      "confidence": 0.6,
+      "source": "llm"
+    },
+    {
+      "original": "Nashmi (LT)",
+      "normalized": "شركة التوصيل",
+      "confidence": 0.8,
+      "source": "llm"
+    }
+  ],
+  "updated_at": "2025-11-04T18:21:07.393135"
+}

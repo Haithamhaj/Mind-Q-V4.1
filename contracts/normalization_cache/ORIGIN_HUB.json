@@ -1,0 +1,126 @@
+{
+  "column": "ORIGIN_HUB",
+  "mappings": [
+    {
+      "original": "departure hub",
+      "normalized": "مركز الانطلاق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "shipping hub",
+      "normalized": "مركز الانطلاق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "مركز الشحن",
+      "normalized": "مركز الانطلاق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "مركز المغادرة",
+      "normalized": "مركز الانطلاق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "ORIGIN_HUB",
+      "normalized": "مركز الانطلاق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "مركز الانطلاق",
+      "normalized": "مركز الانطلاق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Saudi Arabia",
+      "normalized": "Saudi Arabia",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Main Hub",
+      "normalized": "Main Hub",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Riyadh",
+      "normalized": "Riyadh",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "source hub",
+      "normalized": "مركز الانطلاق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "dispatch hub",
+      "normalized": "مركز الانطلاق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "مركز المصدر",
+      "normalized": "مركز الانطلاق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "origin location",
+      "normalized": "مركز الانطلاق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "موقع الانطلاق",
+      "normalized": "مركز الانطلاق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "shipping origin",
+      "normalized": "مركز الانطلاق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "RUH HUB",
+      "normalized": "RUH HUB",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Central Hub",
+      "normalized": "Central Hub",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "starting hub",
+      "normalized": "مركز الانطلاق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "المركز الابتدائي",
+      "normalized": "مركز الانطلاق",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "موقع الإرسال",
+      "normalized": "مركز الانطلاق",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-11-01T10:16:09.261853"
+}

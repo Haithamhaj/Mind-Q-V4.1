@@ -1,0 +1,72 @@
+{
+  "column": "PAY_INVOICE_STATUS",
+  "mappings": [
+    {
+      "original": "invoice payment status",
+      "normalized": "حالة فاتورة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "payment status",
+      "normalized": "حالة فاتورة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة دفع الفاتورة",
+      "normalized": "حالة فاتورة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة الدفع",
+      "normalized": "حالة فاتورة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "PAY_INVOICE_STATUS",
+      "normalized": "حالة فاتورة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "NO",
+      "normalized": "غير مدفوع",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Unknown",
+      "normalized": "غير معروف (Unknown)",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "COD",
+      "normalized": "مدفوع عند الاستلام (Cash on Delivery)",
+      "confidence": 0.7,
+      "source": "llm"
+    },
+    {
+      "original": "0",
+      "normalized": "غير مدفوع",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "0000-00-00 00:00:00",
+      "normalized": "غير مدفوع",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "حالة فاتورة الدفع",
+      "normalized": "حالة فاتورة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-11-04T18:20:57.531298"
+}

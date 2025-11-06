@@ -1,0 +1,180 @@
+{
+  "column": "SENDER_NAME",
+  "mappings": [
+    {
+      "original": "Sender",
+      "normalized": "اسم المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Sender's Name",
+      "normalized": "اسم المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "المرسل",
+      "normalized": "اسم المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "اسم المرسل",
+      "normalized": "اسم المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "SENDER_NAME",
+      "normalized": "اسم المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Aromatic Families",
+      "normalized": "Aromatic Families",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "محمد الحربي",
+      "normalized": "محمد الحربي",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "هايدي",
+      "normalized": "هايدي",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "بوتيك غنى",
+      "normalized": "بوتيك غنى",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "govyy",
+      "normalized": "govyy",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "فاطمه الطاهر",
+      "normalized": "فاطمة الطاهر",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "فساتين ايفنت",
+      "normalized": "فساتين ايفنت",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "cool.sa",
+      "normalized": "cool.sa",
+      "confidence": 0.6,
+      "source": "llm"
+    },
+    {
+      "original": "جود بدر",
+      "normalized": "جود بدر",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Shipper",
+      "normalized": "اسم المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الشاحن",
+      "normalized": "اسم المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حلوم فاشن",
+      "normalized": "حلوم فاشن",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "CARDA STORE",
+      "normalized": "CARDA STORE",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "صبايا للعبايات",
+      "normalized": "صبايا للعبايات",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Rahif",
+      "normalized": "Rahif",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Clara Hair",
+      "normalized": "Clara Hair",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "متجر كاف",
+      "normalized": "متجر كاف",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Ewar",
+      "normalized": "Ewar",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "meridol",
+      "normalized": "meridol",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "shipper name",
+      "normalized": "اسم المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "اسم الشاحن",
+      "normalized": "اسم المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "consignor name",
+      "normalized": "اسم المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Company Name",
+      "normalized": "اسم المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "اسم الشركة",
+      "normalized": "اسم المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-29T12:39:34.701731"
+}

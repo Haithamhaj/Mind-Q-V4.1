@@ -1,0 +1,258 @@
+{
+  "column": "DESTINATION_HUB",
+  "mappings": [
+    {
+      "original": "delivery hub",
+      "normalized": "مركز الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "destination center",
+      "normalized": "مركز الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "مركز التوصيل",
+      "normalized": "مركز الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "مركز الوجهة",
+      "normalized": "مركز الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "DESTINATION_HUB",
+      "normalized": "مركز الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Saudi Arabia",
+      "normalized": "Saudi Arabia",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "UAE",
+      "normalized": "الإمارات",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "KUWAIT",
+      "normalized": "الكويت",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Egypt",
+      "normalized": "مصر",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "DAMMAM",
+      "normalized": "الدمام",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "DMM",
+      "normalized": "الدمام",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "الدمام",
+      "normalized": "الدمام",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "OMAN",
+      "normalized": "عمان",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "عمان",
+      "normalized": "عمان",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "BAHRAIN",
+      "normalized": "البحرين",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "البحرين",
+      "normalized": "البحرين",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "Main Hub",
+      "normalized": "Main Hub",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Riyadh",
+      "normalized": "Riyadh",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "RUH",
+      "normalized": "الرياض",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "الرياض",
+      "normalized": "الرياض",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "JEDDAH",
+      "normalized": "جدة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "JED",
+      "normalized": "جدة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "جدة",
+      "normalized": "جدة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Qatar",
+      "normalized": "قطر",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "AE",
+      "normalized": "الإمارات",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "KW",
+      "normalized": "الكويت",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "BH",
+      "normalized": "البحرين",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "QA",
+      "normalized": "قطر",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "OM",
+      "normalized": "عمان",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "EG",
+      "normalized": "مصر",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "destination point",
+      "normalized": "مركز الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "نقطة الوجهة",
+      "normalized": "مركز الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Jordan",
+      "normalized": "الأردن",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "مركز التسليم",
+      "normalized": "مركز الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Unknown",
+      "normalized": "غير معروف",
+      "confidence": 0.7,
+      "source": "llm"
+    },
+    {
+      "original": "shipping destination",
+      "normalized": "مركز الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "وجهة الشحن",
+      "normalized": "مركز الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "shipping hub",
+      "normalized": "مركز الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "مركز الشحن",
+      "normalized": "مركز الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "RUH HUB",
+      "normalized": "RUH HUB",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Central Hub",
+      "normalized": "Central Hub",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Jeddah Hub",
+      "normalized": "Jeddah Hub",
+      "confidence": 1.0,
+      "source": "llm"
+    }
+  ],
+  "updated_at": "2025-10-29T12:39:34.433265"
+}

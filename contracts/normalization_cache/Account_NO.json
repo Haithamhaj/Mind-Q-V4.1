@@ -1,0 +1,102 @@
+{
+  "column": "Account_NO",
+  "mappings": [
+    {
+      "original": "Account ID",
+      "normalized": "رقم الحساب",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Account_NO",
+      "normalized": "رقم الحساب",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرف الحساب",
+      "normalized": "رقم الحساب",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم الحساب",
+      "normalized": "رقم الحساب",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "169000000000.0",
+      "normalized": "169000000000.0",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "100920132.0",
+      "normalized": "100920132.0",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "1001006927.0",
+      "normalized": "1001006927.0",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "100331318.0",
+      "normalized": "100331318.0",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "170000000000.0",
+      "normalized": "170000000000.0",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "100332926.0",
+      "normalized": "100332926.0",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "100926918.0",
+      "normalized": "100926918.0",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "100300943.0",
+      "normalized": "100300943.0",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "166000000000.0",
+      "normalized": "166000000000.0",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "معرّف الحساب",
+      "normalized": "رقم الحساب",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Customer Account Number",
+      "normalized": "رقم الحساب",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم حساب العميل",
+      "normalized": "رقم الحساب",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-30T11:53:27.754099"
+}

@@ -1,0 +1,138 @@
+{
+  "column": "payment_method",
+  "mappings": [
+    {
+      "original": "payment method",
+      "normalized": "طريقة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "payment_method",
+      "normalized": "طريقة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "PAYMENT_METHOD",
+      "normalized": "طريقة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "طريقة الدفع",
+      "normalized": "طريقة الدفع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "CC",
+      "normalized": "بطاقة الائتمان (CC)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "cc",
+      "normalized": "بطاقة الائتمان (CC)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Cc",
+      "normalized": "بطاقة الائتمان (CC)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Credit Card",
+      "normalized": "بطاقة الائتمان (CC)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "credit card",
+      "normalized": "بطاقة الائتمان (CC)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "CREDIT CARD",
+      "normalized": "بطاقة الائتمان (CC)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "COD",
+      "normalized": "الدفع عند الاستلام (COD)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "cod",
+      "normalized": "الدفع عند الاستلام (COD)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Cod",
+      "normalized": "الدفع عند الاستلام (COD)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Cash on Delivery",
+      "normalized": "الدفع عند الاستلام (COD)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "cash on delivery",
+      "normalized": "الدفع عند الاستلام (COD)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "CASH ON DELIVERY",
+      "normalized": "الدفع عند الاستلام (COD)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "PREPAID",
+      "normalized": "الدفع المسبق (Prepaid)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Prepaid",
+      "normalized": "الدفع المسبق (Prepaid)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "prepaid",
+      "normalized": "الدفع المسبق (Prepaid)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "CREDIT",
+      "normalized": "ائتمان (Credit)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Credit",
+      "normalized": "ائتمان (Credit)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "credit",
+      "normalized": "ائتمان (Credit)",
+      "confidence": 1.0,
+      "source": "llm"
+    }
+  ],
+  "updated_at": "2025-10-27T00:00:00.000000"
+}

@@ -1,0 +1,150 @@
+{
+  "column": "DESTINATION",
+  "mappings": [
+    {
+      "original": "delivery location",
+      "normalized": "الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "drop-off point",
+      "normalized": "الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "موقع التوصيل",
+      "normalized": "الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "نقطة التسليم",
+      "normalized": "الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "DESTINATION",
+      "normalized": "الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الوجهة",
+      "normalized": "الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "موقع التسليم",
+      "normalized": "الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "end point",
+      "normalized": "الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "نقطة النهاية",
+      "normalized": "الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "JEDDAH",
+      "normalized": "جدة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "JED",
+      "normalized": "جدة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "جدة",
+      "normalized": "جدة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "RIYADH",
+      "normalized": "الرياض",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "RUH",
+      "normalized": "الرياض",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "الرياض",
+      "normalized": "الرياض",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "DAMMAM",
+      "normalized": "الدمام",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "DMM",
+      "normalized": "الدمام",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "الدمام",
+      "normalized": "الدمام",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "MEDINA",
+      "normalized": "المدينة المنورة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "MED",
+      "normalized": "المدينة المنورة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "المدينة",
+      "normalized": "المدينة المنورة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "المدينة المنورة",
+      "normalized": "المدينة المنورة",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "shipping destination",
+      "normalized": "الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "وجهة الشحن",
+      "normalized": "الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-28T20:21:05.682311"
+}

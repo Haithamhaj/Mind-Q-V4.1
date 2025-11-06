@@ -1,0 +1,78 @@
+{
+  "column": "SHELVE_No",
+  "mappings": [
+    {
+      "original": "shelve identifier",
+      "normalized": "رقم الرف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "shelf number",
+      "normalized": "رقم الرف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معرف الرف",
+      "normalized": "رقم الرف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم الرف",
+      "normalized": "رقم الرف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "SHELVE_No",
+      "normalized": "رقم الرف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Cancelled (JED)",
+      "normalized": "Cancelled (JED)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Shipments Cancelled",
+      "normalized": "الشحنات الملغاة",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "No Response 3 times",
+      "normalized": "لا رد 3 مرات",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Reschedule For futur",
+      "normalized": "إعادة جدولة للمستقبل",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Out of Coverage Area",
+      "normalized": "خارج منطقة التغطية",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "shelve ID",
+      "normalized": "رقم الرف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم تعريف الرف",
+      "normalized": "رقم الرف",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-31T23:57:42.456985"
+}

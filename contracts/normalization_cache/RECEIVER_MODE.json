@@ -1,0 +1,162 @@
+{
+  "column": "RECEIVER_MODE",
+  "mappings": [
+    {
+      "original": "payment method",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "payment type",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "طريقة الدفع",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "نوع الدفع",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "RECEIVER_MODE",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "وضع الاستلام",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "CC",
+      "normalized": "CC",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Credit Card",
+      "normalized": "بطاقة الائتمان (CC)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "COD",
+      "normalized": "COD",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Cash on Delivery",
+      "normalized": "الدفع عند الاستلام (COD)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "وضع المستلم",
+      "normalized": "وضع المستلم",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Unknown",
+      "normalized": "غير معروف",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "delivery mode",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "وضع التسليم",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "payment mode",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "وضع الدفع",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "بيت اخضر دورين",
+      "normalized": "بيت اخضر دورين",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "المليداء 52555، السعودية شارع مسجد نوفل بن معاذ المليدا",
+      "normalized": "المليداء 52555، السعودية شارع مسجد نوفل بن معاذ المليدا",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "receipt mode",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "delivery method",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "طريقة التسليم",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "وضع التوصيل",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "receiving mode",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "acceptance mode",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "وضع القبول",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "طريقة التوصيل",
+      "normalized": "وضع الاستلام",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-11-04T17:08:05.567698"
+}

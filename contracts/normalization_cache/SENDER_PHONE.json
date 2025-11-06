@@ -1,0 +1,102 @@
+{
+  "column": "SENDER_PHONE",
+  "mappings": [
+    {
+      "original": "sender contact",
+      "normalized": "رقم هاتف المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "sender mobile",
+      "normalized": "رقم هاتف المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "جهة اتصال المرسل",
+      "normalized": "رقم هاتف المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "هاتف المرسل",
+      "normalized": "رقم هاتف المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "SENDER_PHONE",
+      "normalized": "رقم هاتف المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "رقم هاتف المرسل",
+      "normalized": "رقم هاتف المرسل",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "9.67E+11",
+      "normalized": "9.67E+11",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "591804149",
+      "normalized": "591804149",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "560064267",
+      "normalized": "560064267",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "544559050",
+      "normalized": "544559050",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "508342055",
+      "normalized": "508342055",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "555447291",
+      "normalized": "555447291",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "9.6692E+11",
+      "normalized": "9.6692E+11",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "596601006",
+      "normalized": "596601006",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "9.665E+11",
+      "normalized": "9.665E+11",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "550013886",
+      "normalized": "550013886",
+      "confidence": 1.0,
+      "source": "llm"
+    }
+  ],
+  "updated_at": "2025-10-26T19:33:31.673332"
+}

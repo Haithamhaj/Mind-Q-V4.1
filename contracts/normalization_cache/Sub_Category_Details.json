@@ -1,0 +1,162 @@
+{
+  "column": "Sub_Category_Details",
+  "mappings": [
+    {
+      "original": "Delivery Issues",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Subcategory Status",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "مشاكل التوصيل",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة الفئة الفرعية",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Sub_Category_Details",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "تفاصيل الفئة الفرعية",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Subcategory Information",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Rescheduling Details",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "معلومات الفئة الفرعية",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "تفاصيل إعادة الجدولة",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Mobile Wrong - رقم الجوال غير صحيح",
+      "normalized": "معلومات الفئة الفرعية - رقم الجوال غير صحيح",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "No Answer - لم يتم الرد",
+      "normalized": "لا يوجد رد - لم يتم الرد",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Out of Coverage Area - خارج منطقة التغطية",
+      "normalized": "معلومات الفئة الفرعية - خارج منطقة التغطية",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "Reschedule from driver app due to Customer Not in location, reshedule date: 2025-09-15",
+      "normalized": "تفاصيل إعادة الجدولة - إعادة جدولة من تطبيق السائق بسبب عدم وجود العميل في الموقع، تاريخ إعادة الجدولة: 2025-09-15",
+      "confidence": 0.95,
+      "source": "llm"
+    },
+    {
+      "original": "Reschedule from driver app, reshedule date: 2025-09-09",
+      "normalized": "تفاصيل إعادة الجدولة - إعادة جدولة من تطبيق السائق، تاريخ إعادة الجدولة: 2025-09-09",
+      "confidence": 0.95,
+      "source": "llm"
+    },
+    {
+      "original": "Customer Cancelled - العميل طلب الغاء الشحنة",
+      "normalized": "معلومات الفئة الفرعية - العميل طلب إلغاء الشحنة",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "Reschedule from driver app, reshedule date: 2025-09-15",
+      "normalized": "تفاصيل إعادة الجدولة - إعادة جدولة من تطبيق السائق، تاريخ إعادة الجدولة: 2025-09-15",
+      "confidence": 0.95,
+      "source": "llm"
+    },
+    {
+      "original": "Reschedule from driver app due to Customer Not in location, reshedule date: 2025-09-11",
+      "normalized": "تفاصيل إعادة الجدولة - إعادة جدولة من تطبيق السائق بسبب عدم وجود العميل في الموقع، تاريخ إعادة الجدولة: 2025-09-11",
+      "confidence": 0.95,
+      "source": "llm"
+    },
+    {
+      "original": "Reschedule from driver app, reshedule date: 2025-09-11",
+      "normalized": "تفاصيل إعادة الجدولة - إعادة جدولة من تطبيق السائق، تاريخ إعادة الجدولة: 2025-09-11",
+      "confidence": 0.95,
+      "source": "llm"
+    },
+    {
+      "original": "Subcategory of Issues",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "فئة المشاكل الفرعية",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Rescheduling Reasons",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "أسباب إعادة الجدولة",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Sub Category Status",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Customer Interaction Details",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "تفاصيل تفاعل العملاء",
+      "normalized": "تفاصيل الفئة الفرعية",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-29T08:52:12.209266"
+}

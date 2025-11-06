@@ -1,0 +1,102 @@
+{
+  "column": "ON_PIECES",
+  "mappings": [
+    {
+      "original": "pieces",
+      "normalized": "عدد القطع",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "item count",
+      "normalized": "عدد القطع",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "قطع",
+      "normalized": "عدد القطع",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "عدد العناصر",
+      "normalized": "عدد القطع",
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    {
+      "original": "ON_PIECES",
+      "normalized": "عدد القطع",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "عدد القطع",
+      "normalized": "عدد القطع",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "1",
+      "normalized": "1",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "2",
+      "normalized": "2",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "3",
+      "normalized": "3",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Unknown",
+      "normalized": "غير معروف",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "4",
+      "normalized": "4",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "items",
+      "normalized": "عدد القطع",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "units",
+      "normalized": "عدد القطع",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "عناصر",
+      "normalized": "عدد القطع",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "وحدات",
+      "normalized": "عدد القطع",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "pieces count",
+      "normalized": "عدد القطع",
+      "confidence": 0.9,
+      "source": "llm"
+    }
+  ],
+  "updated_at": "2025-10-29T11:32:00.036100"
+}

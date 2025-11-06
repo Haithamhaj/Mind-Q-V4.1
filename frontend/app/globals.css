@@ -1,0 +1,135 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Mind-Q custom color theme based on provided palette */
+  --background: #f5f7fa; /* Cloud - light background */
+  --foreground: #0e0f12; /* Ink - dark text */
+  --card: #ffffff;
+  --card-foreground: #0e0f12;
+  --popover: #ffffff;
+  --popover-foreground: #0e0f12;
+  --primary: #6b2bd8; /* Tech Purple */
+  --primary-foreground: #ffffff;
+  --secondary: #25d3c0; /* Turquoise */
+  --secondary-foreground: #0e0f12;
+  --muted: #6c7480; /* Metal Grey */
+  --muted-foreground: #f5f7fa; /* Cloud */
+  --accent: #25d3c0; /* Turquoise */
+  --accent-foreground: #0e0f12;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #6c7480; /* Metal Grey */
+  --input: #6c7480; /* Metal Grey */
+  --ring: #6b2bd8;
+  --chart-1: #6b2bd8; /* Tech Purple */
+  --chart-2: #25d3c0; /* Turquoise */
+  --chart-3: #0c1d3a; /* Deep Blue */
+  --chart-4: #6c7480; /* Metal Grey */
+  --chart-5: #0e0f12; /* Ink */
+  --radius: 0.5rem;
+  --sidebar: #f5f7fa; /* Cloud */
+  --sidebar-foreground: #0e0f12; /* Ink */
+  --sidebar-primary: #6b2bd8; /* Tech Purple */
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #25d3c0; /* Turquoise */
+  --sidebar-accent-foreground: #0e0f12;
+  --sidebar-border: #6c7480; /* Metal Grey */
+  --sidebar-ring: #6b2bd8; /* Tech Purple */
+}
+
+.dark {
+  /* Dark theme using Deep Blue and Ink as primary backgrounds */
+  --background: #0e0f12; /* Ink - darkest background */
+  --foreground: #f5f7fa; /* Cloud - light text */
+  --card: #0c1d3a; /* Deep Blue - card background */
+  --card-foreground: #f5f7fa;
+  --popover: #0c1d3a;
+  --popover-foreground: #f5f7fa;
+  --primary: #6b2bd8; /* Tech Purple */
+  --primary-foreground: #ffffff;
+  --secondary: #25d3c0; /* Turquoise */
+  --secondary-foreground: #0e0f12;
+  --muted: #6c7480; /* Metal Grey */
+  --muted-foreground: #f5f7fa;
+  --accent: #25d3c0; /* Turquoise */
+  --accent-foreground: #0e0f12;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #6c7480;
+  --input: #0c1d3a;
+  --ring: #6b2bd8;
+  --chart-1: #6b2bd8;
+  --chart-2: #25d3c0;
+  --chart-3: #0c1d3a;
+  --chart-4: #6c7480;
+  --chart-5: #f5f7fa;
+  --sidebar: #0e0f12; /* Ink */
+  --sidebar-foreground: #f5f7fa; /* Cloud */
+  --sidebar-primary: #6b2bd8; /* Tech Purple */
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #25d3c0; /* Turquoise */
+  --sidebar-accent-foreground: #0e0f12;
+  --sidebar-border: #6c7480; /* Metal Grey */
+  --sidebar-ring: #6b2bd8; /* Tech Purple */
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Custom Mind-Q colors */
+  --color-deep-blue: #0c1d3a;
+  --color-tech-purple: #6b2bd8;
+  --color-turquoise: #25d3c0;
+  --color-metal-grey: #6c7480;
+  --color-ink: #0e0f12;
+  --color-cloud: #f5f7fa;
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

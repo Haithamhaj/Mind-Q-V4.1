@@ -1,0 +1,126 @@
+{
+  "column": "Area_Name",
+  "mappings": [
+    {
+      "original": "location",
+      "normalized": "اسم المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "region",
+      "normalized": "اسم المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "موقع",
+      "normalized": "اسم المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "منطقة",
+      "normalized": "اسم المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Area_Name",
+      "normalized": "اسم المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "اسم المنطقة",
+      "normalized": "اسم المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Region Name",
+      "normalized": "اسم المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "location name",
+      "normalized": "اسم المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "اسم الإقليم",
+      "normalized": "اسم المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "اسم الموقع",
+      "normalized": "اسم المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الفاخرية",
+      "normalized": "الفاخرية",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "السكب",
+      "normalized": "السكب",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "المخيم",
+      "normalized": "المخيم",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "Block 6",
+      "normalized": "Block 6",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "NO",
+      "normalized": "غير محدد",
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    {
+      "original": "Zone Name",
+      "normalized": "اسم المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "delivery area",
+      "normalized": "اسم المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "منطقة التسليم",
+      "normalized": "اسم المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "district",
+      "normalized": "اسم المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حي",
+      "normalized": "اسم المنطقة",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-11-01T02:12:47.270187"
+}

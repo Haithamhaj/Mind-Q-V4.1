@@ -1,0 +1,558 @@
+- id: 01_ingestion
+  name:
+    en: Stage 01 · Ingestion & SLA Processing
+    ar: المرحلة 01 · استيعاب البيانات ومعالجة SLA
+  description:
+    en: 'Consolidates raw CSV/Parquet sources, harmonises headers, and stores a canonical Parquet file used by all downstream
+      phases. Also attaches SLA context and generates ingestion metadata for auditing.
+
+      '
+    ar: 'تقوم بجمع ملفات CSV أو Parquet الخام وتوحيد أسماء الحقول وتخزين ملف Parquet قياسي تستخدمه كل المراحل اللاحقة، مع
+      ربط ملفات SLA وتوليد بيانات وصفية للتتبع.
+
+      '
+  expected_inputs:
+  - id: data_files
+    name:
+      en: Primary data files
+      ar: ملفات البيانات الأساسية
+    description:
+      en: One or more CSV/Parquet assets for the current run.
+      ar: ملف أو أكثر بصيغة CSV أو Parquet لهذا التشغيل.
+  - id: sla_files
+    name:
+      en: Optional SLA documents
+      ar: مستندات SLA اختيارية
+    description:
+      en: Contracts or SLA specs describing thresholds and timelines.
+      ar: عقود أو مواصفات SLA تحتوي على الحدود الزمنية والمستهدفات.
+  expected_outputs:
+  - schema: artifacts/{run_id}/stage_01_ingestion/raw.parquet
+  - schema: artifacts/{run_id}/stage_01_ingestion/meta_ingestion.json
+  - schema: artifacts/{run_id}/stage_01_ingestion/missing_summary.json
+  key_checks:
+  - File type and delimiter detection succeed for each supplied dataset.
+  - Row counts recorded in meta_ingestion.json match the generated parquet.
+  - SLA attributes resolved and merged into ingestion metadata.
+  common_failures:
+  - Malformed CSV (encoding or delimiter) prevents pandas/polars from loading.
+  - Missing or unreadable SLA files when config.use_defaults=false.
+  - Disk quota exceeded while consolidating large sources.
+  learning_resources:
+  - title: Ingestion design notes
+    url: docs/ingestion/overview.md
+  - title: Baseline SLA mapping examples
+    url: docs/ingestion/sla_examples.md
+- id: 02_quality
+  name:
+    en: Stage 02 · Data Quality Gates
+    ar: المرحلة 02 · بوابات جودة البيانات
+  description:
+    en: 'Evaluates structural and semantic data quality. Produces an issues catalogue, schema fingerprints, and missingness
+      statistics that downstream phases use to make remediation decisions.
+
+      '
+    ar: 'تقيم جودة البيانات البنيوية والدلالية، وتنتج قائمة بالمشكلات وبصمة المخطط وإحصاءات الفقد التي تعتمد عليها المراحل
+      التالية لاتخاذ قرارات المعالجة.
+
+      '
+  expected_inputs:
+  - id: raw
+    name:
+      en: Canonical ingestion parquet
+      ar: ملف Parquet الناتج عن الاستيعاب
+    description:
+      en: Output from Stage 01 stored under stage_01_ingestion/raw.parquet.
+      ar: المخرج من المرحلة 01 الموجود في stage_01_ingestion/raw.parquet.
+  expected_outputs:
+  - schema: artifacts/{run_id}/stage_02_quality/issues.parquet
+  - schema: artifacts/{run_id}/stage_02_quality/quality_overview.json
+  - schema: artifacts/{run_id}/stage_02_quality/shape_guard.json
+  key_checks:
+  - Schema hash (schema_hash) is stable run-over-run unless intentional changes occur.
+  - Missingness thresholds compared against SLA expectations.
+  - Issue catalogue enumerates critical, warning, and info severities.
+  common_failures:
+  - Row-count mismatch with ingestion baseline triggers guard failure.
+  - Unsupported datatypes break validation rules.
+  - Large issue catalogue (>2M rows) due to high missingness.
+  learning_resources:
+  - title: Quality rules reference
+    url: docs/quality/rules.md
+- id: 03_schema
+  name:
+    en: Stage 03 · Schema & Terminology
+    ar: المرحلة 03 · المخطط والمصطلحات
+  description:
+    en: 'Builds human-friendly schema documentation, including multilingual terminology, aliases, and glossary entries. Filters
+      textual columns to focus LLM resources on the most informative dimensions.
+
+      '
+    ar: 'تنشئ توثيقاً كاملاً للمخطط مع مصطلحات متعددة اللغات وأسماء بديلة وقاموس للأعمدة، وتقوم بتصفية الأعمدة النصية لتركيز
+      استخدام الـ LLM على الأبعاد الأكثر فائدة.
+
+      '
+  expected_inputs:
+  - id: raw
+    name:
+      en: Canonical ingestion parquet
+      ar: ملف Parquet القياسي من مرحلة الاستيعاب
+    description:
+      en: The same dataset produced in Stage 01.
+      ar: نفس ملف البيانات الناتج عن المرحلة 01.
+  expected_outputs:
+  - schema: artifacts/{run_id}/stage_03_schema/schema_v1.json
+  - schema: artifacts/{run_id}/stage_03_schema/semantic/terminology.json
+  - schema: artifacts/{run_id}/stage_03_schema/semantic/aliases.json
+  - schema: artifacts/{run_id}/stage_03_schema/semantic/column_glossary.json
+  - schema: artifacts/{run_id}/stage_03_schema/semantic/terminology_logs.jsonl
+  key_checks:
+  - Row guard ensures Stage 03 sees the same row count as Stage 01 baselines.
+  - LLM provider/model selected from config.terminology settings.
+  - Filtered columns logged with uniqueness ratio justification.
+  common_failures:
+  - OPENAI_API_KEY (or configured provider key) missing.
+  - Parquet reading failure because Stage 01 output unavailable.
+  - Terminology logs contain retries due to transient LLM errors.
+  learning_resources:
+  - title: Terminology tuning guide
+    url: docs/schema/terminology_tuning.md
+  - title: Smart filtering explainer
+    url: docs/schema/smart_filtering.md
+- id: 03_5_textops
+  name:
+    en: Phase 03.5 - TextOps
+    ar: المرحلة 03.5 - معالجة النصوص
+  async: true
+  consumed_by:
+    - 08_insights
+  description:
+    en: 'Normalises Arabic/English text, masks PII, and produces both numeric and evidence artefacts used by Insights, BI,
+      and ML stages. Outputs lite sentiment metrics and compact SVD vectors for downstream consumption. Runs asynchronously
+      in the background while phases 04-07 execute, then outputs are consumed by Phase 08 (Insights).
+
+      '
+    ar: 'يقوم بتطبيع النصوص العربية والإنجليزية وإخفاء المعلومات الشخصية وإنتاج المخرجات الرقمية والتقارير المستخدمة في مراحل
+      الرؤى والتحليلات. ينتج مقاييس المشاعر البسيطة ومتجهات SVD المضغوطة للمراحل اللاحقة. تعمل هذه المرحلة في الخلفية بينما
+      تنفذ المراحل 04-07، ثم تستهلك المرحلة 08 (الرؤى) مخرجاتها.
+
+      '
+  expected_inputs:
+  - id: shipments
+    name:
+      en: Shipments parquet
+      ar: ملف الشحنات بصيغة Parquet
+    description:
+      en: Stage 01 canonical parquet containing shipment-level text columns.
+      ar: ملف Parquet القياسي من المرحلة 01 يحتوي على الأعمدة النصية للشحنات.
+  expected_outputs:
+  - schema: artifacts/{run_id}/stage_03_5_textops/text_profile.json
+  - schema: artifacts/{run_id}/stage_03_5_textops/sentiment_features.parquet
+  - schema: artifacts/{run_id}/stage_03_5_textops/svd_components.parquet
+  key_checks:
+  - Join key present in all numeric artefacts and matches Stage 01.
+  - PII masking applied before writing evidence payloads.
+  - SVD explained variance ratio >= 0.70 or warning recorded.
+  common_failures:
+  - Shipments parquet missing AWB_NO or shipment_id join key.
+  - Coverage below threshold due to empty text columns.
+  - Libraries (polars/sklearn) not available in runtime environment.
+  learning_resources:
+  - title: TextOps configuration guide
+    url: docs/textops/config.md
+- id: 04_profile
+  name:
+    en: Stage 04 · Data Profiling
+    ar: المرحلة 04 · توصيف البيانات
+  description:
+    en: 'Generates descriptive statistics, distribution snapshots, and correlation hints that drive feature engineering and
+      quality follow-ups.
+
+      '
+    ar: 'تنتج إحصاءات وصفية ولقطات للتوزيعات وإشارات للتداخلات تساعد في الهندسة المميّزة والمتابعة على جودة البيانات.
+
+      '
+  expected_inputs:
+  - id: raw
+    name:
+      en: Canonical ingestion parquet
+      ar: ملف Parquet القياسي
+    description:
+      en: Same dataset passed from Stage 01.
+      ar: نفس البيانات القادمة من المرحلة 01.
+  expected_outputs:
+  - schema: artifacts/{run_id}/stage_04_profile/profile.json
+  - schema: artifacts/{run_id}/stage_04_profile/distribution.xlsx
+  - schema: artifacts/{run_id}/stage_04_profile/summary.parquet
+  key_checks:
+  - Profiling completes within configurable timeout.
+  - Numeric columns report min/max/mean correctly.
+  - Outlier metrics include reference to feature list.
+  common_failures:
+  - Timeout due to massive feature set.
+  - Unsupported data types for profiling functions.
+  - Missing Stage 01 raw file.
+  learning_resources:
+  - title: Profiling quick start
+    url: docs/profile/quick_start.md
+- id: 05_missing
+  name:
+    en: Stage 05 · Missing Data Strategy
+    ar: المرحلة 05 · معالجة القيم المفقودة
+  description:
+    en: 'Applies hybrid and group-wise imputations, tracks PSI drift, and prepares an imputed dataset for standardisation.
+
+      '
+    ar: 'تطبق استكمالات هجينة وعلى مستوى المجموعات، وتراقب انجراف PSI، وتجهز مجموعة بيانات مكتملة للمرحلة التالية.
+
+      '
+  expected_inputs:
+  - id: raw
+    name:
+      en: Canonical ingestion parquet
+      ar: ملف Parquet القياسي
+  expected_outputs:
+  - schema: artifacts/{run_id}/stage_05_missing/imputed.parquet
+  - schema: artifacts/{run_id}/stage_05_missing/imputation_report.json
+  - schema: artifacts/{run_id}/stage_05_missing/psi_summary.json
+  key_checks:
+  - Report lists columns imputed and method used.
+  - PSI summaries highlight drifts above configured threshold.
+  common_failures:
+  - Group-wise imputation fails when key columns have nulls.
+  - PSI computation crashes if baseline not available.
+  learning_resources:
+  - title: Imputation playbook
+    url: docs/missing/imputation_playbook.md
+- id: 06_standardize
+  name:
+    en: Stage 06 · Standardise & Feature Engineering
+    ar: المرحلة 06 · التوحيد والهندسة المميّزة
+  description:
+    en: 'Combines scaling, encoding, and protection of sensitive columns while generating feature specs used by downstream
+      readiness and BI stages.
+
+      '
+    ar: 'تجمع بين التحجيم والترميز وحماية الأعمدة الحساسة أثناء توليد مواصفات الخصائص التي تستخدمها مراحل الجاهزية وذكاء الأعمال
+      لاحقاً.
+
+      '
+  expected_inputs:
+  - id: raw
+    name:
+      en: Imputed dataset
+      ar: البيانات المكتملة بعد المعالجة
+    description:
+      en: 'Preferred: output of Stage 05 (imputed.parquet); fallback to Stage 01 raw.'
+      ar: يفضل استخدام مخرجات المرحلة 05، مع إمكانية الرجوع لملف المرحلة 01 عند الحاجة.
+  expected_outputs:
+  - schema: artifacts/{run_id}/stage_06_feature_eng/features.parquet
+  - schema: artifacts/{run_id}/stage_06_feature_eng/feature_spec.json
+  - schema: artifacts/{run_id}/stage_06_standardize/standardize_report.json
+  key_checks:
+  - Feature spec enumerates protected columns.
+  - Scaling/encoding options derived from config.standardize.
+  - Generated features align with readiness expectations.
+  common_failures:
+  - Feature generation fails due to incompatible dtypes.
+  - Missing imputed dataset when use_defaults=false.
+  learning_resources:
+  - title: Feature spec reference
+    url: docs/standardize/feature_spec.md
+- id: 06_feature_eng
+  name:
+    en: Stage 06.2 · Feature Engineering & Curation
+    ar: المرحلة 06.2 · هندسة وتصفية الخصائص
+  description:
+    en: 'Curates engineered features, applies business-safe filters, and publishes the canonical dataset consumed by readiness,
+      insights, and BI delivery.
+
+      '
+    ar: 'تنتقي الخصائص المهندسة، وتطبق مرشحات الأعمال الآمنة، وتنشر مجموعة البيانات المعتمدة التي تعتمد عليها مراحل الجاهزية
+      والرؤى وذكاء الأعمال.
+
+      '
+  expected_inputs:
+  - id: raw
+    name:
+      en: Standardised dataset
+      ar: البيانات بعد التوحيد
+    description:
+      en: Output from Stage 06 standardise (features_curated or raw features).
+      ar: الناتج من مرحلة التوحيد (features_curated أو الخصائص الخام).
+  expected_outputs:
+  - schema: artifacts/{run_id}/stage_06_feature_eng/features.parquet
+  - schema: artifacts/{run_id}/stage_06_feature_eng/features.curated.parquet
+  - schema: artifacts/{run_id}/stage_06_feature_eng/feature_spec.json
+  key_checks:
+  - Curated feature set exists and enumerates total feature count.
+  - Feature_spec contains lineage for engineered columns.
+  - Sensitive columns remain flagged for later masking.
+  common_failures:
+  - Curated output missing when upstream standardise omits features_curated.
+  - Feature spec generation fails due to unsupported transformations.
+  learning_resources:
+  - title: Feature curation checklist
+    url: docs/standardize/feature_curation.md
+- id: 07_readiness
+  name:
+    en: Stage 07 · Model Readiness & Diagnostics
+    ar: المرحلة 07 · الجاهزية والتشخيص
+  description:
+    en: 'Evaluates leakage, correlation networks, and readiness KPIs. Produces decision manifests and diagnostics for human
+      review or KNIME hand-off.
+
+      '
+    ar: 'تقيم التسرب والارتباطات وشبكة مؤشرات الأداء، وتنتج ملف قرارات وتشخيصات للمراجعة البشرية أو التكامل مع KNIME.
+
+      '
+  expected_inputs:
+  - id: features
+    name:
+      en: Engineered features dataset
+      ar: مجموعة الخصائص بعد الهندسة
+    description:
+      en: Stage 06 features.parquet.
+      ar: الملف features.parquet الناتج عن المرحلة 06.
+  expected_outputs:
+  - schema: artifacts/{run_id}/stage_07_readiness/diagnostics.json
+  - schema: artifacts/{run_id}/stage_07_readiness/decision_manifest.json
+  - schema: artifacts/{run_id}/stage_07_correlations/network.json
+  key_checks:
+  - Leakage detection run and results stored.
+  - Decision manifest summarises recommended actions.
+  - Correlation graph contains top relationships.
+  common_failures:
+  - Features dataset missing or incompatible.
+  - Graph routines exceed timeout on very wide datasets.
+  learning_resources:
+  - title: Readiness decision flow
+    url: docs/readiness/decision_flow.md
+- id: 07_5_feature_report
+  name:
+    en: Stage 07.5 · Feature Insight Report
+    ar: المرحلة 07.5 · تقرير خصائص متقدم
+  description:
+    en: 'Generates an analyst-friendly PDF/HTML summarising key features, distributions, and model readiness outcomes for
+      business stakeholders.
+
+      '
+    ar: 'تُنشئ تقريراً مناسباً للمحللين يلخص أهم الخصائص والتوزيعات ونتائج الجاهزية ليطلع عليها أصحاب المصلحة.
+
+      '
+  expected_inputs:
+  - id: features
+    name:
+      en: Feature dataset
+      ar: مجموعة الخصائص
+  - id: decision_manifest
+    name:
+      en: Readiness decision manifest
+      ar: ملف قرارات الجاهزية
+  expected_outputs:
+  - schema: artifacts/{run_id}/stage_07_5_feature_report/report.json
+  - schema: artifacts/{run_id}/stage_07_5_feature_report/report.pdf
+  key_checks:
+  - Report.json summarises KPI lift and leakage risks.
+  - Optional PDF rendered when pandoc/latex available.
+  common_failures:
+  - Decision manifest missing or malformed.
+  - Rendering pipeline tools unavailable on host.
+  learning_resources:
+  - title: Feature report template
+    url: docs/readiness/feature_report.md
+- id: 07_6_llm_summary
+  name:
+    en: Stage 07.6 · LLM Readout Summary
+    ar: المرحلة 07.6 · ملخص LLM
+  description:
+    en: 'Uses the decision manifest and feature report to draft bilingual narratives for leadership, highlighting pressing
+      issues and recommended actions.
+
+      '
+    ar: 'يستخدم ملف القرارات وتقرير الخصائص لصياغة سرد ثنائي اللغة للقيادة، يبرز المشاكل الحرجة والإجراءات الموصى بها.
+
+      '
+  expected_inputs:
+  - id: report
+    name:
+      en: Feature report
+      ar: تقرير الخصائص
+  expected_outputs:
+  - schema: artifacts/{run_id}/stage_07_6_llm_summary/summary.json
+  - schema: artifacts/{run_id}/stage_07_6_llm_summary/prompts.json
+  key_checks:
+  - LLM provider configured via config.llm or environment.
+  - Summary includes both Arabic and English sections.
+  common_failures:
+  - Missing OpenAI/Gemini API keys.
+  - Report lacks required sections leading to prompt failure.
+  learning_resources:
+  - title: LLM summary prompts
+    url: docs/readiness/llm_summary.md
+- id: 07_7_business_correlations
+  name:
+    en: Stage 07.7 · Business Correlation Network
+    ar: المرحلة 07.7 · شبكة الترابطات التجارية
+  description:
+    en: 'Builds a multi-level correlation network that surfaces co-movement between KPIs, segments, and operational drivers
+      to power action plans.
+
+      '
+    ar: 'يبني شبكة ترابط متعددة المستويات تُظهر حركة المؤشرات معًا بين مؤشرات الأداء والقطاعات والعوامل التشغيلية لدعم خطط
+      العمل.
+
+      '
+  expected_inputs:
+  - id: features
+    name:
+      en: Feature dataset
+      ar: مجموعة الخصائص
+  expected_outputs:
+  - schema: artifacts/{run_id}/stage_07_correlations/network.json
+  - schema: artifacts/{run_id}/stage_07_7_business_correlations/summary.json
+  key_checks:
+  - Correlation graph contains top-N strongest relationships.
+  - Business summary lists key positive and negative drivers.
+  common_failures:
+  - Feature dataset missing required KPI columns.
+  - Graph generation exceeds memory/time limits.
+  learning_resources:
+  - title: Correlation methodology
+    url: docs/readiness/correlation_methodology.md
+- id: 07_knime_bridge
+  name:
+    en: Stage 07 · KNIME Bridge Export
+    ar: المرحلة 07 · تكامل KNIME
+  description:
+    en: 'Packages readiness outputs into KNIME-compatible profiles, ensuring feature specs and diagnostics are synchronised
+      with KNIME workflows.
+
+      '
+    ar: 'يحزم مخرجات الجاهزية داخل ملفات متوافقة مع KNIME لضمان تزامن مواصفات الخصائص والتشخيصات مع تدفقات KNIME.
+
+      '
+  expected_inputs:
+  - id: features
+    name:
+      en: Feature dataset
+      ar: مجموعة الخصائص
+  expected_outputs:
+  - schema: artifacts/{run_id}/stage_07_knime_bridge/profile/bridge_summary.json
+  - schema: artifacts/{run_id}/stage_07_knime_bridge/profile/layer2_candidate.json
+  - schema: artifacts/{run_id}/stage_07_knime_bridge/profile/feature_report.json
+  key_checks:
+  - Bridge summary lists top anomalies for KNIME follow-up.
+  - Generated files align with KNIME connector expectations.
+  common_failures:
+  - KNIME templates missing from deployment.
+  - Feature columns incompatible with KNIME schema.
+  learning_resources:
+  - title: KNIME bridge user guide
+    url: docs/readiness/knime_bridge.md
+- id: 08_insights
+  name:
+    en: Stage 08 · Operational Insights
+    ar: المرحلة 08 · رؤى تشغيلية
+  description:
+    en: 'Generates ECharts dashboards, narratives, and diagnostic cards used by BI and logistics teams to monitor COD performance,
+      return rates, and SLA adherence.
+
+      '
+    ar: 'تنتج لوحات ECharts وسرديات وبطاقات تشخيصية يستخدمها فريق الأعمال واللوجستيات لمراقبة أداء الدفع عند الاستلام ومعدلات
+      الإرجاع والالتزام بالـ SLA.
+
+      '
+  expected_inputs:
+  - id: readiness_outputs
+    name:
+      en: Readiness artifacts
+      ar: مخرجات الجاهزية
+    description:
+      en: Requires Stage 07 diagnostics and feature dataset.
+      ar: يتطلب تشخيصات المرحلة 07 وملف الخصائص.
+  expected_outputs:
+  - schema: artifacts/{run_id}/stage_08_insights/cards.json
+  - schema: artifacts/{run_id}/stage_08_insights/narratives.json
+  - schema: artifacts/{run_id}/stage_08_insights/dashboard_data.parquet
+  key_checks:
+  - Stories cover mandatory KPI set (COD, returns, SLA).
+  - Narratives generated in both Arabic and English when enabled.
+  - Chart datasets align with BI metric specs.
+  common_failures:
+  - LLM narrative generation rate-limited.
+  - Missing readiness artifacts prevents metrics from loading.
+  learning_resources:
+  - title: Insight card structure
+    url: docs/insights/card_structure.md
+- id: 09_business_validation
+  name:
+    en: Stage 09 · Business Validation & Decisions
+    ar: المرحلة 09 · التحقق من الأعمال واتخاذ القرارات
+  description:
+    en: 'Validates insights against SLA expectations, produces what-if simulations, and consolidates executive summaries for
+      sign-off.
+
+      '
+    ar: 'تتحقق من الرؤى وفق أهداف SLA، وتولّد محاكاة ماذا لو، وتجمع ملخصات تنفيذية للاعتماد.
+
+      '
+  expected_inputs:
+  - id: insights
+    name:
+      en: Operational insights bundle
+      ar: حزمة الرؤى التشغيلية
+    description:
+      en: Stage 08 outputs.
+      ar: مخرجات المرحلة 08.
+  expected_outputs:
+  - schema: artifacts/{run_id}/stage_09_business_validation/summary.json
+  - schema: artifacts/{run_id}/stage_09_business_validation/what_if.yaml
+  - schema: artifacts/{run_id}/stage_09_business_validation/sign_off.pdf
+  key_checks:
+  - SLA breaches highlighted with recommended actions.
+  - What-if scenarios align with configuration.
+  common_failures:
+  - Missing Stage 08 artifacts.
+  - What-if solver fails due to invalid inputs.
+  learning_resources:
+  - title: Validation scenarios
+    url: docs/business_validation/scenarios.md
+- id: 10_bi
+  name:
+    en: Stage 10 · BI Delivery & Semantic Layer
+    ar: المرحلة 10 · تسليم ذكاء الأعمال والطبقة الدلالية
+  description:
+    en: 'Packages semantic marts, metrics, and assistant prompts. Produces artifacts for BI tools and powers the `/bi` experience
+      with ready-to-query datasets.
+
+      '
+    ar: 'تحزم المخازن الدلالية والمقاييس ومحتوى المساعد، وتنتج المخرجات اللازمة لأدوات ذكاء الأعمال وتشغّل تجربة /bi ببيانات
+      جاهزة للاستعلام.
+
+      '
+  expected_inputs:
+  - id: insights_bundle
+    name:
+      en: Insights & diagnostics
+      ar: الرؤى والتشخيصات
+    description:
+      en: Requires Stage 08 outputs and readiness catalogs.
+      ar: يتطلب مخرجات المرحلة 08 وكتيبات الجاهزية.
+  expected_outputs:
+  - schema: artifacts/{run_id}/stage_10_bi/semantic/metrics.json
+  - schema: artifacts/{run_id}/stage_10_bi/semantic/catalog.json
+  - schema: artifacts/{run_id}/stage_10_bi/marts/*.parquet
+  - schema: artifacts/{run_id}/stage_10_bi/assistant/prompts.json
+  key_checks:
+  - Metric definitions include SQL and default chart metadata.
+  - Semantic catalog references real artifact paths.
+  - Assistant prompts linked to available marts.
+  common_failures:
+  - Incomplete Stage 08 data breaks metric generation.
+  - Missing BI templates or configuration.
+  learning_resources:
+  - title: Semantic layer overview
+    url: docs/bi/semantic_overview.md
+  - title: Assistant integration
+    url: docs/bi/assistant.md

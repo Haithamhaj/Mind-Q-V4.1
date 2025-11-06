@@ -1,0 +1,60 @@
+{
+  "column": "3PL_Last_Status",
+  "mappings": [
+    {
+      "original": "Last Shipment Status",
+      "normalized": "آخر حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "3PL Status",
+      "normalized": "آخر حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "آخر حالة شحنة",
+      "normalized": "آخر حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة 3PL",
+      "normalized": "آخر حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "3PL_Last_Status",
+      "normalized": "آخر حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "آخر حالة 3PL",
+      "normalized": "آخر حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "Current Shipment Status",
+      "normalized": "آخر حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الحالة الحالية للشحنة",
+      "normalized": "آخر حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "آخر حالة الشحنة",
+      "normalized": "آخر حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
+    }
+  ],
+  "updated_at": "2025-10-26T19:25:38.254111"
+}
