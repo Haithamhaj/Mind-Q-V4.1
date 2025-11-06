@@ -75,7 +75,7 @@
     },
     {
       "original": "Labaih",
-      "normalized": "Labaih",
+      "normalized": "شركة الشحن Labaih",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -87,7 +87,7 @@
     },
     {
       "original": "Yamama (LT)",
-      "normalized": "Yamama (LT)",
+      "normalized": "شركة الشحن Yamama (LT)",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -105,19 +105,19 @@
     },
     {
       "original": "SMSA v2",
-      "normalized": "شركة التوصيل",
+      "normalized": "شركة الشحن SMSA v2",
       "confidence": 1.0,
       "source": "llm"
     },
     {
       "original": "Aramex",
-      "normalized": "Aramex",
+      "normalized": "شركة الشحن Aramex",
       "confidence": 1.0,
       "source": "llm"
     },
     {
       "original": "J&T",
-      "normalized": "شركة التوصيل",
+      "normalized": "شركة الشحن J&T",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -260,5 +260,5 @@
       "source": "llm"
     }
   ],
-  "updated_at": "2025-11-06T09:05:30.190465"
+  "updated_at": "2025-11-06T10:49:51.941974"
 }
