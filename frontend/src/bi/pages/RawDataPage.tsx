@@ -10,13 +10,14 @@ import { RawDataViewer, AdvancedExport, DrillDownPanel, type DrillDownData } fro
 import { FilterBar } from "../components/FilterBar";
 
 const RawDataDashboard: React.FC = () => {
-  const dataset = useFilteredDataset();
+  const dataset = useFilteredDataset() || [];
   const dimensions = useBiDimensions();
 
   // Build export columns from dataset
   const exportColumns = useMemo(() => {
     if (!dataset || dataset.length === 0) return [];
     const firstRow = dataset[0];
+    if (!firstRow) return [];
     return Object.keys(firstRow).map((key) => ({
       key,
       label: key,
@@ -31,6 +32,7 @@ const RawDataDashboard: React.FC = () => {
     const destinationGroups = new Map<string, { count: number; cod: number }>();
     
     dataset.forEach((row: any) => {
+      if (!row) return;
       const dest = String(row.DESTINATION || row.destination || "Unknown");
       const existing = destinationGroups.get(dest) || { count: 0, cod: 0 };
       existing.count += 1;
@@ -39,6 +41,7 @@ const RawDataDashboard: React.FC = () => {
     });
 
     const total = dataset.length;
+    if (total === 0) return [];
     
     return Array.from(destinationGroups.entries())
       .map(([value, stats]) => ({
@@ -46,7 +49,7 @@ const RawDataDashboard: React.FC = () => {
         label: value,
         count: stats.count,
         percentage: (stats.count / total) * 100,
-        metric: stats.cod / stats.count,
+        metric: stats.count > 0 ? stats.cod / stats.count : 0,
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 20);
@@ -105,7 +108,7 @@ const RawDataDashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {dimensions.categorical.length + dimensions.temporal.length}
+              {(dimensions?.categorical?.length || 0) + (dimensions?.temporal?.length || 0)}
             </div>
             <p className="text-xs text-muted-foreground">بُعد تصنيفي وزمني</p>
           </CardContent>
