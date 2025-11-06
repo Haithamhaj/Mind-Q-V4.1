@@ -235,9 +235,26 @@ def _normalised_orders_dataset(
     marts_dir: Path,
     column_policies: Mapping[str, Dict[str, Any]],
 ) -> Tuple[Optional[pl.DataFrame], List[str]]:
-    # Read from stage 01 raw data instead of stage 09 aggregated KPIs
-    # Navigate up from stage_10_bi/marts to artifacts root, then to stage_01_ingestion
+    # DYNAMIC SOURCE: Read from Phase 09 bi_feed.parquet (authoritative BI-ready data)
+    # This ensures orders.parquet reflects all clean data from Phase 05
     run_dir = marts_dir.parent.parent  # Go up from marts/ to stage_10_bi/ to run directory
+    
+    # Priority 1: Read from bi_feed (contains all Phase 05 clean data + KPIs)
+    bi_feed_source = run_dir / "stage_09_business_validation" / "bi_feed.parquet"
+    if bi_feed_source.exists():
+        frame = _read_parquet(bi_feed_source)
+        if frame is not None and not frame.is_empty():
+            # bi_feed already has clean data, just return it
+            # No need for complex aliasing - data is already standardized
+            suppressed = [
+                name for name, policy in column_policies.items()
+                if not policy.get("include_in_exports", True) and name in frame.columns
+            ]
+            if suppressed:
+                frame = frame.drop(suppressed)
+            return frame, suppressed
+    
+    # Fallback: Read from stage 01 raw data (legacy path)
     source = run_dir / "stage_01_ingestion" / "raw.parquet"
     frame = _read_parquet(source)
     if frame is None or frame.is_empty():
@@ -466,25 +483,42 @@ def _build_dimensions_payload(
     dataset: Optional[pl.DataFrame],
 ) -> Dict[str, Any]:
     dimensions: List[Dict[str, Any]] = []
-    for column in ("destination", "payment_method", "status"):
-        values = _collect_unique_strings(dataset, column)
-        dimensions.append(
-            {
-                "name": column,
-                "type": "categorical",
-                "values": values,
-                "description": "",
-            }
-        )
-    if dataset is not None and "order_date" in dataset.columns:
-        dimensions.append(
-            {
-                "name": "order_date",
-                "type": "temporal",
-                "format": "datetime",
-                "description": "",
-            }
-        )
+    
+    # DYNAMIC DIMENSION DISCOVERY: Auto-detect all categorical and temporal columns
+    if dataset is not None and not dataset.is_empty():
+        for column in dataset.columns:
+            # Skip internal/technical columns
+            if column.startswith('kpi_') or column.startswith('eff_') or column.endswith('__is_missing'):
+                continue
+            if column in ('entity_id', 'ts', 'explain_key', 'row_deeplink', 'decision', 'scenario_id', 'tz', 'locale', 'currency', 'time_grain'):
+                continue
+            
+            col_dtype = dataset.schema.get(column)
+            
+            # Categorical columns (string type with reasonable distinct values)
+            if col_dtype in (pl.Utf8, pl.Categorical):
+                try:
+                    n_distinct = dataset.select(pl.col(column).n_unique()).to_series()[0]
+                    # Only include if not too many distinct values (< 500)
+                    if n_distinct > 0 and n_distinct < 500:
+                        values = _collect_unique_strings(dataset, column, limit=100)
+                        dimensions.append({
+                            "name": column,
+                            "type": "categorical",
+                            "values": values[:50],  # Limit to 50 for display
+                            "description": f"Auto-detected categorical dimension ({n_distinct} values)",
+                        })
+                except Exception:
+                    pass
+            
+            # Temporal columns (datetime/date types)
+            elif col_dtype in (pl.Datetime, pl.Date):
+                dimensions.append({
+                    "name": column,
+                    "type": "temporal",
+                    "format": "datetime" if col_dtype == pl.Datetime else "date",
+                    "description": "Auto-detected temporal dimension",
+                })
 
     metrics: List[Dict[str, Any]] = []
     total_orders = int(dataset.height) if dataset is not None else 0

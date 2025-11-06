@@ -760,7 +760,7 @@ def _bi_feed(
     for column in missing:
         feed = feed.with_columns(pl.lit(None).alias(column))
 
-    # Build final column list: required columns + additional BI columns (if they exist in source)
+    # Build final column list: required columns + ALL original data columns dynamically
     final_columns = REQUIRED_FACT_COLUMNS.copy()
     excluded_columns = {
         name
@@ -769,9 +769,22 @@ def _bi_feed(
     }
     if excluded_columns:
         feed = feed.drop([name for name in excluded_columns if name in feed.columns])
-    for col in ADDITIONAL_BI_COLUMNS:
-        if col in feed.columns and col not in final_columns and col not in excluded_columns:
+    
+    # DYNAMIC COLUMN SELECTION: Include ALL columns from source_df automatically
+    # This ensures Phase 05 clean data is fully preserved in BI feed
+    # Exclude only: KPI columns (already added), missing indicators, and policy-excluded columns
+    for col in feed.columns:
+        if col not in final_columns and col not in excluded_columns:
+            # Skip missing indicators (from Phase 05)
+            if col.endswith('__is_missing'):
+                continue
+            # Skip already-included required columns
+            if col in REQUIRED_FACT_COLUMNS:
+                continue
+            # Include everything else from Phase 05 clean data
             final_columns.append(col)
+    
+    # Also respect column policies that explicitly include columns
     for name, policy in column_policy_map.items():
         if policy.include_in_bi_feed and name in feed.columns and name not in final_columns:
             final_columns.append(name)
@@ -971,7 +984,20 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     contract = io.load_bi_contract(bi_path)
     what_if = io.load_what_if(what_if_path)
 
-    clean_default = artifacts_root / run_id / STAGE_06_DIR / "clean.parquet"
+    # DYNAMIC DATA SOURCE: Read from Phase 05 clean_imputed.parquet (authoritative clean data)
+    # This ensures BI feed reflects the complete dataset after missing value handling
+    stage05_clean_imputed = artifacts_root / run_id / "stage_05_missing" / "clean_imputed.parquet"
+    stage05_imputed = artifacts_root / run_id / "stage_05_missing" / "imputed.parquet"
+    stage06_clean = artifacts_root / run_id / STAGE_06_DIR / "clean.parquet"
+    
+    # Priority: Phase 05 clean_imputed > Phase 05 imputed > Phase 06 clean (fallback)
+    if stage05_clean_imputed.exists():
+        clean_default = stage05_clean_imputed
+    elif stage05_imputed.exists():
+        clean_default = stage05_imputed
+    else:
+        clean_default = stage06_clean
+    
     insights_default = artifacts_root / run_id / STAGE_08_DIR / "insights_report.json"
     raw_default = artifacts_root / run_id / STAGE_01_DIR / "raw.parquet"
 
