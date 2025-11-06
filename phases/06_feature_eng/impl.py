@@ -221,44 +221,61 @@ def _apply_dtype(series: "pd.Series", dtype: str) -> "pd.Series":
     raise ValueError(f"Unsupported dtype '{dtype}' for layer1 dataset")
 
 
+def _safe_to_datetime(value, index):
+    if value is None:
+        return pd.Series([pd.NaT] * len(index), index=index)
+    result = pd.to_datetime(value, errors="coerce")
+    if result is None:
+        return pd.Series([pd.NaT] * len(index), index=index)
+    return result
+
+def _safe_to_numeric(value, index):
+    if value is None:
+        return pd.Series([pd.NA] * len(index), index=index)
+    result = pd.to_numeric(value, errors="coerce")
+    if result is None:
+        return pd.Series([pd.NA] * len(index), index=index)
+    return result
+
 def _derive_layer1_column(key: str, df: "pd.DataFrame", layer1: "pd.DataFrame") -> "pd.Series":
     index = df.index
     if not isinstance(index, pd.Index):
         index = pd.Index(index)
     if key == "order_date":
-        primary = pd.to_datetime(df.get("ENTRY_DATE"), errors="coerce")
-        secondary = pd.to_datetime(df.get("PICKUP_DATE"), errors="coerce")
+        primary = _safe_to_datetime(df.get("ENTRY_DATE"), index)
+        secondary = _safe_to_datetime(df.get("PICKUP_DATE"), index)
         return primary.fillna(secondary).reindex(index)
     if key == "amount_from_cod":
-        return pd.to_numeric(df.get("COD_AMOUNT"), errors="coerce").reindex(index)
+        result = _safe_to_numeric(df.get("COD_AMOUNT"), index)
+        return result.reindex(index)
     if key == "delivery_delay_days":
-        delivery = pd.to_datetime(layer1.get("delivery_date"), errors="coerce")
-        pickup = pd.to_datetime(layer1.get("pickup_date"), errors="coerce")
-        schedule = pd.to_datetime(layer1.get("schedule_date"), errors="coerce")
+        delivery = _safe_to_datetime(layer1.get("delivery_date"), index)
+        pickup = _safe_to_datetime(layer1.get("pickup_date"), index)
+        schedule = _safe_to_datetime(layer1.get("schedule_date"), index)
         baseline = pickup.fillna(schedule)
         delta = (delivery - baseline).dt.total_seconds() / 86400.0
         return pd.Series(delta, index=index)
     if key == "cod_flag":
-        cod = pd.to_numeric(layer1.get("cod_amount"), errors="coerce")
-        amount = pd.to_numeric(layer1.get("amount"), errors="coerce") if "amount" in layer1 else pd.Series([pd.NA] * len(index), index=index)
+        cod = _safe_to_numeric(layer1.get("cod_amount"), index)
+        amount = _safe_to_numeric(layer1.get("amount"), index) if "amount" in layer1 else pd.Series([pd.NA] * len(index), index=index)
         combined = cod.fillna(amount)
         mask = combined.notna()
         result = pd.Series(pd.NA, index=index, dtype="boolean")
         result.loc[mask] = combined.loc[mask] > 0
         return result
     if key == "geocoded_flag":
-        lat = pd.to_numeric(layer1.get("latitude"), errors="coerce")
-        lon = pd.to_numeric(layer1.get("longitude"), errors="coerce")
+        lat = _safe_to_numeric(layer1.get("latitude"), index)
+        lon = _safe_to_numeric(layer1.get("longitude"), index)
         mask = (~lat.isna()) & (~lon.isna())
         result = pd.Series(pd.NA, index=index, dtype="boolean")
         result.loc[mask] = True
         result.loc[~mask & (lat.isna() | lon.isna())] = False
         return result
     if key == "order_weekday":
-        order_date = pd.to_datetime(layer1.get("order_date"), errors="coerce")
+        order_date = _safe_to_datetime(layer1.get("order_date"), index)
         return order_date.dt.strftime("%A").reindex(index)
     if key == "order_month":
-        order_date = pd.to_datetime(layer1.get("order_date"), errors="coerce")
+        order_date = _safe_to_datetime(layer1.get("order_date"), index)
         return order_date.dt.strftime("%Y-%m").reindex(index)
     return pd.Series([None] * len(index), index=index)
 

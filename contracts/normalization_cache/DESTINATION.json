@@ -27,7 +27,7 @@
     },
     {
       "original": "DESTINATION",
-      "normalized": "الوجهة",
+      "normalized": "DESTINATION",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -146,5 +146,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-10-28T20:21:05.682311"
+  "updated_at": "2025-11-06T08:31:31.743680"
 }

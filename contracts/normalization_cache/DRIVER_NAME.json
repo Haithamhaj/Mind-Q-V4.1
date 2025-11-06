@@ -27,7 +27,7 @@
     },
     {
       "original": "DRIVER_NAME",
-      "normalized": "اسم السائق",
+      "normalized": "DRIVER_NAME",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -140,5 +140,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-10-26T17:38:00.164796"
+  "updated_at": "2025-11-06T08:31:31.761880"
 }

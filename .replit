@@ -1,5 +1,5 @@
 entrypoint = "main.py"
-modules = ["python-3.11"]
+modules = ["python-3.11", "nodejs-20"]
 
 [nix]
 channel = "stable-24_05"
@@ -15,8 +15,16 @@ run = ["python3", "main.py"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
-localPort = 5900
+localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 9000
+externalPort = 9000
+
+[[ports]]
+localPort = 42337
+externalPort = 3000
 
 [agent]
 expertMode = true
@@ -31,15 +39,16 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "run"
+args = "Mind-Q App"
 
 [[workflows.workflow]]
-name = "run"
+name = "Mind-Q App"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python main.py"
+args = "bash run_app.sh"
+waitForPort = 5000
 
 [workflows.workflow.metadata]
-outputType = "console"
+outputType = "webview"
