@@ -75,11 +75,10 @@ REQUIRED_FACT_COLUMNS = [
     "scenario_id",
 ]
 
-# Additional dimensional columns for enhanced BI analytics
-# These columns provide high-value customer, carrier, and shipment details
-# Using snake_case names as they appear in layer1_dataset.parquet
-# NOTE: Only includes columns with actual business value for analytics
-# REMOVED: schedule_date (99.9% null), sub_status (99.1% null)
+# DEPRECATED: Static column list replaced by dynamic selection in _bi_feed()
+# Phase 09 now automatically selects ALL columns from Phase 06 (standardized + engineered)
+# This list is kept for backward compatibility reference only - NOT USED IN CODE
+# NOTE: schedule_date (99.9% null), sub_status (99.1% null) were previously removed
 ADDITIONAL_BI_COLUMNS = [
     # Core Customer Information (4 columns)
     "sender_name",
@@ -760,7 +759,7 @@ def _bi_feed(
     for column in missing:
         feed = feed.with_columns(pl.lit(None).alias(column))
 
-    # Build final column list: required columns + ALL original data columns dynamically
+    # Build final column list: required columns + ALL Phase 06 data columns dynamically
     final_columns = REQUIRED_FACT_COLUMNS.copy()
     excluded_columns = {
         name
@@ -770,18 +769,18 @@ def _bi_feed(
     if excluded_columns:
         feed = feed.drop([name for name in excluded_columns if name in feed.columns])
     
-    # DYNAMIC COLUMN SELECTION: Include ALL columns from source_df automatically
-    # This ensures Phase 05 clean data is fully preserved in BI feed
+    # DYNAMIC COLUMN SELECTION: Include ALL columns from Phase 06 automatically
+    # This preserves: Phase 05 data (renamed/standardized) + engineered features + KPIs
     # Exclude only: KPI columns (already added), missing indicators, and policy-excluded columns
     for col in feed.columns:
         if col not in final_columns and col not in excluded_columns:
-            # Skip missing indicators (from Phase 05)
-            if col.endswith('__is_missing'):
+            # Skip missing indicators (converted to regular columns in Phase 06)
+            if col.endswith('__is_missing') or col.endswith('_is_missing'):
                 continue
             # Skip already-included required columns
             if col in REQUIRED_FACT_COLUMNS:
                 continue
-            # Include everything else from Phase 05 clean data
+            # Include everything else from Phase 06 (standardized + engineered data)
             final_columns.append(col)
     
     # Also respect column policies that explicitly include columns
@@ -984,20 +983,9 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     contract = io.load_bi_contract(bi_path)
     what_if = io.load_what_if(what_if_path)
 
-    # DYNAMIC DATA SOURCE: Read from Phase 05 clean_imputed.parquet (authoritative clean data)
-    # This ensures BI feed reflects the complete dataset after missing value handling
-    stage05_clean_imputed = artifacts_root / run_id / "stage_05_missing" / "clean_imputed.parquet"
-    stage05_imputed = artifacts_root / run_id / "stage_05_missing" / "imputed.parquet"
-    stage06_clean = artifacts_root / run_id / STAGE_06_DIR / "clean.parquet"
-    
-    # Priority: Phase 05 clean_imputed > Phase 05 imputed > Phase 06 clean (fallback)
-    if stage05_clean_imputed.exists():
-        clean_default = stage05_clean_imputed
-    elif stage05_imputed.exists():
-        clean_default = stage05_imputed
-    else:
-        clean_default = stage06_clean
-    
+    # Read from Phase 06 Standardize - contains feature engineering + KPIs
+    # Phase 06 includes all Phase 05 columns (renamed/standardized) + engineered features
+    clean_default = artifacts_root / run_id / STAGE_06_DIR / "clean.parquet"
     insights_default = artifacts_root / run_id / STAGE_08_DIR / "insights_report.json"
     raw_default = artifacts_root / run_id / STAGE_01_DIR / "raw.parquet"
 
