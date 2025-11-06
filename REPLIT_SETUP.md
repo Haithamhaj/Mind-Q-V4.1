@@ -8,9 +8,9 @@ Mind-Q هو نظام متكامل لتحليل البيانات وإدارة ا�
 
 ## 🔗 روابط المشروع
 
-- **GitHub Repository**: https://github.com/Haithamhaj/Mind-Q-V4.1
+- **GitHub Repository**: https://github.com/Haithamhaj/Mind-Q-V5
 - **الفرع المطلوب**: `port/update-2025-10-11`
-- **رابط الفرع المباشر**: https://github.com/Haithamhaj/Mind-Q-V4.1/tree/port/update-2025-10-11
+- **رابط الفرع المباشر**: https://github.com/Haithamhaj/Mind-Q-V5/tree/port/update-2025-10-11
 
 ## 📁 هيكل المشروع
 
@@ -40,7 +40,7 @@ Mind-Q-V4.1/
 1. اذهب إلى https://replit.com
 2. انقر على **Create Repl**
 3. اختر **Import from GitHub**
-4. الصق الرابط: `https://github.com/Haithamhaj/Mind-Q-V4.1`
+4. الصق الرابط: `https://github.com/Haithamhaj/Mind-Q-V5`
 5. اختر الفرع: `port/update-2025-10-11`
 
 ### الخطوة 2: تكوين Backend (Python)

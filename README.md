@@ -13,7 +13,7 @@ Mind-Q is an advanced data engineering and analytics framework built specificall
 This project is now ready for one-click deployment on Replit!
 
 **Quick Deploy:**
-1. Visit: [Import on Replit](https://replit.com/github/Haithamhaj/Mind-Q-V4.1)
+1. Visit: [Import on Replit](https://replit.com/github/Haithamhaj/Mind-Q-V5)
 2. Select branch: `port/update-2025-10-11`
 3. Click **Run** ▶️
 

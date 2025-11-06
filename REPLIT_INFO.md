@@ -4,7 +4,7 @@
 
 ### الرابط الرئيسي للريبو:
 ```
-https://github.com/Haithamhaj/Mind-Q-V4.1
+https://github.com/Haithamhaj/Mind-Q-V5
 ```
 
 ### الفرع المطلوب:
@@ -14,7 +14,7 @@ port/update-2025-10-11
 
 ### الرابط المباشر للفرع:
 ```
-https://github.com/Haithamhaj/Mind-Q-V4.1/tree/port/update-2025-10-11
+https://github.com/Haithamhaj/Mind-Q-V5/tree/port/update-2025-10-11
 ```
 
 ---
