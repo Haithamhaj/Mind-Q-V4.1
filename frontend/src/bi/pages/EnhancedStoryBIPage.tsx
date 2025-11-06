@@ -300,7 +300,7 @@ const StoryBIDashboard: React.FC<StoryBIDashboardProps> = ({ runInfo }) => {
 const buildRunAwareEndpoints = (runId: string) => {
   const encoded = encodeURIComponent(runId);
   return {
-    dataset: `/api/bi/orders?run=${encoded}`,
+    dataset: `/api/bi-direct/orders?run=${encoded}`,
     insights: `/api/bi/insights?run=${encoded}`,
     dimensions: `/api/bi/dimensions?run=${encoded}`,
   };

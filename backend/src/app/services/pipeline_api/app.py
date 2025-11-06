@@ -1145,6 +1145,24 @@ def debug_routes():
             })
     return info
 
+@app.get("/api/bi-direct/orders")
+async def get_bi_orders_direct(run: str):
+    """Direct endpoint to serve BI data - bypassing router"""
+    from pathlib import Path as P
+    from fastapi.responses import FileResponse as FR
+    
+    print(f"🎯🎯🎯 DIRECT ENDPOINT CALLED! run={run}")
+    
+    root = P("artifacts")
+    json_file = root / run / "stage_10_bi" / "datasets" / "fact_business.json"
+    
+    if not json_file.exists():
+        print(f"❌ File not found: {json_file}")
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    
+    print(f"✅ Serving file: {json_file}")
+    return FR(path=str(json_file), media_type="application/json")
+
 app.include_router(bi_router)
 app.include_router(pipeline_router)
 
