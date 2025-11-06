@@ -27,7 +27,7 @@
     },
     {
       "original": "Recievable_Status",
-      "normalized": "Recievable Status",
+      "normalized": "حالة المستحقات",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -144,7 +144,13 @@
       "normalized": "OM128955038664",
       "confidence": 1.0,
       "source": "llm"
+    },
+    {
+      "original": "Outstanding Amount Status",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-06T08:39:45.163028"
+  "updated_at": "2025-11-06T09:06:42.380626"
 }

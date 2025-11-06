@@ -27,7 +27,7 @@
     },
     {
       "original": "System_Name",
-      "normalized": "System_Name",
+      "normalized": "اسم النظام",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -236,5 +236,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-06T08:39:45.678242"
+  "updated_at": "2025-11-06T09:06:42.839076"
 }

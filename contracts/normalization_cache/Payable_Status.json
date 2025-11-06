@@ -27,7 +27,7 @@
     },
     {
       "original": "Payable_Status",
-      "normalized": "Payable Status",
+      "normalized": "حالة الدفع",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -80,5 +80,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-06T08:39:45.015078"
+  "updated_at": "2025-11-06T09:06:42.271697"
 }

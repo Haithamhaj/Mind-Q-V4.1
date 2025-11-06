@@ -27,7 +27,7 @@
     },
     {
       "original": "Transaction_Number",
-      "normalized": "Transaction Number",
+      "normalized": "رقم المعاملة",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -50,5 +50,5 @@
       "source": "llm"
     }
   ],
-  "updated_at": "2025-11-06T08:39:44.881115"
+  "updated_at": "2025-11-06T09:06:42.176720"
 }

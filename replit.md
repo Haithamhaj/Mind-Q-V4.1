@@ -140,8 +140,66 @@ artifacts/{run_id}/{stage_id}/
 ```
 These are gitignored and stored locally.
 
+## LLM Integration
+
+Mind-Q V4.1 supports AI-powered features across multiple pipeline phases using OpenAI GPT models:
+
+### Phases that Use LLM
+
+| Phase | LLM Feature | Purpose | Model Used |
+|-------|-------------|---------|------------|
+| **03.5 - TextOps** | Embeddings + NLP | Arabic/English text analysis, document extraction, RAG | text-embedding-3-large, gpt-4o-mini |
+| **07.6 - LLM Summary** | Data summarization | Generate executive summaries from pipeline results | gpt-4o-mini |
+| **08 - Insights** | Correlation explanations | Explain statistical relationships in business terms | gpt-4o-mini |
+| **09 - Business Validation** | KPI generation | Generate and validate business metrics automatically | gpt-4o-mini |
+| **10 - BI Delivery** | Dashboard planning | Create intelligent dashboard layouts and chart recommendations | gpt-4o-mini |
+
+### Configuration
+
+**Required Environment Variable:**
+```
+OPENAI_API_KEY=sk-...
+```
+Add this to Replit Secrets (🔒) or in `.env` file.
+
+**LLM Settings Files:**
+- `config/textops.yaml` - Phase 03.5 TextOps LLM configuration
+- `backend/src/app/services/pipeline_api/app.py` - Global LLM environment loading
+
+**How It Works:**
+1. System checks for `OPENAI_API_KEY` in environment variables
+2. If found, LLM features activate automatically in supported phases
+3. If missing, phases skip LLM features and use rule-based fallbacks
+4. Costs are estimated per API call (visible in phase logs)
+
+### Testing LLM Features
+
+To verify LLM is working:
+```bash
+# Check environment variable is loaded
+env | grep OPENAI_API_KEY
+
+# Run pipeline and check Phase 03.5 logs
+cat artifacts/{run_id}/stage_03_5_textops/meta.json
+```
+
 ## Recent Changes
-- 2025-11-06 (**Latest**): **🎉 FULL PIPELINE SUCCESS - All 14 Phases Working on Real Data**
+- 2025-11-06 (**Latest**): **🤖 LLM Integration Fully Activated Across 5 Pipeline Phases**
+  - ✅ **OPENAI_API_KEY configured** in Replit Secrets environment
+  - ✅ **Updated `config/textops.yaml`**: Removed hardcoded credentials file, now uses environment variable
+  - ✅ **Identified 5 LLM-powered phases**:
+    - Phase 03.5 (TextOps): Embeddings + document extraction ✅ TESTED
+    - Phase 07.6 (LLM Summary): Executive summaries
+    - Phase 08 (Insights): Correlation explanations
+    - Phase 09 (Business Validation): KPI generation
+    - Phase 10 (BI Delivery): Dashboard intelligence
+  - ✅ **Tested Phase 03.5 successfully**: Generated embeddings, text features, and NLP outputs
+  - 📊 **LLM Model**: OpenAI GPT-4o-mini (default)
+  - 📊 **Embeddings Model**: text-embedding-3-large (3072 dimensions)
+  - 🔍 **Code Analysis**: Verified all phases use `src/agents/llm_adapter.py` for OpenAI API calls
+  - 📝 **Files Modified**: `config/textops.yaml` (removed local credentials path)
+
+- 2025-11-06: **🎉 FULL PIPELINE SUCCESS - All 14 Phases Working on Real Data**
   - ✅ **Fixed Critical Bug in Phase 06 (Feature Engineering)**: Resolved `'NoneType' object has no attribute 'fillna'` error
   - ✅ **Root Cause**: `pd.to_datetime()` and `pd.to_numeric()` returned `None` for missing columns, causing AttributeError
   - ✅ **Solution**: Added `_safe_to_datetime()` and `_safe_to_numeric()` helper functions that always return `pd.Series`
