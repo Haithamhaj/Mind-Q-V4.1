@@ -9,3 +9,6 @@ export { Layer2InsightsPanel } from "./layer2";
 export { Layer3IntelligencePanel, KnimeResultsPanel } from "./layer3";
 export { BiSection } from "./layout/BiSection";
 export { ChartExplainButton } from "./ChartExplainButton";
+export { RawDataViewer } from "./RawDataViewer";
+export { AdvancedExport } from "./AdvancedExport";
+export { DrillDownPanel } from "./DrillDownPanel";
