@@ -1,8 +1,56 @@
+# Python
 __pycache__/
 .venv/
+.venv310/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Data & Artifacts
 artifacts/
 *.parquet
 *.csv
+data/raw/
+data/processed/
+
+# Node.js & Frontend
+node_modules/
+.next/
+.turbo/
+out/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment & Secrets
 .env
+.env.local
+.env.production
+.env.development
+
+# OS & IDE
 .DS_Store
-.venv310/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+backend.log
+backend.err
+frontend.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
