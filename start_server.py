@@ -13,7 +13,11 @@ os.chdir(backend_dir)
 
 if __name__ == "__main__":
     import uvicorn
-    # Import after path setup
-    from backend.src.app.services.pipeline_api.app import app
-
-    uvicorn.run(app, host="0.0.0.0", port=9000, reload=False)
+    
+    # Use import string format for reload=True
+    uvicorn.run(
+        "backend.src.app.services.pipeline_api.app:app",
+        host="0.0.0.0",
+        port=9000,
+        reload=True
+    )

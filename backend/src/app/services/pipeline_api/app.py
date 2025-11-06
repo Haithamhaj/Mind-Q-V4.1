@@ -1130,6 +1130,21 @@ app = FastAPI(
     description="HTTP façade exposing Mind-Q pipeline phases for system integration.",
 )
 
+@app.get("/__debug/routes", include_in_schema=False)
+def debug_routes():
+    """Debug endpoint to inspect route configuration"""
+    info = []
+    for r in app.routes:
+        if hasattr(r, 'path') and r.path.startswith("/api/bi"):
+            info.append({
+                "path": r.path,
+                "name": getattr(r, 'name', None),
+                "methods": list(getattr(r, 'methods', [])),
+                "response_model": getattr(r, 'response_model', None).__name__ if getattr(r, 'response_model', None) else None,
+                "response_class": getattr(r, 'response_class', None).__name__ if getattr(r, 'response_class', None) else None
+            })
+    return info
+
 app.include_router(bi_router)
 app.include_router(pipeline_router)
 

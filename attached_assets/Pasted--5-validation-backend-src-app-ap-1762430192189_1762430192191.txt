@@ -1,0 +1,117 @@
+خطّ إصلاح سريع للتحقق خلال 5 دقائق
+
+أوقف أي validation على هذا المسار تحديدًا:
+
+# backend/src/app/api/bi/router.py
+from fastapi import APIRouter, Response
+
+router = APIRouter(prefix="/api/bi", tags=["bi"])
+
+@router.get("/orders", response_model=None)  # اجبر التعطيل
+async def get_orders_dataset(run: str | None = None, artifacts_root: str | None = None):
+    # جرّب أولاً استجابة ثابتة
+    return Response(content=b"[]", media_type="application/json")
+
+
+ثم اطلب:
+
+curl -i http://localhost:9000/api/bi/orders
+
+
+إذا اختفى الخطأ: تأكد أن الجاني هو response_model الموروث أو المُطبّق على مستوى الـRouter.
+
+اعزل أي response_model على مستوى الـRouter أو include_router:
+افحص تعريف الراوتر والإدراج:
+
+# ابحث عن أي من التالي:
+APIRouter(..., response_model=..., default_response_class=...)
+app.include_router(bi_router, prefix="/api/bi", tags=["bi"], responses=..., dependencies=...,  # أو response_model=...
+)
+
+
+إن وجدت response_model=... على مستوى الراوتر أو include_router، أزِله أو خصِّص استثناء للمسار /orders.
+
+أظهر الحقيقة: ماذا يعتقد FastAPI عن response_model فعلاً؟
+أضِف نقطة فحص مؤقتة:
+
+# backend/src/app/services/pipeline_api/app.py
+from fastapi import FastAPI
+app = FastAPI()
+
+@app.get("/__debug/routes", include_in_schema=False)
+def debug_routes():
+    info = []
+    for r in app.routes:
+        if getattr(r, "path", "").startswith("/api/bi"):
+            info.append({
+                "path": r.path,
+                "name": r.name,
+                "methods": list(getattr(r, "methods", [])),
+                "response_model": getattr(r, "response_model", None).__name__ if getattr(r, "response_model", None) else None
+            })
+    return info
+
+
+ثم:
+
+curl http://localhost:9000/__debug/routes
+
+
+توقّع أن ترى response_model مضبوطًا على /api/bi/orders. إن ظهر اسم موديل مثل BiDatasetResponse فأنت وجدت السبب حتى لو لم تره في ملف الراوتر نفسه.
+
+أصل الخطأ داخل الـModel
+
+في Pydantic v2، القيود لأنواع صحيحة يجب أن تستخدم أعدادًا صحيحة:
+
+# خطأ شائع:
+class BiDatasetResponse(BaseModel):
+    total_rows: int = Field(le=1e5)   # 1e5 = float -> يسبب TypeError
+
+# الصواب:
+class BiDatasetResponse(BaseModel):
+    total_rows: int = Field(le=100000)          # int
+    # أو لو أردتها float فحوّل الحقل إلى float:
+    # total_rows: float = Field(le=1e5)
+
+
+نفس الخطأ يظهر مع ge=0.0 على int أو conint(le=1e5) مع float.
+
+تنظيف طبقة المسار نهائيًا
+
+بعد التحقق، ثبّت واحدًا من الخيارين:
+
+تعطيل validation كليًا للمسار إن كان الملف كبيرًا ومجرّد JSON:
+
+@router.get("/orders", response_model=None)
+async def get_orders_dataset(...):
+    return FileResponse(json_file, media_type="application/json")
+
+
+أو عرّف response_model خفيفًا وصحيح القيود، وارجع هيكلًا واضحًا بدل ضَخ صفوف كاملة:
+
+class OrdersPreview(BaseModel):
+    row_count: int = Field(ge=0, le=1000000)  # أعداد صحيحة فقط
+    columns: list[str]
+    sample: list[dict]  # خذ أول N صفوف فقط
+
+@router.get("/orders", response_model=OrdersPreview)
+async def get_orders_dataset(..., limit: int = Query(5000, le=10000)):
+    # حضّر preview بدلاً من تفريغ كل شيء
+    ...
+    return OrdersPreview(row_count=row_count, columns=columns, sample=rows[:100])
+
+فحوصات سريعة إضافية
+
+تضارب مسارات: تأكد عدم وجود /api/bi/orders ثانٍ في مكان آخر:
+
+rg -n --hidden "/api/bi/orders" backend
+
+
+Middlewares: ابحث عن أي Middleware يلفّ الاستجابة ويعمل validation:
+
+rg -n "add_middleware|Middleware" backend/src/app/services/pipeline_api/app.py
+
+
+قِيَم Query/Path: تجنّب استخدام 1e4 في Query(...) مع نوع int. استخدم أعدادًا صحيحة:
+
+limit: int = Query(5000, le=10000)  # وليس le=1e4
