@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useMemo } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Database, Download, TrendingDown, ZoomIn } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, BarChart3, Database, Download, TrendingDown, ZoomIn } from "lucide-react";
 
 import { BiDataProvider, useFilteredDataset, useBiDimensions } from "../data";
-import { RawDataViewer, AdvancedExport, DrillDownPanel, type DrillDownData } from "../components";
+import { RawDataViewer, AdvancedExport, DrillDownPanel } from "../components";
+import type { DrillDownData } from "../components";
 import { FilterBar } from "../components/FilterBar";
 
 const RawDataDashboard: React.FC = () => {
@@ -59,11 +62,19 @@ const RawDataDashboard: React.FC = () => {
     <div className="container mx-auto space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">البيانات الخام والتحليل التفصيلي</h1>
-          <p className="text-muted-foreground">
-            استكشف البيانات الكاملة مع إمكانيات الفلترة والتصدير والتحليل التفصيلي
-          </p>
+        <div className="flex items-center gap-4">
+          <Link href="/bi">
+            <Button variant="outline" size="sm" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              <span>العودة إلى التحليلات</span>
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold">البيانات الخام والتحليل التفصيلي</h1>
+            <p className="text-muted-foreground">
+              استكشف البيانات الكاملة مع إمكانيات الفلترة والتصدير والتحليل التفصيلي
+            </p>
+          </div>
         </div>
         <AdvancedExport
           fileName="mind-q-raw-data"
@@ -108,9 +119,9 @@ const RawDataDashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {(dimensions?.categorical?.length || 0) + (dimensions?.temporal?.length || 0)}
+              {(dimensions?.categorical?.length || 0)}
             </div>
-            <p className="text-xs text-muted-foreground">بُعد تصنيفي وزمني</p>
+            <p className="text-xs text-muted-foreground">بُعد تصنيفي</p>
           </CardContent>
         </Card>
       </div>

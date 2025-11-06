@@ -1,6 +1,7 @@
 'use client';
 
 import React, { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { HelpTrigger } from '@/components/help/help-trigger';
@@ -47,7 +48,7 @@ import type {
 } from '../data';
 import { api, type BiCorrelationExplanation } from '@/lib/api';
 import { featureFlags } from '../../../config/features';
-import { Loader2, RefreshCcw } from 'lucide-react';
+import { Database, Loader2, RefreshCcw } from 'lucide-react';
 
 type ChatMessage = {
   role: 'user' | 'assistant';
@@ -1581,6 +1582,12 @@ const StoryBIContent: React.FC = () => {
               </p>
             </div>
             <div className="flex w-full flex-col items-end gap-3 sm:w-auto">
+              <Link href="/bi-raw">
+                <Button variant="outline" size="sm" className="gap-2 mb-2">
+                  <Database className="h-4 w-4" />
+                  <span>البيانات الخام</span>
+                </Button>
+              </Link>
               <div className="w-full max-w-sm rounded-2xl border border-border/50 bg-background/60 p-4 shadow-inner backdrop-blur">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

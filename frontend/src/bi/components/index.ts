@@ -11,4 +11,5 @@ export { BiSection } from "./layout/BiSection";
 export { ChartExplainButton } from "./ChartExplainButton";
 export { RawDataViewer } from "./RawDataViewer";
 export { AdvancedExport } from "./AdvancedExport";
-export { DrillDownPanel } from "./DrillDownPanel";
+export { DrillDownPanel, type DrillDownData } from "./DrillDownPanel";
+export { BiNavigation } from "./BiNavigation";
