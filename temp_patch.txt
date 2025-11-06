@@ -1,0 +1,27 @@
+*** Begin Patch
+*** Update File: phases/06_standardize/impl.py
+@@
+-    if filtered_exclusions:
+-        df_post = df_pre.drop(columns=filtered_exclusions, errors="ignore")
+-    else:
+-        df_post = df_pre.copy()
++    # Stage 05 outputs are authoritative; do not drop columns automatically here
++    if filtered_exclusions:
++        logs.append(
++            {
++                "event": "exclusions_ignored",
++                "requested": filtered_exclusions,
++                "reason": "stage05_authoritative_dataset",
++            }
++        )
++    df_post = df_pre.copy()
+@@
+-    if filtered_exclusions:
+-        logs.append({"event": "exclusions_protected", "columns": protected_hits})
+-    if ignored_keys:
+-        logs.append({"event": "exclusions_ignored", "columns": ignored_keys})
++    if filtered_exclusions:
++        logs.append({"event": "exclusions_protected", "columns": protected_hits})
++    if ignored_keys:
++        logs.append({"event": "exclusions_ignored", "columns": ignored_keys})
+*** End Patch

@@ -313,10 +313,10 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
     ]
     ignored_keys = [requested_exclusions_map.get(key, key) for key in ignored_keys_raw]
 
+    # Stage 05 outputs are authoritative; do not drop columns automatically here
     if filtered_exclusions:
-        df_post = df_pre.drop(columns=filtered_exclusions, errors="ignore")
-    else:
-        df_post = df_pre.copy()
+        logs.append({"event": "exclusions_requested_ignored", "columns": filtered_exclusions, "reason": "stage05_authoritative_dataset"})
+    df_post = df_pre.copy()
 
     if created_series is not None and "created_at" not in df_post.columns:
         df_post = df_post.copy()
@@ -405,6 +405,8 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         "features_pre": features_pre_path.as_posix(),
         "source_raw": raw_path.as_posix(),
         "exclusions_applied": filtered_exclusions,
+        "clean": clean_path.as_posix(),
+        "clean_dataset": clean_path.as_posix(),
     }
     if normalization_mapping_files:
         outputs["normalization_maps"] = normalization_mapping_files
