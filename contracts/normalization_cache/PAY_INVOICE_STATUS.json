@@ -27,7 +27,7 @@
     },
     {
       "original": "PAY_INVOICE_STATUS",
-      "normalized": "حالة فاتورة الدفع",
+      "normalized": "PAY INVOICE STATUS",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -68,5 +68,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-04T18:20:57.531298"
+  "updated_at": "2025-11-06T08:39:42.023342"
 }

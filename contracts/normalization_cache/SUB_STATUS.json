@@ -27,7 +27,7 @@
     },
     {
       "original": "SUB_STATUS",
-      "normalized": "الحالة الفرعية",
+      "normalized": "SUB_STATUS",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -182,5 +182,5 @@
       "source": "llm"
     }
   ],
-  "updated_at": "2025-11-04T15:08:34.596153"
+  "updated_at": "2025-11-06T08:39:42.217765"
 }

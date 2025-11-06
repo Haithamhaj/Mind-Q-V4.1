@@ -27,7 +27,7 @@
     },
     {
       "original": "3PLSTATUS",
-      "normalized": "حالة 3PL",
+      "normalized": "3PLSTATUS",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -236,5 +236,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-04T17:09:06.147553"
+  "updated_at": "2025-11-06T08:39:44.024462"
 }

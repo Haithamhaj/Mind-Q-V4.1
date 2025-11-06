@@ -27,7 +27,7 @@
     },
     {
       "original": "RECEIVER_MODE",
-      "normalized": "وضع الاستلام",
+      "normalized": "RECEIVER MODE",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -158,5 +158,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-04T17:08:05.567698"
+  "updated_at": "2025-11-06T08:39:41.384758"
 }

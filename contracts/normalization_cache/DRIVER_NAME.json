@@ -27,7 +27,7 @@
     },
     {
       "original": "DRIVER_NAME",
-      "normalized": "DRIVER_NAME",
+      "normalized": "DRIVER NAME",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -140,5 +140,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-06T08:31:31.761880"
+  "updated_at": "2025-11-06T08:39:43.836974"
 }

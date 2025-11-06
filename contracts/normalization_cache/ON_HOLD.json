@@ -27,7 +27,7 @@
     },
     {
       "original": "ON_HOLD",
-      "normalized": "حالة الانتظار",
+      "normalized": "ON HOLD",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -116,5 +116,5 @@
       "source": "llm"
     }
   ],
-  "updated_at": "2025-11-04T18:20:57.979213"
+  "updated_at": "2025-11-06T08:39:42.355416"
 }

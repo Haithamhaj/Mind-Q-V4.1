@@ -27,7 +27,7 @@
     },
     {
       "original": "ON_HOLD_REASON",
-      "normalized": "سبب التوقف",
+      "normalized": "ON HOLD REASON",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -104,5 +104,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-04T17:12:38.565429"
+  "updated_at": "2025-11-06T08:39:42.471030"
 }

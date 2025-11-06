@@ -27,7 +27,7 @@
     },
     {
       "original": "FORWARD_COMPANY",
-      "normalized": "شركة التوصيل",
+      "normalized": "FORWARD COMPANY",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -260,5 +260,5 @@
       "source": "llm"
     }
   ],
-  "updated_at": "2025-11-04T18:21:07.393135"
+  "updated_at": "2025-11-06T08:39:43.565570"
 }

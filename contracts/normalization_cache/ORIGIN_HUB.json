@@ -27,7 +27,7 @@
     },
     {
       "original": "ORIGIN_HUB",
-      "normalized": "مركز الانطلاق",
+      "normalized": "ORIGIN_HUB",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -122,5 +122,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-01T10:16:09.261853"
+  "updated_at": "2025-11-06T08:39:39.388231"
 }
