@@ -27,13 +27,13 @@
     },
     {
       "original": "ON_HOLD_REASON",
-      "normalized": "ON HOLD REASON",
+      "normalized": "سبب التوقف",
       "confidence": 1.0,
       "source": "terminology"
     },
     {
       "original": "shipment On hold by CSA",
-      "normalized": "سبب التوقف: الشحنة معلقة بواسطة CSA",
+      "normalized": "سبب التوقف: الشحنة في حالة التوقف بواسطة CSA",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -104,5 +104,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-06T08:39:42.471030"
+  "updated_at": "2025-11-06T09:05:26.210499"
 }

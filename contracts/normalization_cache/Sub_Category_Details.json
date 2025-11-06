@@ -27,7 +27,7 @@
     },
     {
       "original": "Sub_Category_Details",
-      "normalized": "Sub_Category_Details",
+      "normalized": "تفاصيل الفئة الفرعية",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -158,5 +158,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-06T08:39:44.239068"
+  "updated_at": "2025-11-06T09:06:24.339702"
 }

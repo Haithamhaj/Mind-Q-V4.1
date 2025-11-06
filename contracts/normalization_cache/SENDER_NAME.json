@@ -27,13 +27,13 @@
     },
     {
       "original": "SENDER_NAME",
-      "normalized": "SENDER NAME",
+      "normalized": "اسم المرسل",
       "confidence": 1.0,
       "source": "terminology"
     },
     {
       "original": "Aromatic Families",
-      "normalized": "Aromatic Families",
+      "normalized": "عائلات عطرية",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -57,8 +57,8 @@
     },
     {
       "original": "govyy",
-      "normalized": "govyy",
-      "confidence": 1.0,
+      "normalized": "غوفي",
+      "confidence": 0.8,
       "source": "llm"
     },
     {
@@ -123,7 +123,7 @@
     },
     {
       "original": "Clara Hair",
-      "normalized": "Clara Hair",
+      "normalized": "كلارا هير",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -135,7 +135,7 @@
     },
     {
       "original": "Ewar",
-      "normalized": "Ewar",
+      "normalized": "إيوار",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -174,7 +174,19 @@
       "normalized": "اسم المرسل",
       "confidence": 1.0,
       "source": "terminology"
+    },
+    {
+      "original": "عاصم",
+      "normalized": "عاصم",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "LEEN | dresses",
+      "normalized": "لين | فساتين",
+      "confidence": 0.9,
+      "source": "llm"
     }
   ],
-  "updated_at": "2025-11-06T08:39:39.945585"
+  "updated_at": "2025-11-06T09:04:54.236006"
 }

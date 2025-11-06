@@ -27,7 +27,7 @@
     },
     {
       "original": "SENDER_ADDRESS",
-      "normalized": "SENDER ADDRESS",
+      "normalized": "عنوان المرسل",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -110,5 +110,5 @@
       "source": "llm"
     }
   ],
-  "updated_at": "2025-11-06T08:39:40.169997"
+  "updated_at": "2025-11-06T09:04:54.423026"
 }

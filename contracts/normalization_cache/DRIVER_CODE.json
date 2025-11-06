@@ -27,7 +27,7 @@
     },
     {
       "original": "DRIVER_CODE",
-      "normalized": "DRIVER CODE",
+      "normalized": "رمز السائق",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -170,5 +170,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-06T08:39:43.708183"
+  "updated_at": "2025-11-06T09:05:49.324999"
 }
