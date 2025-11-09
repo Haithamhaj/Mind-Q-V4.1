@@ -4,7 +4,7 @@ import math
 import os
 import time
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 import httpx  # type: ignore
 
@@ -155,6 +155,71 @@ def _invoke_gemini(
     return LLMResponse("gemini", model, content, tokens_in, tokens_out, cost_estimate, elapsed)
 
 
+def _invoke_anthropic(
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    max_tokens: int,
+    temperature: float,
+    top_p: float,
+    timeout: int,
+) -> LLMResponse:
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY environment variable is required for Anthropic provider")
+
+    url = "https://api.anthropic.com/v1/messages"
+    headers = {
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
+    payload = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "top_p": top_p,
+        "system": system_prompt,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": user_prompt,
+                    }
+                ],
+            }
+        ],
+    }
+
+    start = time.perf_counter()
+    with httpx.Client(timeout=timeout) as client:
+        response = client.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+    elapsed = time.perf_counter() - start
+    data = response.json()
+    content_blocks = data.get("content", [])
+    output_parts = []
+    for block in content_blocks:
+        if isinstance(block, dict) and block.get("type") == "text":
+            output_parts.append(block.get("text", ""))
+    content = "\n".join(part for part in output_parts if part)
+    if not content:
+        raise RuntimeError("Anthropic response missing text content")
+
+    usage = data.get("usage", {})
+    tokens_in = int(usage.get("input_tokens", 0))
+    tokens_out = int(usage.get("output_tokens", 0))
+    if tokens_in == 0 and tokens_out == 0:
+        approx_in = max(1, (len(system_prompt) + len(user_prompt)) // 4)
+        approx_out = max(1, len(content) // 4)
+        tokens_in = approx_in
+        tokens_out = approx_out
+    cost_estimate = _estimate_cost("anthropic", model, tokens_in, tokens_out)
+    return LLMResponse("anthropic", model, content, tokens_in, tokens_out, cost_estimate, elapsed)
+
+
 def invoke_model(
     provider: str,
     model: str,
@@ -170,6 +235,8 @@ def invoke_model(
         return _invoke_openai(canonical_model, system_prompt, user_prompt, max_tokens, temperature, top_p, timeout)
     if provider == "gemini":
         return _invoke_gemini(canonical_model, system_prompt, user_prompt, max_tokens, temperature, top_p, timeout)
+    if provider == "anthropic":
+        return _invoke_anthropic(canonical_model, system_prompt, user_prompt, max_tokens, temperature, top_p, timeout)
     raise RuntimeError(f"Provider '{provider}' is not currently supported")
 
 

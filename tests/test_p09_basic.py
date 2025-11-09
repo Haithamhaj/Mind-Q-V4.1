@@ -101,3 +101,30 @@ def test_p09_warn_on_low_signal(tmp_path: Path) -> None:
     validation = json.loads((out_dir / "validation_report.json").read_text(encoding="utf-8"))
     assert validation["gate"]["status"] == "WARN"
     assert any("low-signal" in reason.lower() for reason in validation["gate"].get("reasons", []))
+
+
+def test_p09_textops_context(tmp_path: Path) -> None:
+    run_id = "run_textops"
+    artifacts_root = write_stage_artifacts(tmp_path, run_id, n_rows=8)
+    textops_dir = artifacts_root / run_id / "stage_03_5_textops"
+    textops_dir.mkdir(parents=True, exist_ok=True)
+    profile_payload = {
+        "columns": {
+            "NOTES": {
+                "top_tokens": [{"t": "delay", "c": 4}, {"t": "damage", "c": 2}],
+            }
+        }
+    }
+    (textops_dir / "text_profile.json").write_text(json.dumps(profile_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    sentiment_df = pl.DataFrame({"sentiment_score": [0.5, -0.6, -0.4, 0.2]})
+    sentiment_df.write_parquet((textops_dir / "sentiment_features.parquet").as_posix())
+    (textops_dir / "quality_findings.json").write_text(json.dumps({"warnings": ["Customers mention delays"]}, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    impl = load_impl()
+    impl.run(run_id, {}, {"artifacts_root": artifacts_root.as_posix()})
+
+    data_health = json.loads((artifacts_root / run_id / "stage_09_business_validation" / "data_health.json").read_text(encoding="utf-8"))
+    assert data_health.get("text_ops", {}).get("top_tokens")
+
+    ops_actions = json.loads((artifacts_root / run_id / "stage_09_business_validation" / "ops_actions.json").read_text(encoding="utf-8"))
+    assert any(action.get("entity_id") == "textops::sentiment" for action in ops_actions)

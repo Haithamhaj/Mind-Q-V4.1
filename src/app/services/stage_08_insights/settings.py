@@ -152,6 +152,8 @@ class Stage08Settings:
     enable_sentiment_pipeline: bool = True
 
     enable_sampling_logging: bool = True
+    enforce_readiness_gates: bool = True
+    textops_card_limit: int = 3
 
     @classmethod
     def from_config(cls, config: Optional[Mapping[str, object]]) -> "Stage08Settings":
@@ -267,6 +269,8 @@ class Stage08Settings:
         enable_text_pipeline = _to_bool(_get(lowered, "enable_text_pipeline", default=cls.enable_text_pipeline), cls.enable_text_pipeline)
         enable_sentiment_pipeline = _to_bool(_get(lowered, "enable_sentiment_pipeline", default=cls.enable_sentiment_pipeline), cls.enable_sentiment_pipeline)
         enable_sampling_logging = _to_bool(_get(lowered, "enable_sampling_logging", default=cls.enable_sampling_logging), cls.enable_sampling_logging)
+        enforce_readiness_gates = _to_bool(_get(lowered, "enforce_readiness_gates", default=cls.enforce_readiness_gates), cls.enforce_readiness_gates)
+        textops_card_limit = _to_int(_get(lowered, "textops_card_limit", default=cls.textops_card_limit), cls.textops_card_limit)
 
         return cls(
             artifacts_root=artifacts_root,
@@ -308,6 +312,8 @@ class Stage08Settings:
             enable_text_pipeline=enable_text_pipeline,
             enable_sentiment_pipeline=enable_sentiment_pipeline,
             enable_sampling_logging=enable_sampling_logging,
+            enforce_readiness_gates=enforce_readiness_gates,
+            textops_card_limit=textops_card_limit,
         )
 
 

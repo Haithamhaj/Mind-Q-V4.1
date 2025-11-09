@@ -153,7 +153,9 @@ def test_stage_07_6_fallback_outputs(tmp_path: Path) -> None:
     assert metrics["model"] == "heuristic"
     assert metrics["tokens_in"] == 0
     assert metrics["tokens_out"] == 0
+    assert metrics.get("cache_hit") is False
+    assert metrics.get("fallback_chain")
 
     with logs_path.open("r", encoding="utf-8") as handle:
         lines = handle.readlines()
-    assert any("budget_check" in line for line in lines)
+    assert any("llm_plan" in line for line in lines)

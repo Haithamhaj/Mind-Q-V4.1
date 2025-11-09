@@ -500,6 +500,15 @@ def _load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _load_optional_json(path: Path) -> Optional[Any]:
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
 def _load_inputs(run_id: str, settings: Stage08Settings) -> Dict[str, Path]:
     base = Path(settings.artifacts_root) / run_id
     corr_dir = base / "stage_07_correlations"
@@ -550,6 +559,7 @@ def _load_inputs(run_id: str, settings: Stage08Settings) -> Dict[str, Path]:
         "redundancy": corr_dir / "redundancy.json",
         "text_profile": base / "stage_03_5_textops" / "text_profile.json",
         "sentiment": base / "stage_03_5_textops" / "sentiment_features.parquet",
+        "text_findings": base / "stage_03_5_textops" / "quality_findings.json",
         "layer2_variance": feature_report_dir / "variance_analysis.json",
         "layer2_compare": feature_report_dir / "comparative_summary.json",
         "layer2_heatmap": feature_report_dir / "heatmap_matrix.json",
@@ -590,11 +600,276 @@ def _load_inputs(run_id: str, settings: Stage08Settings) -> Dict[str, Path]:
         analytics_outputs_dir / "correlation_matrix.json",
     )
     paths["forecast"] = _resolve_forecast_source()
+    paths["analytics_dq_summary"] = analytics_outputs_dir / "dq_summary.json"
+    paths["analytics_forecast_summary"] = analytics_outputs_dir / "forecast_summary.json"
+    paths["readiness_decision_manifest"] = readiness_dir / "decision_manifest.json"
+    paths["readiness_diagnostics"] = readiness_dir / "diagnostics.json"
+    paths["layer1_catalog"] = readiness_dir / "layer1_catalog.json"
+    paths["layer1_preview"] = readiness_dir / "layer1_preview.json"
+    paths["layer1_dataset"] = readiness_dir / "layer1_dataset.parquet"
+    paths["llm_summary_metrics"] = base / "stage_07_6_llm_summary" / "metrics.json"
 
     missing = [name for name, path in paths.items() if name in {"features", "correlations", "redundancy"} and not path.exists()]
     if missing:
         raise FileNotFoundError(f"Stage 08 inputs missing for run_id={run_id}: {', '.join(missing)}")
     return paths
+
+
+def _summarize_readiness(
+    manifest: Optional[Mapping[str, Any]],
+    diagnostics: Optional[Mapping[str, Any]],
+    layer1_catalog: Optional[Mapping[str, Any]],
+    layer1_preview_path: Path,
+    layer1_dataset_path: Path,
+) -> Dict[str, Any]:
+    overlay: Dict[str, Any] = {
+        "gate_status": (diagnostics or {}).get("gate_status"),
+        "gate_reasons": (diagnostics or {}).get("gate_reasons") or (manifest or {}).get("reasons"),
+        "actions": [],
+        "layer1": {},
+    }
+    entries = []
+    if manifest:
+        raw_entries = manifest.get("entries") or []
+        for entry in raw_entries[:10]:
+            if isinstance(entry, Mapping):
+                entries.append(
+                    {
+                        "action": entry.get("action"),
+                        "reason": entry.get("reason"),
+                        "features": entry.get("features"),
+                    }
+                )
+    overlay["actions"] = entries
+    if layer1_catalog:
+        overlay["layer1"] = {
+            "field_count": layer1_catalog.get("field_count"),
+            "row_count": layer1_catalog.get("row_count"),
+        }
+    if layer1_preview_path.exists():
+        overlay["layer1"]["preview"] = layer1_preview_path.as_posix()
+    if layer1_dataset_path.exists():
+        overlay["layer1"]["dataset"] = layer1_dataset_path.as_posix()
+    return overlay
+
+
+def _summarize_textops(
+    text_profile: Optional[Mapping[str, Any]],
+    findings: Optional[Mapping[str, Any]],
+    sentiment_df: Optional[pl.DataFrame],
+) -> Dict[str, Any]:
+    summary: Dict[str, Any] = {
+        "warnings": (findings or {}).get("warnings", []),
+        "errors": (findings or {}).get("errors", []),
+    }
+    if sentiment_df is not None and not sentiment_df.is_empty():
+        total = sentiment_df.height or 1
+        negative = sentiment_df.filter(pl.col("sentiment_score") < -0.2).height
+        summary["sentiment"] = {
+            "negative_pct": round(negative / total, 4),
+            "observations": total,
+        }
+    if text_profile:
+        columns = text_profile.get("columns") or {}
+        tokens: List[Dict[str, Any]] = []
+        for column, info in columns.items():
+            top_tokens = info.get("top_tokens") or []
+            for token in top_tokens[:3]:
+                if isinstance(token, Mapping):
+                    tokens.append(
+                        {
+                            "column": column,
+                            "token": token.get("t"),
+                            "count": token.get("c"),
+                        }
+                    )
+        summary["top_tokens"] = tokens[:5]
+    return summary
+
+
+def _summarize_analytics(
+    dq_summary: Optional[Mapping[str, Any]],
+    forecast_summary: Optional[Mapping[str, Any]],
+    forecast_path: Path,
+) -> Dict[str, Any]:
+    overlay: Dict[str, Any] = {}
+    if dq_summary:
+        overlay["dq"] = {
+            "total_rules": dq_summary.get("total_rules"),
+            "failed": dq_summary.get("failed"),
+            "critical_failures": dq_summary.get("critical_failures"),
+        }
+    if forecast_summary:
+        overlay["forecast"] = {
+            "horizon_days": forecast_summary.get("horizon_days"),
+            "historical_days": forecast_summary.get("historical_days"),
+        }
+        if forecast_path.exists():
+            overlay["forecast"]["dataset"] = forecast_path.as_posix()
+    return overlay
+
+
+def _summarize_llm(metrics: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
+    if not metrics:
+        return {}
+    return {
+        "provider": metrics.get("provider"),
+        "model": metrics.get("model"),
+        "cache_hit": metrics.get("cache_hit"),
+        "fallback_chain": metrics.get("fallback_chain", []),
+    }
+
+
+def _build_readiness_cards(readiness_overlay: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    cards: List[Dict[str, Any]] = []
+    actions = readiness_overlay.get("actions") or []
+    for entry in actions[:2]:
+        if not isinstance(entry, Mapping):
+            continue
+        feature_list = entry.get("features") or []
+        feature_text = ", ".join(feature_list) if isinstance(feature_list, list) else str(feature_list)
+        cards.append(
+            {
+                "title": "Readiness guardrail",
+                "what_we_see": entry.get("reason") or "Review readiness actions",
+                "where": feature_text or "Data quality",
+                "action_now": [entry.get("action") or "Review readiness decision."],
+                "expected_effect": "Removes blockers before KNIME/BI",
+                "priority": "High",
+                "kpi": "data_quality",
+                "window": "Pre-analytics",
+                "n": None,
+            }
+        )
+    return cards
+
+
+def _build_dq_cards(analytics_overlay: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    cards: List[Dict[str, Any]] = []
+    dq = analytics_overlay.get("dq") if isinstance(analytics_overlay, Mapping) else None
+    if dq and dq.get("critical_failures"):
+        cards.append(
+            {
+                "title": "Data quality risks",
+                "what_we_see": f"{dq.get('critical_failures')} critical rule failures in Stage 07 analytics.",
+                "where": "Analytics",
+                "action_now": ["Address critical DQ failures highlighted in Stage 07 analytics."],
+                "expected_effect": "Prevents misleading correlations",
+                "priority": "High",
+                "kpi": "data_quality",
+                "window": "Validation",
+                "n": None,
+            }
+        )
+    return cards
+
+
+def _build_textops_cards(textops_overlay: Mapping[str, Any], *, limit: int) -> List[Dict[str, Any]]:
+    cards: List[Dict[str, Any]] = []
+    top_tokens = textops_overlay.get("top_tokens") or []
+    warnings = textops_overlay.get("warnings") or []
+    sentiment = textops_overlay.get("sentiment") or {}
+    if warnings:
+        cards.append(
+            {
+                "title": "Customer sentiment flags",
+                "what_we_see": warnings[0],
+                "where": "TextOps",
+                "action_now": ["Review SLA/TextOps findings and route to ops owner."],
+                "expected_effect": "Proactive mitigation of customer pain points",
+                "priority": "Medium",
+                "kpi": "csat",
+                "window": "TextOps",
+                "n": None,
+            }
+        )
+    if top_tokens:
+        for token in top_tokens[:limit]:
+            cards.append(
+                {
+                    "title": f"Feedback hotspot: {token.get('token')}",
+                    "what_we_see": f"Appears in {token.get('column')} ({token.get('count')} mentions)",
+                    "where": "TextOps",
+                    "action_now": ["Trace impacted orders and respond to customers."],
+                    "expected_effect": "Reduce repeated complaints",
+                    "priority": "Medium",
+                    "kpi": "csat",
+                    "window": "TextOps",
+                    "n": token.get("count"),
+                }
+            )
+    if sentiment and sentiment.get("negative_pct", 0) > 0.25:
+        cards.append(
+            {
+                "title": "High negative sentiment",
+                "what_we_see": f"Negative tone detected in {sentiment.get('negative_pct'):.0%} of feedback",
+                "where": "Customer feedback",
+                "action_now": ["Escalate to customer success and adjust SOPs."],
+                "expected_effect": "Protect NPS",
+                "priority": "High",
+                "kpi": "csat",
+                "window": "TextOps",
+                "n": sentiment.get("observations"),
+            }
+        )
+    return cards
+
+
+def _build_supplemental_cards(
+    readiness_overlay: Mapping[str, Any],
+    analytics_overlay: Mapping[str, Any],
+    textops_overlay: Mapping[str, Any],
+    llm_overlay: Mapping[str, Any],
+    settings: Stage08Settings,
+) -> List[Dict[str, Any]]:
+    cards: List[Dict[str, Any]] = []
+    if readiness_overlay:
+        cards.extend(_build_readiness_cards(readiness_overlay))
+    if analytics_overlay:
+        cards.extend(_build_dq_cards(analytics_overlay))
+    if textops_overlay:
+        cards.extend(_build_textops_cards(textops_overlay, limit=getattr(settings, "textops_card_limit", 3)))
+    if llm_overlay.get("provider") == "heuristic":
+        cards.append(
+            {
+                "title": "LLM summary fallback",
+                "what_we_see": "LLM provider unavailable; heuristics used instead.",
+                "where": "LLM Summary",
+                "action_now": ["Provide LLM credentials or re-run Stage 07.6."],
+                "expected_effect": "Restores executive narratives",
+                "priority": "Low",
+                "kpi": "insights_completeness",
+                "window": "Narratives",
+                "n": None,
+            }
+        )
+    return cards
+
+
+def _apply_external_warnings(
+    gate_status: str,
+    gate_reasons: List[str],
+    readiness_overlay: Mapping[str, Any],
+    analytics_overlay: Mapping[str, Any],
+    llm_overlay: Mapping[str, Any],
+    *,
+    enforce_readiness: bool,
+) -> Tuple[str, List[str]]:
+    status = gate_status
+    reasons = list(gate_reasons)
+    readiness_gate = readiness_overlay.get("gate_status") if isinstance(readiness_overlay, Mapping) else None
+    if enforce_readiness and readiness_gate in {"WARN", "STOP"}:
+        reasons.append(f"Stage 07 readiness reported {readiness_gate} status.")
+        if readiness_gate == "STOP" and status == "PASS":
+            status = "WARN"
+    dq = analytics_overlay.get("dq") if isinstance(analytics_overlay, Mapping) else None
+    if dq and dq.get("critical_failures"):
+        reasons.append("Stage 07 analytics detected critical data quality failures.")
+        if status == "PASS":
+            status = "WARN"
+    if llm_overlay.get("provider") == "heuristic":
+        reasons.append("LLM summary fell back to heuristics; narratives may be conservative.")
+    return status, reasons
 
 def _infer_stage07_origin(path: Path) -> str:
     path_str = path.as_posix().lower()
@@ -1665,6 +1940,24 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
     redundancy = _load_json(paths["redundancy"])
     text_profile = _load_json(paths["text_profile"]) if paths["text_profile"].exists() else None
     sentiment_df = pl.read_parquet(paths["sentiment"].as_posix()) if paths["sentiment"].exists() else None
+    text_findings = _load_optional_json(paths["text_findings"])
+    readiness_manifest = _load_optional_json(paths["readiness_decision_manifest"])
+    readiness_diag = _load_optional_json(paths["readiness_diagnostics"])
+    layer1_catalog = _load_optional_json(paths["layer1_catalog"])
+    dq_summary = _load_optional_json(paths["analytics_dq_summary"])
+    forecast_summary = _load_optional_json(paths["analytics_forecast_summary"])
+    llm_metrics = _load_optional_json(paths["llm_summary_metrics"])
+
+    readiness_overlay = _summarize_readiness(
+        readiness_manifest,
+        readiness_diag,
+        layer1_catalog,
+        paths["layer1_preview"],
+        paths["layer1_dataset"],
+    )
+    textops_overlay = _summarize_textops(text_profile, text_findings, sentiment_df)
+    analytics_overlay = _summarize_analytics(dq_summary, forecast_summary, paths["forecast"])
+    llm_overlay = _summarize_llm(llm_metrics)
 
     preflight = _preflight_checks(features_df, correlations, settings, tz, geo_policy)
 
@@ -1819,12 +2112,27 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
         any(record.flags.small_n or record.flags.simpson for record in records),
         settings,
     )
+    gate_status, gate_reasons = _apply_external_warnings(
+        gate_status,
+        gate_reasons,
+        readiness_overlay,
+        analytics_overlay,
+        llm_overlay,
+        enforce_readiness=settings.enforce_readiness_gates,
+    )
 
     official_payloads = [record.to_official_payload() for record in official]
     candidate_payloads = [record.to_candidate_payload() for record in exploratory]
 
     _validate_records(official_payloads, OFFICIAL_REQUIRED_FIELDS, OFFICIAL_ALLOWED_FIELDS, "official_insights")
     _validate_records(candidate_payloads, CANDIDATE_REQUIRED_FIELDS, CANDIDATE_ALLOWED_FIELDS, "insight_candidates")
+
+    story_context = {
+        "readiness": readiness_overlay,
+        "analytics": analytics_overlay,
+        "text_ops": textops_overlay,
+        "llm_summary": llm_overlay,
+    }
 
     insights_payload = {
         "run_id": run_id,
@@ -1846,6 +2154,7 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
             "sentiment": paths["sentiment"].as_posix() if sentiment_df is not None else None,
         },
         "insights": official_payloads,
+        "context": story_context,
     }
     _write_json(out_dir / "insights_report.json", insights_payload)
 
@@ -1862,6 +2171,13 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
     warnings = list(preflight.get("warnings", []))
     if low_signal_count:
         warnings.append("Low-signal fallback candidates present; treat as exploratory signals.")
+    if readiness_overlay.get("gate_status") in {"WARN", "STOP"}:
+        warnings.append("Stage 07 readiness reported gating blockers.")
+    dq_overlay = analytics_overlay.get("dq") if isinstance(analytics_overlay, Mapping) else None
+    if dq_overlay and dq_overlay.get("critical_failures"):
+        warnings.append("Stage 07 analytics detected critical data-quality failures.")
+    if llm_overlay.get("provider") == "heuristic":
+        warnings.append("LLM summary fell back to heuristics; narratives are advisory.")
     notes = ["All signals are associative, not causal."]
     if low_signal_count:
         notes.append(f"{low_signal_count} candidate(s) generated via low-signal KPI fallback.")
@@ -1906,6 +2222,10 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
         },
         "coverage_report": coverage_summary,
         "notes": notes,
+        "readiness": readiness_overlay,
+        "analytics": analytics_overlay,
+        "textops": textops_overlay,
+        "llm_summary": llm_overlay,
         "policy": {
             "path": str(policy_path),
             "geo_warn_threshold": geo_warn_threshold,
@@ -1938,20 +2258,28 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
     }
     _write_json(out_dir / "gate.json", gate_payload)
 
+    supplemental_cards = _build_supplemental_cards(
+        readiness_overlay,
+        analytics_overlay,
+        textops_overlay,
+        llm_overlay,
+        settings,
+    )
+    story_items = _story_cards(official, coverage_summary) + supplemental_cards
     story_payload = {
         "run_id": run_id,
         "confidence_note": "Confidence = f(strength, stability, coverage). Non-causal.",
-        "items": _story_cards(official, coverage_summary),
+        "items": story_items,
+        "context": story_context,
     }
     _write_json(out_dir / "story_ops.json", story_payload)
-    
+
     # Generate cards.json (extract cards from story_ops)
-    cards = _story_cards(official, coverage_summary)
     cards_payload = {
         "run_id": run_id,
         "generated_at": datetime.now(tz).isoformat(),
-        "count": len(cards),
-        "cards": cards,
+        "count": len(story_items),
+        "cards": story_items,
     }
     _write_json(out_dir / "cards.json", cards_payload)
     

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import time
 import hashlib
@@ -17,6 +18,7 @@ from shared.logging import setup_logger  # type: ignore
 
 TOKEN_PATTERN = re.compile(r"(phone|mobile|msisdn|email|name)", re.IGNORECASE)
 CARD_MAX_CHARS = 700
+DEFAULT_PROVIDER_PLAN: Tuple[str, ...] = ("openai", "anthropic", "gemini")
 
 
 class RecommendationModel(BaseModel):
@@ -84,6 +86,60 @@ def _schema_hash(payload: Mapping[str, Any]) -> str:
 
 def _rough_token_estimate(text: str) -> int:
     return max(1, math.ceil(len(text) / 4))
+
+
+def _llm_provider_plan(config: Mapping[str, Any]) -> List[Tuple[str, Optional[str]]]:
+    plan: List[Tuple[str, Optional[str]]] = []
+    raw_plan = config.get("providers") if isinstance(config, Mapping) else None
+    if isinstance(raw_plan, str):
+        entries = [entry.strip() for entry in raw_plan.split(",") if entry.strip()]
+        plan.extend((entry, None) for entry in entries)
+    elif isinstance(raw_plan, Sequence):
+        for entry in raw_plan:
+            if isinstance(entry, str):
+                plan.append((entry.strip(), None))
+            elif isinstance(entry, Mapping):
+                provider_name = str(entry.get("provider") or entry.get("name") or "").strip()
+                if provider_name:
+                    model_name = entry.get("model")
+                    plan.append((provider_name, str(model_name)) if model_name else (provider_name, None))
+    if not plan:
+        env_plan = os.getenv("MINDQ_LLM_PROVIDERS")
+        if env_plan:
+            entries = [entry.strip() for entry in env_plan.split(",") if entry.strip()]
+            plan.extend((entry, None) for entry in entries)
+    if not plan:
+        plan.extend((provider, None) for provider in DEFAULT_PROVIDER_PLAN)
+    # Preserve order while removing duplicates
+    ordered: List[Tuple[str, Optional[str]]] = []
+    seen: set[str] = set()
+    for provider, model in plan:
+        key = provider.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append((provider, model))
+    return ordered
+
+
+def _llm_cache_key(provider: str, model: str, prompt_hash: str) -> str:
+    return hashlib.sha256(f"{provider}|{model}|{prompt_hash}".encode("utf-8")).hexdigest()
+
+
+def _read_cache(cache_dir: Path, cache_key: str) -> Optional[Dict[str, Any]]:
+    cache_file = cache_dir / f"{cache_key}.json"
+    if not cache_file.exists():
+        return None
+    try:
+        return json.loads(cache_file.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _write_cache(cache_dir: Path, cache_key: str, payload: Mapping[str, Any]) -> None:
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_file = cache_dir / f"{cache_key}.json"
+    cache_file.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 MODEL_RATES = {
@@ -408,90 +464,215 @@ def run(run_id: str, inputs: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, A
         allowed_columns = [col for col in allowed_columns if col in focus_set]
     logs.append({"event": "column_scope", "allowed": allowed_columns, "excluded": list(exclude_cols), "focus": focus_cols})
 
-    budget_usd = float(cfg.get("budget_usd", 0.5))
-    provider = str(cfg.get("llm_provider", "openai"))
-    model = str(cfg.get("llm_model") or _default_model(provider))
-    max_tokens = int(cfg.get("max_tokens", 1200))
-    temperature = float(cfg.get("temperature", 0.1))
-    top_p = float(cfg.get("top_p", 0.0))
+    llm_cfg = cfg.get("llm") if isinstance(cfg.get("llm"), Mapping) else {}
+    budget_usd = float(llm_cfg.get("budget_usd", cfg.get("budget_usd", 0.5)))
+    provider_plan = _llm_provider_plan(llm_cfg)
+    max_tokens = int(llm_cfg.get("max_tokens", cfg.get("max_tokens", 1200)))
+    temperature = float(llm_cfg.get("temperature", cfg.get("temperature", 0.1)))
+    top_p = float(llm_cfg.get("top_p", cfg.get("top_p", 0.0)))
+    timeout = int(llm_cfg.get("timeout", cfg.get("timeout", 60)))
+    cache_enabled = bool(llm_cfg.get("cache_enabled", True))
 
     system_prompt, user_prompt, per_column_cards, prompt_hash = _build_prompt(allowed_columns, report, focus_cols)
     estimated_prompt_tokens = _rough_token_estimate(system_prompt) + _rough_token_estimate(user_prompt)
     estimated_completion_tokens = max_tokens
-    estimated_cost = _estimate_cost(provider, model, estimated_prompt_tokens, estimated_completion_tokens)
 
     logs.append(
         {
-            "event": "budget_check",
-            "provider": provider,
-            "model": model,
-            "estimated_cost": estimated_cost,
+            "event": "llm_plan",
             "budget": budget_usd,
+            "estimated_prompt_tokens": estimated_prompt_tokens,
+            "max_tokens": max_tokens,
+            "providers": [{"provider": prov, "model": mdl or _default_model(prov)} for prov, mdl in provider_plan],
         }
     )
 
+    output_dir = artifacts_root / run_id / "stage_07_6_llm_summary"
+    _ensure_dir(output_dir)
+    cache_dir = output_dir / "_cache"
+
     llm_payload: Optional[SummaryPayload] = None
     metrics_payload: Dict[str, Any] = {}
+    fallback_chain: List[Dict[str, Any]] = []
+    cache_hit = False
+    provider_used: Optional[str] = None
+    model_used: Optional[str] = None
 
-    if math.isfinite(estimated_cost) and estimated_cost <= budget_usd and allowed_columns:
-        attempt_logs: List[Dict[str, Any]] = []
-        for attempt in range(3):
-            try:
-                response = llm_adapter.invoke_model(
-                    provider=provider,
-                    model=model,
-                    system_prompt=system_prompt,
-                    user_prompt=user_prompt,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    top_p=top_p,
-                    timeout=60,
+    llm_allowed = bool(allowed_columns and provider_plan)
+    if llm_allowed:
+        for provider_name, model_hint in provider_plan:
+            candidate_model = str(model_hint or _default_model(provider_name))
+            estimated_cost = _estimate_cost(
+                provider_name,
+                candidate_model,
+                estimated_prompt_tokens,
+                estimated_completion_tokens,
+            )
+            if math.isfinite(estimated_cost) and estimated_cost > budget_usd:
+                fallback_chain.append(
+                    {
+                        "provider": provider_name,
+                        "model": candidate_model,
+                        "status": "skipped_budget",
+                        "estimated_cost": round(estimated_cost, 4),
+                        "budget": budget_usd,
+                    }
                 )
-                attempt_logs.append({"event": "llm_attempt", "attempt": attempt + 1, "status": "success"})
-                parsed = json.loads(response.content)
-                payload = SummaryPayload.model_validate(parsed)
-                invalid_refs = _valid_recommendations(report, [rec.model_dump() for rec in payload.recommendations])
-                payload.invalid_references = invalid_refs
-                llm_payload = payload
-                metrics_payload = {
-                    "provider": provider,
-                    "model": response.model,
-                    "tokens_in": response.tokens_in,
-                    "tokens_out": response.tokens_out,
-                    "cost_estimate": response.cost_estimate,
-                    "duration_s": response.duration_s,
-                    "prompt_hash": prompt_hash,
-                    "response_hash": hashlib.sha256(response.content.encode("utf-8")).hexdigest(),
-                }
+                continue
+
+            cache_key = _llm_cache_key(provider_name, candidate_model, prompt_hash)
+            cached_payload = _read_cache(cache_dir, cache_key) if cache_enabled else None
+            if cached_payload:
+                try:
+                    cached_summary = SummaryPayload.model_validate(cached_payload.get("summary", {}))
+                except Exception:
+                    cached_payload = None
+                else:
+                    llm_payload = cached_summary
+                    metrics_payload = cached_payload.get("metrics", {})
+                    metrics_payload.setdefault("provider", provider_name)
+                    metrics_payload.setdefault("model", candidate_model)
+                    metrics_payload["cache_hit"] = True
+                    cache_hit = True
+                    provider_used = provider_name
+                    model_used = candidate_model
+                    fallback_chain.append({"provider": provider_name, "model": candidate_model, "status": "cache_hit"})
+                    break
+
+            attempt_logs: List[Dict[str, Any]] = []
+            for attempt in range(3):
+                try:
+                    response = llm_adapter.invoke_model(
+                        provider=provider_name,
+                        model=candidate_model,
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        top_p=top_p,
+                        timeout=timeout,
+                    )
+                    parsed = json.loads(response.content)
+                    payload = SummaryPayload.model_validate(parsed)
+                    invalid_refs = _valid_recommendations(
+                        report, [rec.model_dump() for rec in payload.recommendations]
+                    )
+                    payload.invalid_references = invalid_refs
+                    if invalid_refs:
+                        attempt_logs.append(
+                            {
+                                "event": "llm_attempt",
+                                "attempt": attempt + 1,
+                                "provider": provider_name,
+                                "model": response.model,
+                                "status": "invalid_references",
+                                "invalid": invalid_refs,
+                            }
+                        )
+                        fallback_chain.append(
+                            {
+                                "provider": provider_name,
+                                "model": response.model,
+                                "status": "invalid_references",
+                                "attempt": attempt + 1,
+                            }
+                        )
+                        continue
+                    llm_payload = payload
+                    provider_used = provider_name
+                    model_used = response.model
+                    metrics_payload = {
+                        "provider": provider_name,
+                        "model": response.model,
+                        "tokens_in": response.tokens_in,
+                        "tokens_out": response.tokens_out,
+                        "cost_estimate": response.cost_estimate,
+                        "duration_s": response.duration_s,
+                        "prompt_hash": prompt_hash,
+                        "response_hash": hashlib.sha256(response.content.encode("utf-8")).hexdigest(),
+                        "cache_hit": False,
+                    }
+                    fallback_chain.append(
+                        {
+                            "provider": provider_name,
+                            "model": response.model,
+                            "status": "success",
+                            "attempt": attempt + 1,
+                        }
+                    )
+                    if cache_enabled:
+                        _write_cache(
+                            cache_dir,
+                            cache_key,
+                            {
+                                "summary": payload.model_dump(mode="json"),
+                                "metrics": {k: v for k, v in metrics_payload.items() if k not in {"fallback_chain", "cache_hit"}},
+                            },
+                        )
+                    break
+                except (ValidationError, json.JSONDecodeError) as exc:
+                    attempt_logs.append(
+                        {
+                            "event": "llm_attempt",
+                            "attempt": attempt + 1,
+                            "provider": provider_name,
+                            "model": candidate_model,
+                            "status": "invalid_json",
+                            "error": str(exc),
+                        }
+                    )
+                    fallback_chain.append(
+                        {
+                            "provider": provider_name,
+                            "model": candidate_model,
+                            "status": "invalid_json",
+                            "attempt": attempt + 1,
+                        }
+                    )
+                except Exception as exc:  # pragma: no cover
+                    attempt_logs.append(
+                        {
+                            "event": "llm_attempt",
+                            "attempt": attempt + 1,
+                            "provider": provider_name,
+                            "model": candidate_model,
+                            "status": "error",
+                            "error": str(exc),
+                        }
+                    )
+                    fallback_chain.append(
+                        {
+                            "provider": provider_name,
+                            "model": candidate_model,
+                            "status": "error",
+                            "attempt": attempt + 1,
+                        }
+                    )
+            logs.extend(attempt_logs)
+            if llm_payload:
                 break
-            except (ValidationError, json.JSONDecodeError) as exc:
-                attempt_logs.append({"event": "llm_attempt", "attempt": attempt + 1, "status": "invalid_json", "error": str(exc)})
-            except Exception as exc:  # pragma: no cover
-                attempt_logs.append({"event": "llm_attempt", "attempt": attempt + 1, "status": "error", "error": str(exc)})
-        logs.extend(attempt_logs)
 
     if llm_payload and not llm_payload.invalid_references:
         summary_output = llm_payload
-        # Ensure metrics_payload is set if not already (shouldn't happen, but defensive)
         if not metrics_payload:
             metrics_payload = {
-                "provider": provider,
-                "model": model,
+                "provider": provider_used or (provider_plan[0][0] if provider_plan else "unknown"),
+                "model": model_used or (provider_plan[0][1] or _default_model(provider_plan[0][0])) if provider_plan else "unknown",
                 "tokens_in": 0,
                 "tokens_out": 0,
                 "cost_estimate": 0.0,
                 "duration_s": time.perf_counter() - start,
                 "prompt_hash": prompt_hash,
                 "response_hash": "",
+                "cache_hit": cache_hit,
             }
     else:
         executive_summary, recommendations = _generate_fallback_summary(run_id, report, allowed_columns, kpi_targets)
         summary_output = SummaryPayload(
             executive_summary=executive_summary,
-            recommendations=[RecommendationModel(**item) for item in recommendations] or [RecommendationModel(column_name="ملخص", reason="لا توجد توصيات محددة.", evidence_key="summary.n_rows")],
+            recommendations=[RecommendationModel(**item) for item in recommendations] or [RecommendationModel(column_name="????", reason="?? ???? ?????? ?????.", evidence_key="summary.n_rows")],
             invalid_references=[],
         )
-        # Always set metrics_payload for fallback case
         metrics_payload = {
             "provider": "heuristic",
             "model": "heuristic",
@@ -501,11 +682,12 @@ def run(run_id: str, inputs: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, A
             "duration_s": time.perf_counter() - start,
             "prompt_hash": prompt_hash,
             "response_hash": "",
+            "cache_hit": False,
         }
+        fallback_chain.append({"provider": "heuristic", "status": "used"})
         logs.append({"event": "fallback", "reason": "heuristic"})
 
-    output_dir = artifacts_root / run_id / "stage_07_6_llm_summary"
-    _ensure_dir(output_dir)
+    metrics_payload["fallback_chain"] = fallback_chain
 
     exec_path = output_dir / "executive_summary.md"
     exec_path.write_text(summary_output.executive_summary + "\n", encoding="utf-8")
@@ -551,8 +733,8 @@ def run(run_id: str, inputs: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, A
         "system_prompt": system_prompt,
         "user_prompt": user_prompt,
         "prompt_hash": prompt_hash,
-        "provider": provider,
-        "model": model,
+        "provider": metrics_payload.get("provider"),
+        "model": metrics_payload.get("model"),
         "max_tokens": max_tokens,
         "temperature": temperature,
         "top_p": top_p,

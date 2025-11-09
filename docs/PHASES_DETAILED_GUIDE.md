@@ -8,7 +8,7 @@
 ---
 
 ## 🏗️ Architecture Overview
-The **Mind-Q** platform is an end-to-end data engineering and analytics framework tailored for logistics and delivery operators. The production controller currently executes the following pipeline order (aligned with `PIPELINE_PHASE_SEQUENCE` in `backend/src/app/services/pipeline_api/app.py`): `01_ingestion → 02_quality → 03_schema → 04_profile → 05_missing → 06_standardize → 07_readiness → 07_5_feature_report → 07_6_llm_summary (conditional) → 07_7_business_correlations → 07_knime_bridge (mode dependent) → 08_insights → 09_business_validation → 10_bi`. Optional utilities such as Stage 03.5 TextOps, Stage 07 analytics/timeseries, Stage 09.5 causal advisory, and Stage 12 routing remain manual/opt-in and are called out explicitly in their respective sections.
+The **Mind-Q** platform is an end-to-end data engineering and analytics framework tailored for logistics and delivery operators. The production controller currently executes the following pipeline order (aligned with `PIPELINE_PHASE_SEQUENCE` in `backend/src/app/services/pipeline_api/app.py`): `01_ingestion → 02_quality → 03_schema → 03_5_textops → 04_profile → 05_missing → 06_standardize → 07_readiness → 07_5_feature_report → 07_6_llm_summary → 07_7_business_correlations → 07_analytics → 07_timeseries → 07_knime_bridge → 08_insights → 09_business_validation → 09_5_causal → 10_bi → 12_routing`. Each optional phase (TextOps, analytics/timeseries, causal advisory, routing) is now part of the official flow and is toggled via explicit CLI/API flags, so the progress tracker always reveals when a step is skipped versus executed.
 
 ### 📊 Core Phase Groups
 1. **Data Foundation (Stages 01-04)**: ingestion, quality, schema, profiling  
@@ -720,7 +720,7 @@ artifacts/{run_id}/stage_07_5_feature_report/
 ### Stage 07.6: LLM Summary
 
 #### Stage Definition
-Stage 07.6 converts the statistical feature report into an Arabic executive summary with actionable recommendations using configurable LLM providers, with heuristic fallbacks when credentials are absent.
+Stage 07.6 converts the statistical feature report into an Arabic executive summary with actionable recommendations using configurable LLM providers, with heuristic fallbacks when credentials are absent. The phase now supports multi-provider cascades (OpenAI → Anthropic → Gemini by default), response caching keyed by prompt hash, and exposes the full `fallback_chain` plus `cache_hit` flags in `metrics.json` for downstream awareness.
 
 #### Inputs
 - `inputs["report"]`: Stage 07.5 `report.json`.
@@ -880,7 +880,11 @@ artifacts/{run_id}/stage_07_knime_bridge/profile/
 ### Stage 08: Insights
 
 #### Stage Definition
-Stage 08 applies governed statistical analysis to generate actionable business insights, combining feature readiness outputs, correlation artifacts, TextOps sentiment, and KPI policies into ranked “official” and “exploratory” recommendations.
+Stage 08 applies governed statistical analysis to generate actionable business insights, combining feature readiness outputs, correlation artifacts, TextOps sentiment, and KPI policies into ranked "official" and "exploratory" recommendations.
+
+- **Readiness + analytics aware**: the engine now consumes Stage 07 readiness diagnostics and the Python analytics DQ/forecast summaries. WARN/STOP signals automatically downgrade Stage 08 gate status, inject readiness action cards into `story_ops.json`, and expose `readiness`, `analytics`, `textops`, and `llm_summary` sections inside `diagnostics.json`.
+- **TextOps + LLM transparency**: Stage 03.5 findings and sentiment stats are folded into `data_health` and `story` contexts, while Stage 07.6 `metrics.json` flags heuristic/cached runs so downstream teams know when to re-run with alternate providers.
+- **Shared story context**: `insights_report.json`, `story_ops.json`, and `cards.json` now export a `context` payload that carries readiness, analytics, TextOps, and LLM metadata forward to Stage 09/10 and BI consumers without manual joins.
 
 #### Inputs
 - `inputs["features"]`: Stage 06 feature dataset (defaults to `stage_06_feature_eng/features.parquet`).
@@ -950,7 +954,7 @@ Stage 09 Business Validation reconciles operational KPIs, SLA contracts, and Sta
 Executives and operations managers need vetted SLA %, RTO %, lead-time percentiles, and concrete actions before board meetings or daily war rooms. This stage delivers those outputs with lineage back to raw data, highlighting issues that require intervention.
 
 #### Operational Mechanics
-- **Input harmonization**: Pulls Stage 01 ingestion metadata, Stage 06 standardized/engineered features, Stage 08 insights, and SLA/KPI contracts into Polars frames (TextOps inputs are not consumed here).
+- **Input harmonization**: Pulls Stage 01 ingestion metadata, Stage 06 standardized/engineered features, Stage 08 insights, SLA/KPI contracts, plus Stage 03.5 TextOps artifacts (profile, findings, sentiment) when present so `data_health.json` and `ops_actions.json` capture complaint hotspots alongside numeric KPIs.
 - **Ops fact preparation**: Derives entity IDs, normalizes timestamps to the configured zone, computes lead-time/SLA/RTO flags, and enriches with COD segmentation.
 - **KPI evaluation**: Executes DuckDB expressions from `models.KPICatalog` to calculate KPI suite (SLA %, RTO %, COD rate, lead-time quantiles) with effect sizes imported from insights evidence.
 - **Validation & gating**: Generates `validation_report.json`, whitelist/blacklist feeds, and `ops_actions.json` capturing guard breaches, missing columns, and remediation steps.
@@ -1064,6 +1068,7 @@ Business intelligence teams require ready-to-load datasets with consistent time 
 
 #### Operational Mechanics
 - **Fact mart generation**: Copies Stage 09 fact tables (`bi_feed`, `row_decisions`, `benchmarks`, `segment_insights`) into `marts/` with standardized filenames.
+- **Insight context propagation**: Reads Stage 09 `data_health.json`/`ops_actions.json` (including TextOps sentiment) and Stage 08 story context so the published `insights.json` carries a lightweight `context` block for dashboards without re-hydrating upstream artifacts.
 - **Semantic layer assembly**: Builds `semantic/metrics.yaml`, `dimensions.json`, and supporting metadata based on column policies and Stage 09 outputs.
 - **Insight packaging**: Converts official and candidate insights into JSON feeds (`insights.json`, `insights_candidates.json`) suitable for BI or downstream APIs.
 - **Tile export**: Mirrors aggregated tiles (`bi_tiles/`) into a BI-friendly structure, preserving time-grain metadata.

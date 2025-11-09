@@ -23,6 +23,7 @@ from src.app.api.pipeline import router as pipeline_router
 from src.app.services.pipeline_api.timeline import build_run_timeline
 from src.app.services.stage_07_knime_bridge import impl as knime_bridge_impl
 from shared.run_events import PhaseRunRecorder, derive_phase_identity
+from shared.stage_paths import Stage06Paths, resolve_stage06_paths
 
 try:  # pragma: no cover - optional patch for modern Polars
     import polars as pl  # type: ignore
@@ -52,9 +53,11 @@ PHASE_MODULES = {
     "06_standardize": "phases.06_standardize.impl",
     "06_feature_eng": "phases.06_feature_eng.impl",
     "07_readiness": "phases.07_readiness.impl",
+    "07_analytics": "backend.src.app.services.stage_07_analytics.impl",
     "07_7_business_correlations": "phases.07_7_business_correlations.impl",
     "07_5_feature_report": "phases.07_5_feature_report.impl",
     "07_6_llm_summary": "phases.07_6_llm_summary.impl",
+    "07_timeseries": "backend.src.app.services.stage_07_timeseries.impl",
     "07_knime_bridge": "src.app.services.stage_07_knime_bridge.impl",
     "08_insights": "src.app.services.stage_08_insights.impl",
     "09_business_validation": "phases.09_business_validation.impl",
@@ -180,11 +183,30 @@ PIPELINE_PHASE_SEQUENCE: Tuple[str, ...] = (
     "07_5_feature_report",
     "07_6_llm_summary",
     "07_7_business_correlations",
+    "07_analytics",
+    "07_timeseries",
     "07_knime_bridge",
     "08_insights",
     "09_business_validation",
+    "09_5_causal",
     "10_bi",
+    "12_routing",
 )
+
+
+@lru_cache(maxsize=256)
+def _stage06_paths_cache(run_id: str, artifacts_root: str) -> Stage06Paths:
+    return resolve_stage06_paths(run_id, Path(artifacts_root))
+
+
+def _stage06_paths(run_id: str, artifacts_root: Path) -> Stage06Paths:
+    return _stage06_paths_cache(run_id, artifacts_root.as_posix())
+
+
+def _build_active_phases(request: "PipelineRequest") -> List[str]:
+    # Optional phases remain part of the canonical ordering so pipeline_progress
+    # can report them as skipped when disabled by flags.
+    return list(PIPELINE_PHASE_SEQUENCE)
 
 
 def _isoformat(ts: float) -> str:
@@ -553,6 +575,59 @@ class PipelineRequest(BaseModel):
         default=False,
         description="If true, Stage 07.6 LLM summary will be attempted (requires LLM credentials).",
     )
+    run_textops: bool = Field(
+        default=True,
+        description="Toggle Stage 03.5 TextOps execution during the flow.",
+    )
+    run_stage07_analytics: bool = Field(
+        default=False,
+        description="Enable the Python-based Stage 07 analytics suite.",
+    )
+    run_stage07_timeseries: bool = Field(
+        default=False,
+        description="Enable Stage 07 timeseries forecast templates (requires timeseries_inputs).",
+    )
+    run_causal: bool = Field(
+        default=False,
+        description="Enable the optional Stage 09.5 causal advisory run.",
+    )
+    run_routing: bool = Field(
+        default=False,
+        description="Enable the optional Stage 12 routing optimization run.",
+    )
+    timeseries_inputs: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Explicit inputs for Stage 07 timeseries (e.g., timeseries_path, column overrides).",
+    )
+    routing_inputs: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Explicit scenario payload for Stage 12 routing.",
+    )
+    causal_problem_name: Optional[str] = Field(
+        default=None,
+        description="Name of the causal problem to run during Stage 09.5.",
+    )
+
+    @root_validator(skip_on_failure=True)
+    def _validate_optional_flags(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        timeseries_inputs = values.get("timeseries_inputs")
+        if timeseries_inputs and not values.get("run_stage07_timeseries"):
+            values["run_stage07_timeseries"] = True
+        if values.get("run_stage07_timeseries") and not timeseries_inputs:
+            raise ValueError("Stage 07 timeseries requires timeseries_inputs when enabled.")
+
+        routing_inputs = values.get("routing_inputs")
+        if routing_inputs and not values.get("run_routing"):
+            values["run_routing"] = True
+        if values.get("run_routing") and not routing_inputs:
+            raise ValueError("Stage 12 routing requires routing_inputs when enabled.")
+
+        causal_problem = values.get("causal_problem_name")
+        if causal_problem and not values.get("run_causal"):
+            values["run_causal"] = True
+        if values.get("run_causal") and not causal_problem:
+            raise ValueError("Stage 09.5 causal advisory requires causal_problem_name when enabled.")
+        return values
 
 
 class PipelineResponse(BaseModel):
@@ -623,23 +698,19 @@ def _default_stage01_inputs(run_id: str, artifacts_root: Path) -> Dict[str, Any]
 
 
 def _default_raw(run_id: str, artifacts_root: Path) -> Path:
-    return artifacts_root / run_id / "stage_01_ingestion" / "raw.parquet"
+    return _stage06_paths(run_id, artifacts_root).raw
 
 
 def _default_imputed(run_id: str, artifacts_root: Path) -> Path:
-    base = artifacts_root / run_id / "stage_05_missing"
-    clean = base / "clean_imputed.parquet"
-    if clean.exists():
-        return clean
-    return base / "imputed.parquet"
+    return _stage06_paths(run_id, artifacts_root).resolved_imputed()
 
 
 def _default_features(run_id: str, artifacts_root: Path) -> Path:
-    return artifacts_root / run_id / "stage_06_feature_eng" / "features.parquet"
+    return _stage06_paths(run_id, artifacts_root).resolved_features()
 
 
 def _default_curated(run_id: str, artifacts_root: Path) -> Path:
-    return artifacts_root / run_id / "stage_06_feature_eng" / "features.curated.parquet"
+    return _stage06_paths(run_id, artifacts_root).resolved_curated()
 
 
 def _default_readiness(run_id: str, artifacts_root: Path) -> Path:
@@ -741,14 +812,32 @@ def _default_inputs_for_phase(phase_key: str, run_id: str, artifacts_root: Path)
     if phase_key == "07_readiness":
         features = _ensure_exists(_default_features(run_id, artifacts_root), label="Stage 06 features.parquet")
         return {"raw": features.as_posix()}
+    if phase_key == "07_analytics":
+        features = _ensure_exists(_default_features(run_id, artifacts_root), label="Stage 06 features.parquet")
+        readiness_dir = _default_readiness(run_id, artifacts_root)
+        payload: Dict[str, Any] = {"features": features.as_posix()}
+        schema_candidate = artifacts_root / run_id / "stage_03_schema" / "schema_v1.json"
+        if schema_candidate.exists():
+            payload["schema"] = schema_candidate.as_posix()
+        readiness_report = readiness_dir / "readiness_report.json"
+        if readiness_report.exists():
+            payload["readiness_report"] = readiness_report.as_posix()
+        decision_manifest = readiness_dir / "decision_manifest.json"
+        if decision_manifest.exists():
+            payload["decision_manifest"] = decision_manifest.as_posix()
+        feature_report = artifacts_root / run_id / "stage_07_5_feature_report" / "report.json"
+        if feature_report.exists():
+            payload["feature_report"] = feature_report.as_posix()
+        return payload
     if phase_key == "07_7_business_correlations":
         features = _ensure_exists(_default_features(run_id, artifacts_root), label="Stage 06 features.parquet")
         return {"features": features.as_posix()}
     if phase_key == "07_5_feature_report":
-        features = _ensure_exists(_default_features(run_id, artifacts_root), label="Stage 06 features.parquet")
+        stage06 = _stage06_paths(run_id, artifacts_root)
+        features = _ensure_exists(stage06.features, label="Stage 06 features.parquet")
         readiness_dir = _ensure_exists(_default_readiness(run_id, artifacts_root), label="Stage 07 readiness directory")
         decision_manifest = _ensure_exists(readiness_dir / "decision_manifest.json", label="decision_manifest.json")
-        feature_spec = readiness_dir.parent / "stage_06_feature_eng" / "feature_spec.json"
+        feature_spec = stage06.feature_spec
         payload: Dict[str, Any] = {
             "features": features.as_posix(),
             "decision_manifest": decision_manifest.as_posix(),
@@ -756,6 +845,8 @@ def _default_inputs_for_phase(phase_key: str, run_id: str, artifacts_root: Path)
         if feature_spec.exists():
             payload["feature_spec"] = feature_spec.as_posix()
         return payload
+    if phase_key == "07_timeseries":
+        raise ValueError("Stage 07 timeseries requires explicit inputs; defaults unavailable.")
     if phase_key == "07_6_llm_summary":
         report = _ensure_exists(
             base / "stage_07_5_feature_report" / "report.json", label="Stage 07.5 report.json"
@@ -766,11 +857,14 @@ def _default_inputs_for_phase(phase_key: str, run_id: str, artifacts_root: Path)
             payload["kpis"] = kpis.as_posix()
         return payload
     if phase_key == "07_knime_bridge":
-        features = _ensure_exists(_default_features(run_id, artifacts_root), label="Stage 06 features.parquet")
+        stage06 = _stage06_paths(run_id, artifacts_root)
+        features = _ensure_exists(stage06.features, label="Stage 06 features.parquet")
         payload = {"features": features.as_posix()}
-        layer1_candidate = features.parent / "layer1_dataset.parquet"
-        if layer1_candidate.exists():
-            payload["layer1_dataset"] = layer1_candidate.as_posix()
+        layer1_dataset, layer1_schema = stage06.layer1_assets()
+        if layer1_dataset.exists():
+            payload["layer1_dataset"] = layer1_dataset.as_posix()
+        if layer1_schema.exists():
+            payload["layer1_schema"] = layer1_schema.as_posix()
         readiness_dir = _default_readiness(run_id, artifacts_root)
         readiness_report = readiness_dir / "readiness_report.json"
         if readiness_report.exists():
@@ -816,7 +910,8 @@ def _default_inputs_for_phase(phase_key: str, run_id: str, artifacts_root: Path)
             payload["sentiment"] = sentiment.as_posix()
         return payload
     if phase_key == "09_business_validation":
-        clean_path = _ensure_exists(_default_features(run_id, artifacts_root), label="Stage 06 features.parquet")
+        stage06 = _stage06_paths(run_id, artifacts_root)
+        clean_path = _ensure_exists(stage06.features, label="Stage 06 features.parquet")
         insights_path = _ensure_exists(
             base / "stage_08_insights" / "insights_report.json",
             label="Stage 08 insights_report.json",
@@ -825,6 +920,16 @@ def _default_inputs_for_phase(phase_key: str, run_id: str, artifacts_root: Path)
             "clean": clean_path.as_posix(),
             "insights": insights_path.as_posix(),
         }
+        textops_dir = base / "stage_03_5_textops"
+        text_profile = textops_dir / "text_profile.json"
+        if text_profile.exists():
+            payload["text_profile"] = text_profile.as_posix()
+        sentiment = textops_dir / "sentiment_features.parquet"
+        if sentiment.exists():
+            payload["text_sentiment"] = sentiment.as_posix()
+        findings = textops_dir / "quality_findings.json"
+        if findings.exists():
+            payload["text_findings"] = findings.as_posix()
         rules_dir = PROJECT_ROOT / "configs" / "rules"
         if rules_dir.exists():
             payload["rules"] = rules_dir.as_posix()
@@ -838,6 +943,10 @@ def _default_inputs_for_phase(phase_key: str, run_id: str, artifacts_root: Path)
         if what_if.exists():
             payload["what_if"] = what_if.as_posix()
         return payload
+    if phase_key == "09_5_causal":
+        raise ValueError("Stage 09.5 causal requires explicit inputs; defaults unavailable.")
+    if phase_key == "12_routing":
+        raise ValueError("Stage 12 routing requires explicit inputs; defaults unavailable.")
     raise ValueError(f"No default resolver implemented for phase {phase_key}")
 
 
@@ -1427,6 +1536,52 @@ async def run_phase07_7(run_id: str, request: PhaseRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+@app.post("/v1/runs/{run_id}/phases/07/analytics", tags=["phases"])
+async def run_phase07_analytics(run_id: str, request: PhaseRequest) -> Dict[str, Any]:
+    artifacts_root = _resolve_artifacts_root(request.artifacts_root)
+    inputs = dict(request.inputs or {})
+    if request.use_defaults:
+        defaults = _default_inputs_for_phase("07_analytics", run_id, artifacts_root)
+        inputs = _merge_dicts(defaults, inputs)
+    config = dict(request.config or {})
+    config.setdefault("artifacts_root", artifacts_root.as_posix())
+
+    def _execute():
+        _ensure_exists(Path(inputs["features"]).expanduser().resolve(), label="Stage 07 analytics features")
+        return _run_standard_phase(PHASE_MODULES["07_analytics"], run_id, inputs, config, artifacts_root)
+
+    try:
+        return await _run_sync(_execute)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/v1/runs/{run_id}/phases/07/timeseries", tags=["phases"])
+async def run_phase07_timeseries(run_id: str, request: PhaseRequest) -> Dict[str, Any]:
+    artifacts_root = _resolve_artifacts_root(request.artifacts_root)
+    inputs = dict(request.inputs or {})
+    if request.use_defaults and not inputs:
+        raise HTTPException(status_code=400, detail="Stage 07 timeseries requires explicit inputs")
+    config = dict(request.config or {})
+    config.setdefault("artifacts_root", artifacts_root.as_posix())
+
+    def _execute():
+        if not inputs:
+            raise ValueError("Stage 07 timeseries requires explicit inputs")
+        return _run_standard_phase(PHASE_MODULES["07_timeseries"], run_id, inputs, config, artifacts_root)
+
+    try:
+        return await _run_sync(_execute)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @app.post("/v1/runs/{run_id}/phases/07/knime-bridge", tags=["phases"])
 async def run_phase07_knime_bridge(run_id: str, request: PhaseRequest) -> Dict[str, Any]:
     artifacts_root = _resolve_artifacts_root(request.artifacts_root)
@@ -1495,6 +1650,27 @@ async def run_phase09(run_id: str, request: PhaseRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+@app.post("/v1/runs/{run_id}/phases/09_5/causal", tags=["phases"])
+async def run_phase09_5(run_id: str, request: PhaseRequest) -> Dict[str, Any]:
+    problem_name = None
+    if request.inputs:
+        problem_name = request.inputs.get("problem_name")
+    if not problem_name and request.config:
+        problem_name = request.config.get("problem_name")
+    if not problem_name:
+        raise HTTPException(status_code=400, detail="Stage 09.5 requires problem_name")
+    try:
+        from src.app.services.stage_09_5_causal_inference.impl import run as run_causal
+
+        result = await run_causal(run_id=run_id, problem_name=problem_name)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    status = "SKIP" if result.get("skipped") else "PASS"
+    return {"run_id": run_id, "status": status, "result": result}
+
+
 @app.post("/v1/runs/{run_id}/phases/10/bi", tags=["phases"])
 async def run_phase10(run_id: str, request: PhaseRequest) -> Dict[str, Any]:
     artifacts_root = _resolve_artifacts_root(request.artifacts_root)
@@ -1510,6 +1686,30 @@ async def run_phase10(run_id: str, request: PhaseRequest) -> Dict[str, Any]:
         return await _run_sync(_execute)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/v1/runs/{run_id}/phases/12/routing", tags=["phases"])
+async def run_phase12(run_id: str, request: PhaseRequest) -> Dict[str, Any]:
+    artifacts_root = _resolve_artifacts_root(request.artifacts_root)
+    inputs = dict(request.inputs or {})
+    if request.use_defaults and not inputs:
+        raise HTTPException(status_code=400, detail="Stage 12 routing requires explicit inputs")
+    config = dict(request.config or {})
+    config.setdefault("artifacts_root", artifacts_root.as_posix())
+
+    def _execute():
+        if not inputs:
+            raise ValueError("Stage 12 routing requires explicit inputs")
+        return _run_standard_phase(PHASE_MODULES["12_routing"], run_id, inputs, config, artifacts_root)
+
+    try:
+        return await _run_sync(_execute)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -1817,7 +2017,7 @@ async def _run_full_pipeline_impl(run_id: str, request: PipelineRequest, artifac
         shared_llm_config["llm_credentials_file"] = request.llm_credentials_file
     _prepare_llm_environment(shared_llm_config)
 
-    active_phases: List[str] = list(PIPELINE_PHASE_SEQUENCE)
+    active_phases: List[str] = _build_active_phases(request)
     skipped_phases: Set[str] = set()
     if not request.llm_summary:
         skipped_phases.add("07_6_llm_summary")
@@ -1927,7 +2127,18 @@ async def _run_full_pipeline_impl(run_id: str, request: PipelineRequest, artifac
         await _run_phase("02_quality", run_phase02(run_id, _phase_request()))
         await _run_phase("03_schema", run_phase03(run_id, _phase_request()))
         
-        textops_task = await _run_async_phase("03_5_textops", run_phase03_5(run_id, _phase_request()))
+        if request.run_textops:
+            textops_task = await _run_async_phase("03_5_textops", run_phase03_5(run_id, _phase_request()))
+        else:
+            skipped_phases.add("03_5_textops")
+            phases_results.append(
+                {
+                    "phase": "03_5_textops",
+                    "status": "SKIP",
+                    "reason": "Stage 03.5 disabled for this run",
+                }
+            )
+            _record_progress()
         
         await _run_phase("04_profile", run_phase04(run_id, _phase_request()))
         await _run_phase("05_missing", run_phase05(run_id, _phase_request()))
@@ -1962,6 +2173,40 @@ async def _run_full_pipeline_impl(run_id: str, request: PipelineRequest, artifac
             "07_7_business_correlations",
             run_phase07_7(run_id, _phase_request()),
         )
+
+        if request.run_stage07_analytics:
+            await _run_phase("07_analytics", run_phase07_analytics(run_id, _phase_request()))
+        else:
+            skipped_phases.add("07_analytics")
+            phases_results.append(
+                {
+                    "phase": "07_analytics",
+                    "status": "SKIP",
+                    "reason": "Stage 07 analytics disabled for this run",
+                }
+            )
+            _record_progress()
+
+        if request.run_stage07_timeseries:
+            if not request.timeseries_inputs:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Stage 07 timeseries requires timeseries_inputs when enabled",
+                )
+            ts_request = _phase_request(use_defaults=False)
+            ts_request.inputs = dict(request.timeseries_inputs)
+            await _run_phase("07_timeseries", run_phase07_timeseries(run_id, ts_request))
+        else:
+            skipped_phases.add("07_timeseries")
+            phases_results.append(
+                {
+                    "phase": "07_timeseries",
+                    "status": "SKIP",
+                    "reason": "Stage 07 timeseries disabled for this run",
+                }
+            )
+            _record_progress()
+
         knime_phase_request = _phase_request()
         knime_config = dict(knime_phase_request.config or {})
         knime_config.setdefault("artifacts_root", artifacts_root.as_posix())
@@ -2021,6 +2266,25 @@ async def _run_full_pipeline_impl(run_id: str, request: PipelineRequest, artifac
             "09_business_validation",
             run_phase09(run_id, _phase_request()),
         )
+        if request.run_causal:
+            if not request.causal_problem_name:
+                raise HTTPException(status_code=400, detail="Stage 09.5 requires causal_problem_name when enabled")
+            causal_phase_request = PhaseRequest(
+                artifacts_root=artifacts_root.as_posix(),
+                use_defaults=False,
+                inputs={"problem_name": request.causal_problem_name},
+            )
+            await _run_phase("09_5_causal", run_phase09_5(run_id, causal_phase_request))
+        else:
+            skipped_phases.add("09_5_causal")
+            phases_results.append(
+                {
+                    "phase": "09_5_causal",
+                    "status": "SKIP",
+                    "reason": "Stage 09.5 causal advisory disabled for this run",
+                }
+            )
+            _record_progress()
         await _run_phase(
             "10_bi",
             run_phase10(
@@ -2028,6 +2292,25 @@ async def _run_full_pipeline_impl(run_id: str, request: PipelineRequest, artifac
                 _phase_request(use_defaults=False),
             ),
         )
+        if request.run_routing:
+            if not request.routing_inputs:
+                raise HTTPException(status_code=400, detail="Stage 12 routing requires routing_inputs when enabled")
+            routing_request = PhaseRequest(
+                artifacts_root=artifacts_root.as_posix(),
+                use_defaults=False,
+                inputs=dict(request.routing_inputs),
+            )
+            await _run_phase("12_routing", run_phase12(run_id, routing_request))
+        else:
+            skipped_phases.add("12_routing")
+            phases_results.append(
+                {
+                    "phase": "12_routing",
+                    "status": "SKIP",
+                    "reason": "Stage 12 routing disabled for this run",
+                }
+            )
+            _record_progress()
         final_status = "completed_with_deferred" if deferred_phases else "completed"
         _record_progress(status=final_status, current=None)
     except HTTPException as exc:

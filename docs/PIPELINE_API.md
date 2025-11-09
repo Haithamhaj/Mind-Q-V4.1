@@ -29,8 +29,20 @@ curl -X POST http://localhost:9000/v1/runs/fastcoo/phases/01/ingestion \
      -H "Content-Type: application/json" \
      -d '{
            "data_files": ["C:/data/Fastcoo_LM_Data.csv"],
-           "sla_files": ["C:/contracts/fastcoo_sla.pdf"]
+           "sla_files": ["C:/contracts/fastcoo_sla.csv"],
+           "run_textops": true,
+           "run_stage07_analytics": true,
+           "run_stage07_timeseries": false,
+           "timeseries_inputs": null,
+           "llm_summary": true,
+           "run_causal": false,
+           "causal_problem_name": null,
+           "run_routing": false,
+           "routing_inputs": null,
+           "stop_on_error": true
          }'
+
+> ?????? ??? ??? ?????????? ?????? `run_stage07_timeseries`, `run_causal`, `run_routing` ??? ??? ?????? `true`: ??? ????? ?????? `timeseries_inputs`, `causal_problem_name`, ??? `routing_inputs` ?? ?????? API ???? CLI ??? ??????.
 ```
 
 ### 2. المرحلة 02 – quality
@@ -42,15 +54,20 @@ curl -X POST http://localhost:9000/v1/runs/fastcoo/phases/02/quality \
 
 نفس النمط ينطبق على بقية المراحل:
 - `/v1/runs/{run_id}/phases/03/schema`
+- `/v1/runs/{run_id}/phases/03_5/textops`
 - `/v1/runs/{run_id}/phases/04/profile`
 - `/v1/runs/{run_id}/phases/05/missing`
-- `/v1/runs/{run_id}/phases/06/standardize` (يعيد نتائج standardize & feature_eng)
+- `/v1/runs/{run_id}/phases/06/standardize` (???? ????? standardize & feature_eng)
 - `/v1/runs/{run_id}/phases/07/readiness`
 - `/v1/runs/{run_id}/phases/07/feature-report`
-- `/v1/runs/{run_id}/phases/07/llm-summary` (يتطلب مفاتيح LLM عند `llm_summary=true`)
+- `/v1/runs/{run_id}/phases/07/llm-summary` (????? ?????? LLM ??? `llm_summary=true`)
+- `/v1/runs/{run_id}/phases/07/analytics`
+- `/v1/runs/{run_id}/phases/07/timeseries`
+- `/v1/runs/{run_id}/phases/07/knime-bridge`
 - `/v1/runs/{run_id}/phases/08/insights`
 - `/v1/runs/{run_id}/phases/09/business-validation`
 - `/v1/runs/{run_id}/phases/09_5_causal` (?????? ????? causal advisory - OPT-IN)
+- `/v1/runs/{run_id}/phases/12/routing` (?????? ????? routing optimization - OPT-IN)
 
 تمكين `use_defaults=false` يسمح بتمرير مسارات الإدخال أو إعدادات مخصصة:
 ```bash

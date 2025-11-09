@@ -293,6 +293,70 @@ def _make_artifacts(
     return artifacts_root
 
 
+def test_stage08_supplemental_context(tmp_path: Path) -> None:
+    run_id = "ctx"
+    artifacts_root = _make_artifacts(tmp_path, run_id)
+    base = artifacts_root / run_id
+
+    readiness_dir = base / "stage_07_readiness"
+    readiness_dir.mkdir(parents=True, exist_ok=True)
+    (readiness_dir / "diagnostics.json").write_text(
+        json.dumps({"gate_status": "WARN", "gate_reasons": ["missing_layer1"]}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    manifest_payload = {
+        "reasons": ["layer1 incomplete"],
+        "entries": [
+            {"action": "collect_addresses", "reason": "missing geo", "features": ["address", "city"]},
+        ],
+    }
+    (readiness_dir / "decision_manifest.json").write_text(json.dumps(manifest_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    (readiness_dir / "layer1_catalog.json").write_text(
+        json.dumps({"field_count": 12, "row_count": 1000}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (readiness_dir / "layer1_preview.json").write_text(json.dumps([{"AWB": "1"}], ensure_ascii=False, indent=2), encoding="utf-8")
+    layer1_df = pl.DataFrame({"AWB": ["1"], "CITY": ["RUH"]})
+    layer1_df.write_parquet((readiness_dir / "layer1_dataset.parquet").as_posix())
+
+    analytics_dir = base / "phase_07_analytics" / "outputs"
+    analytics_dir.mkdir(parents=True, exist_ok=True)
+    (analytics_dir / "dq_summary.json").write_text(
+        json.dumps({"critical_failures": 2, "failed": 3}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    textops_dir = base / "stage_03_5_textops"
+    textops_dir.mkdir(parents=True, exist_ok=True)
+    (textops_dir / "quality_findings.json").write_text(
+        json.dumps({"warnings": ["Customers mention delays"]}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    llm_dir = base / "stage_07_6_llm_summary"
+    llm_dir.mkdir(parents=True, exist_ok=True)
+    (llm_dir / "metrics.json").write_text(
+        json.dumps({"provider": "heuristic", "fallback_chain": [{"provider": "openai", "status": "error"}]}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    impl.run(run_id, {}, {"artifacts_root": artifacts_root.as_posix()})
+
+    insights_dir = base / "stage_08_insights"
+    diagnostics = json.loads((insights_dir / "diagnostics.json").read_text(encoding="utf-8"))
+    assert diagnostics.get("readiness", {}).get("actions")
+    assert diagnostics.get("analytics", {}).get("dq", {}).get("critical_failures") == 2
+    assert diagnostics.get("textops", {}).get("warnings")
+
+    story_payload = json.loads((insights_dir / "story_ops.json").read_text(encoding="utf-8"))
+    assert story_payload.get("context", {}).get("text_ops")
+
+    cards_payload = json.loads((insights_dir / "cards.json").read_text(encoding="utf-8"))
+    assert cards_payload["count"] == len(story_payload.get("items", []))
+
+    insights_report = json.loads((insights_dir / "insights_report.json").read_text(encoding="utf-8"))
+    assert insights_report.get("context", {}).get("llm_summary", {}).get("provider") == "heuristic"
+
 def _run_stage(tmp_path: Path, run_id: str, config: Optional[Dict[str, Any]] = None, *, features: Optional[pl.DataFrame] = None, correlations: Optional[list[Dict[str, Any]]] = None, redundancy: Optional[Dict[str, Any]] = None) -> tuple[Dict[str, Any], Path]:
     artifacts_root = _make_artifacts(tmp_path, run_id, features=features, correlations=correlations, redundancy=redundancy)
     base_config: Dict[str, Any] = {

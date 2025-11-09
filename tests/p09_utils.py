@@ -152,26 +152,22 @@ def write_stage_artifacts(
 
 
 def load_impl():
-    import importlib.util
+    import importlib
+    import sys
 
     project_root = Path(__file__).resolve().parents[1]
-    impl_path = project_root / "phases" / "09_business_validation" / "impl.py"
-    spec = importlib.util.spec_from_file_location("phase09_impl", impl_path.as_posix())
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Unable to load phase 09 implementation from {impl_path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    root_str = project_root.as_posix()
+    if root_str not in sys.path:
+        sys.path.insert(0, root_str)
+    return importlib.import_module("phases.09_business_validation.impl")
 
 
 def load_models():
-    import importlib.util
+    import importlib
+    import sys
 
     project_root = Path(__file__).resolve().parents[1]
-    models_path = project_root / "phases" / "09_business_validation" / "models.py"
-    spec = importlib.util.spec_from_file_location("phase09_models", models_path.as_posix())
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Unable to load phase 09 models from {models_path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    root_str = project_root.as_posix()
+    if root_str not in sys.path:
+        sys.path.insert(0, root_str)
+    return importlib.import_module("phases.09_business_validation.models")

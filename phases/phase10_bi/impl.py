@@ -552,6 +552,7 @@ def _build_insights_payload(
     metrics_catalog: str,
     dimensions_catalog: str,
     sources: Mapping[str, Optional[str]],
+    extra_context: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     generated_at = payload.get("generated_at")
     if not isinstance(generated_at, str) or not generated_at.strip():
@@ -579,7 +580,7 @@ def _build_insights_payload(
 
     summary = payload.get("summary") if isinstance(payload.get("summary"), Mapping) else None
 
-    return {
+    result = {
         "generated_at": generated_at,
         "metrics_catalog": metrics_catalog,
         "dimensions_catalog": dimensions_catalog,
@@ -592,6 +593,9 @@ def _build_insights_payload(
             "by_type": stats_by_type,
         },
     }
+    if extra_context:
+        result["context"] = dict(extra_context)
+    return result
 
 
 def include_causal_advisory(run_id: str, artifacts_root: Path, marts_dir: Path) -> Optional[Path]:
@@ -1204,6 +1208,18 @@ def run(run_id: str, inputs: Optional[Mapping[str, Any]], config: Optional[Mappi
     dimensions_path = semantic_dir / DIMENSIONS_FILENAME
     dimensions_path.write_text(json.dumps(dimensions_payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    data_health_payload = _load_json(stage09_dir / "data_health.json")
+    ops_actions_payload = _load_json(stage09_dir / "ops_actions.json")
+    text_ops_context = data_health_payload.get("text_ops") if isinstance(data_health_payload, Mapping) else None
+    ops_highlights: List[Dict[str, Any]] = []
+    if isinstance(ops_actions_payload, list):
+        ops_highlights = [item for item in ops_actions_payload[:5] if isinstance(item, Mapping)]
+    insights_extra_context = {
+        "text_ops": text_ops_context,
+        "ops_alerts": ops_highlights,
+        "data_health_path": (stage09_dir / "data_health.json").as_posix(),
+    }
+
     insights_output = _build_insights_payload(
         insights_payload,
         metrics_catalog=_relative_path(metrics_yaml_path, stage10_dir),
@@ -1213,6 +1229,7 @@ def run(run_id: str, inputs: Optional[Mapping[str, Any]], config: Optional[Mappi
             "stage09": stage09_dir.as_posix() if stage09_dir.exists() else None,
             "stage10": stage10_dir.as_posix(),
         },
+        extra_context=insights_extra_context,
     )
     insights_path = insights_dir / INSIGHTS_FILENAME
     insights_path.write_text(json.dumps(insights_output, ensure_ascii=False, indent=2), encoding="utf-8")

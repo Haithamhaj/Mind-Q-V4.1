@@ -721,9 +721,14 @@ def _bi_feed(
 ) -> pl.DataFrame:
     joined = source_df.join(decisions_df, on="entity_id", how="left")
     joined = joined.with_columns(pl.col("decision").fill_null("APPROVE"))
-    explain_keys = joined["entity_id"].apply(lambda value: models.stable_hash(str(value), length=16)).alias("explain_key")
+    explain_keys = pl.col("entity_id").map_elements(
+        lambda value: models.stable_hash(str(value), length=16), return_dtype=pl.Utf8
+    ).alias("explain_key")
     if explain_template:
-        deeplink_col = joined["entity_id"].apply(lambda value: explain_template.format(entity_id=value, explain_key=models.stable_hash(str(value), length=16))).alias("row_deeplink")
+        deeplink_col = pl.col("entity_id").map_elements(
+            lambda value: explain_template.format(entity_id=value, explain_key=models.stable_hash(str(value), length=16)),
+            return_dtype=pl.Utf8,
+        ).alias("row_deeplink")
     else:
         deeplink_col = pl.lit(None).alias("row_deeplink")
 
@@ -942,6 +947,92 @@ def _data_health(df: pl.DataFrame, catalog: models.KPICatalog) -> Dict[str, Any]
     return payload
 
 
+def _load_textops_context(inputs: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
+    profile_path = inputs.get("text_profile")
+    findings_path = inputs.get("text_findings")
+    sentiment_path = inputs.get("text_sentiment")
+    context: Dict[str, Any] = {}
+    if profile_path:
+        profile_file = Path(str(profile_path))
+        if profile_file.exists():
+            try:
+                profile = json.loads(profile_file.read_text(encoding="utf-8"))
+            except Exception:
+                profile = None
+            if isinstance(profile, Mapping):
+                columns = profile.get("columns") or {}
+                tokens: List[Dict[str, Any]] = []
+                for column, info in columns.items():
+                    if not isinstance(info, Mapping):
+                        continue
+                    for token in (info.get("top_tokens") or [])[:3]:
+                        if isinstance(token, Mapping):
+                            tokens.append(
+                                {
+                                    "column": column,
+                                    "token": token.get("t"),
+                                    "count": token.get("c"),
+                                }
+                            )
+                if tokens:
+                    context["top_tokens"] = tokens[:5]
+    if findings_path:
+        findings_file = Path(str(findings_path))
+        if findings_file.exists():
+            try:
+                findings = json.loads(findings_file.read_text(encoding="utf-8"))
+            except Exception:
+                findings = None
+            if isinstance(findings, Mapping):
+                context["warnings"] = findings.get("warnings", [])
+                context["errors"] = findings.get("errors", [])
+    if sentiment_path:
+        sentiment_file = Path(str(sentiment_path))
+        if sentiment_file.exists():
+            try:
+                sentiment_df = pl.read_parquet(sentiment_file.as_posix())
+            except Exception:
+                sentiment_df = None
+            if sentiment_df is not None and not sentiment_df.is_empty():
+                total = sentiment_df.height or 1
+                negative = sentiment_df.filter(pl.col("sentiment_score") < -0.2).height
+                context["sentiment"] = {
+                    "negative_pct": round(negative / total, 4),
+                    "observations": int(total),
+                }
+    return context or None
+
+
+def _textops_actions(context: Mapping[str, Any]) -> List[models.OpsAction]:
+    actions: List[models.OpsAction] = []
+    sentiment = context.get("sentiment") if isinstance(context, Mapping) else None
+    if isinstance(sentiment, Mapping):
+        negative_pct = sentiment.get("negative_pct")
+        if isinstance(negative_pct, (int, float)) and negative_pct > 0.3:
+            actions.append(
+                models.OpsAction(
+                    action_type="REQUEST_UPDATE",
+                    entity_id="textops::sentiment",
+                    severity="high",
+                    reason=f"Negative sentiment detected in {negative_pct:.0%} of feedback",
+                    suggested_fix="Escalate to customer care and address top complaints",
+                )
+            )
+    warnings = context.get("warnings") if isinstance(context, Mapping) else None
+    if isinstance(warnings, list):
+        for warning in warnings[:2]:
+            actions.append(
+                models.OpsAction(
+                    action_type="REQUEST_UPDATE",
+                    entity_id="textops::warning",
+                    severity="medium",
+                    reason=str(warning),
+                    suggested_fix="Coordinate with operations team to triage textual complaints",
+                )
+            )
+    return actions
+
+
 def _write_contracts(out_dir: Path) -> None:
     schema_dir = out_dir / "contracts" / "stage_09"
     schema_dir.mkdir(parents=True, exist_ok=True)
@@ -975,6 +1066,14 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     bi_path = Path(str(inputs.get("bi_cfg") or config.get("bi_cfg") or project_bi_path)).resolve()
     what_if_raw = inputs.get("what_if") or config.get("what_if")
     what_if_path = Path(str(what_if_raw)).resolve() if what_if_raw else None
+
+    textops_dir = artifacts_root / run_id / "stage_03_5_textops"
+    textops_inputs = {
+        "text_profile": (textops_dir / "text_profile.json").as_posix(),
+        "text_findings": (textops_dir / "quality_findings.json").as_posix(),
+        "text_sentiment": (textops_dir / "sentiment_features.parquet").as_posix(),
+    }
+    textops_context = _load_textops_context(textops_inputs)
 
     catalog = io.load_kpi_catalog(kpi_path)
     io.write_json_sorted(catalog.model_dump(mode="json"), out_dir / "kpi_catalog.json")
@@ -1039,6 +1138,8 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
 
     failures, unit_currency_meta = _evaluate_rules(clean_df, rules)
     decisions_df, decisions, ops_actions = _row_decisions(clean_df, failures)
+    if textops_context:
+        ops_actions.extend(_textops_actions(textops_context))
 
     locale = contract.formatting.get("locale", "ar")
     currency = contract.formatting.get("currency", "SAR")
@@ -1079,6 +1180,8 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     segment_df = _segment_insights(insights)
     targets_payload = _targets_from_contract(contract)
     data_health = _data_health(clean_df, catalog)
+    if textops_context:
+        data_health["text_ops"] = textops_context
 
     sla_bundle = _load_sla_bundle(run_id, artifacts_root)
     metrics_for_sla: Dict[str, float] = {name: value for name, value in kpi_values.items() if value is not None}

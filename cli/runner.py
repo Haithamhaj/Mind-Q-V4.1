@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -21,6 +22,7 @@ from src.app.services.pipeline_api.app import (
     run_phase01,
     run_phase02,
     run_phase03,
+    run_phase03_5,
     run_phase04,
     run_phase05,
     run_phase06,
@@ -28,14 +30,30 @@ from src.app.services.pipeline_api.app import (
     run_phase07_5,
     run_phase07_6,
     run_phase07_7,
+    run_phase07_analytics,
     run_phase07_knime_bridge,
+    run_phase07_timeseries,
     run_phase08,
     run_phase09,
+    run_phase09_5,
     run_phase10,
+    run_phase12,
 )
 
 LLM_ENV_KEYS: Sequence[str] = ("OPENAI_API_KEY", "GOOGLE_API_KEY", "KPI_API_KEY")
 KNIME_MODE_KEY = "MINDQ_KNIME_MODE"
+
+
+@dataclass
+class PipelineFlags:
+    run_textops: bool = True
+    run_stage07_analytics: bool = False
+    run_stage07_timeseries: bool = False
+    stage07_timeseries_inputs: Optional[Dict[str, Any]] = None
+    run_causal: bool = False
+    causal_problem_name: Optional[str] = None
+    run_routing: bool = False
+    routing_inputs: Optional[Dict[str, Any]] = None
 
 
 def _default_data_files() -> List[str]:
@@ -46,6 +64,16 @@ def _default_data_files() -> List[str]:
     if fallback_csv.exists():
         return [fallback_csv.resolve().as_posix()]
     return []
+
+
+def _load_json_payload(path_str: str) -> Dict[str, Any]:
+    path = Path(path_str).expanduser().resolve()
+    if not path.exists():
+        raise FileNotFoundError(f"Config file not found: {path}")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"JSON payload must be an object: {path}")
+    return data
 
 
 def _llm_credentials_available() -> bool:
@@ -113,6 +141,7 @@ async def _run_pipeline(
     data_files: List[str],
     artifacts_root: Path,
     llm_summary: bool,
+    flags: PipelineFlags,
 ) -> List[Dict[str, Any]]:
     results: List[Dict[str, Any]] = []
 
@@ -161,12 +190,29 @@ async def _run_pipeline(
     async def _phase_request(use_defaults: bool = True) -> PhaseRequest:
         return PhaseRequest(artifacts_root=artifacts_root_str, use_defaults=use_defaults)
 
-    for phase_id, runner_factory in (
-        ("02_quality", run_phase02),
-        ("03_schema", run_phase03),
-        ("04_profile", run_phase04),
-        ("05_missing", run_phase05),
-    ):
+    for phase_id, runner_factory in (("02_quality", run_phase02),):
+        status = await _record(phase_id, runner_factory(run_id, await _phase_request()))
+        if status == "STOP":
+            return results
+
+    status = await _record("03_schema", run_phase03(run_id, await _phase_request()))
+    if status == "STOP":
+        return results
+
+    if flags.run_textops:
+        status = await _record("03_5_textops", run_phase03_5(run_id, await _phase_request()))
+        if status == "STOP":
+            return results
+    else:
+        results.append(
+            {
+                "phase": "03_5_textops",
+                "status": "SKIP",
+                "reason": "Stage 03.5 disabled for this run",
+            }
+        )
+
+    for phase_id, runner_factory in (("04_profile", run_phase04), ("05_missing", run_phase05)):
         status = await _record(phase_id, runner_factory(run_id, await _phase_request()))
         if status == "STOP":
             return results
@@ -200,6 +246,19 @@ async def _run_pipeline(
     if status == "STOP":
         return results
 
+    if flags.run_stage07_analytics:
+        status = await _record("07_analytics", run_phase07_analytics(run_id, await _phase_request()))
+        if status == "STOP":
+            return results
+
+    if flags.run_stage07_timeseries:
+        if not flags.stage07_timeseries_inputs:
+            raise HTTPException(status_code=400, detail="Stage 07 timeseries requires --stage07-timeseries-config")
+        ts_request = PhaseRequest(artifacts_root=artifacts_root_str, use_defaults=False, inputs=dict(flags.stage07_timeseries_inputs))
+        status = await _record("07_timeseries", run_phase07_timeseries(run_id, ts_request))
+        if status == "STOP":
+            return results
+
     status = await _record("07_knime_bridge", run_phase07_knime_bridge(run_id, await _phase_request()))
     if status == "STOP":
         return results
@@ -212,11 +271,34 @@ async def _run_pipeline(
     if status == "STOP":
         return results
 
+    if flags.run_causal:
+        if not flags.causal_problem_name:
+            raise HTTPException(status_code=400, detail="Stage 09.5 requires --causal-problem when enabled")
+        causal_request = PhaseRequest(
+            artifacts_root=artifacts_root_str,
+            use_defaults=False,
+            inputs={"problem_name": flags.causal_problem_name},
+        )
+        status = await _record("09_5_causal", run_phase09_5(run_id, causal_request))
+        if status == "STOP":
+            return results
+
     await _record("10_bi", run_phase10(run_id, await _phase_request(use_defaults=False)))
+
+    if flags.run_routing:
+        if not flags.routing_inputs:
+            raise HTTPException(status_code=400, detail="Stage 12 routing requires --routing-config when enabled")
+        routing_request = PhaseRequest(
+            artifacts_root=artifacts_root_str,
+            use_defaults=False,
+            inputs=dict(flags.routing_inputs),
+        )
+        await _record("12_routing", run_phase12(run_id, routing_request))
+
     return results
 
 
-def flow(run_id: str) -> None:
+def flow(run_id: str, flags: PipelineFlags) -> None:
     _ensure_knime_prompt_mode()
     artifacts_root = Path("artifacts").resolve()
     artifacts_root.mkdir(parents=True, exist_ok=True)
@@ -224,7 +306,7 @@ def flow(run_id: str) -> None:
     data_files = _default_data_files()
     llm_summary = _llm_credentials_available()
 
-    results = anyio.run(_run_pipeline, run_id, data_files, artifacts_root, llm_summary)
+    results = anyio.run(_run_pipeline, run_id, data_files, artifacts_root, llm_summary, flags)
 
     flow_path = artifacts_root / run_id / "flow_results.json"
     flow_path.parent.mkdir(parents=True, exist_ok=True)
@@ -260,8 +342,80 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="cli.runner")
     parser.add_argument("flow", help="run the default flow", nargs="?")
     parser.add_argument("--run-id", dest="run_id", default="demo")
+    parser.add_argument(
+        "--textops",
+        dest="run_textops",
+        action="store_true",
+        help="Enable Stage 03.5 TextOps (default).",
+    )
+    parser.add_argument(
+        "--no-textops",
+        dest="run_textops",
+        action="store_false",
+        help="Disable Stage 03.5 TextOps.",
+    )
+    parser.set_defaults(run_textops=True)
+    parser.add_argument(
+        "--run-stage07-analytics",
+        action="store_true",
+        help="Enable the Python-based Stage 07 analytics suite",
+    )
+    parser.add_argument(
+        "--run-stage07-timeseries",
+        action="store_true",
+        help="Enable Stage 07 timeseries forecasting templates",
+    )
+    parser.add_argument(
+        "--stage07-timeseries-config",
+        help="Path to JSON file containing Stage 07 timeseries inputs",
+    )
+    parser.add_argument(
+        "--run-causal",
+        action="store_true",
+        help="Enable the Stage 09.5 causal advisory flow",
+    )
+    parser.add_argument(
+        "--causal-problem",
+        dest="causal_problem",
+        help="Problem name to trigger Stage 09.5 causal advisory",
+    )
+    parser.add_argument(
+        "--run-routing",
+        action="store_true",
+        help="Enable Stage 12 routing optimization",
+    )
+    parser.add_argument(
+        "--routing-config",
+        help="Path to JSON scenario file for Stage 12 routing",
+    )
     args = parser.parse_args()
-    flow(args.run_id)
+    timeseries_inputs = None
+    if args.stage07_timeseries_config:
+        timeseries_inputs = _load_json_payload(args.stage07_timeseries_config)
+    run_stage07_timeseries = args.run_stage07_timeseries or bool(timeseries_inputs)
+    if run_stage07_timeseries and not timeseries_inputs:
+        parser.error("--stage07-timeseries-config is required when --run-stage07-timeseries is set")
+    routing_inputs = None
+    if args.routing_config:
+        routing_inputs = _load_json_payload(args.routing_config)
+    run_routing = args.run_routing or bool(routing_inputs)
+    if run_routing and not routing_inputs:
+        parser.error("--routing-config is required when --run-routing is set")
+    causal_problem = args.causal_problem
+    run_causal = args.run_causal or bool(causal_problem)
+    if run_causal and not causal_problem:
+        parser.error("--causal-problem is required when --run-causal is set")
+    flags = PipelineFlags(
+        run_textops=args.run_textops,
+        run_stage07_analytics=args.run_stage07_analytics,
+        run_stage07_timeseries=run_stage07_timeseries,
+        stage07_timeseries_inputs=timeseries_inputs,
+        run_causal=run_causal,
+        causal_problem_name=causal_problem,
+        run_routing=run_routing,
+        routing_inputs=routing_inputs,
+    )
+    flow(args.run_id, flags)
 
 
 if __name__ == "__main__":

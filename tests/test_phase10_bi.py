@@ -101,6 +101,25 @@ def prepared_artifacts(tmp_path: Path) -> tuple[str, Path]:
         },
     )
     _write_json(stage09 / "metrics.json", {"rows": 1, "approve_pct": 1.0})
+    _write_json(
+        stage09 / "data_health.json",
+        {
+            "orders_cnt": {"missing_pct": 0.0, "duplicates_pct": 0.0},
+            "text_ops": {"warnings": ["Customers mention delays"], "sentiment": {"negative_pct": 0.3}},
+        },
+    )
+    _write_json(
+        stage09 / "ops_actions.json",
+        [
+            {
+                "action_type": "REQUEST_UPDATE",
+                "entity_id": "textops::sentiment",
+                "severity": "medium",
+                "reason": "Negative sentiment",
+                "suggested_fix": "Call customer",
+            }
+        ],
+    )
 
     _write_json(
         stage08 / "insights_report.json",
