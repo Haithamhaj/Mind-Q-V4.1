@@ -10,11 +10,17 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-import backend.src.app.services.pipeline_api.app as pipeline_app_module
-from phases.phase10_bi import impl as phase10_impl  # type: ignore
+try:
+    from backend.src.app.pipeline_api import run_pipeline
+except ModuleNotFoundError:  # pragma: no cover - transitional fallback until pipeline_api module lands
+    import backend.src.app.services.pipeline_api.app as pipeline_app_module  # type: ignore
 
-app = pipeline_app_module.app
-_run_phase10 = getattr(pipeline_app_module, "_run_phase10")
+    run_pipeline = getattr(pipeline_app_module, "_run_phase10")  # type: ignore[attr-defined]
+else:  # pragma: no cover - executed once new public module is available
+    pipeline_app_module = None
+
+from backend.src.app.services.pipeline_api import app
+from phases.phase10_bi import impl as phase10_impl  # type: ignore
 
 
 def _write_parquet(path: Path, rows: list[dict[str, object]]) -> None:
@@ -26,6 +32,10 @@ def _write_parquet(path: Path, rows: list[dict[str, object]]) -> None:
 def _write_json(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _run_phase10(run_id: str, config: Dict[str, Any]) -> Dict[str, Any]:
+    return run_pipeline(run_id, config)
 
 
 @pytest.fixture()

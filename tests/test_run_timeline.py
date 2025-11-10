@@ -5,12 +5,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
-import backend.src.app.services.pipeline_api.app as pipeline_app_module
 import backend.src.app.services.pipeline_api.timeline as pipeline_timeline_module
+from backend.src.app.services.run_history import purge_run_history
 from shared.phase_manifest import load_phase_manifest
 
 build_run_timeline = getattr(pipeline_timeline_module, "build_run_timeline")
-_purge_run_history = getattr(pipeline_app_module, "_purge_run_history")
 
 
 def test_phase_manifest_contains_expected_entries():
@@ -102,8 +101,9 @@ def test_purge_run_history(tmp_path: Path):
     old = root / "run-old"
     old.mkdir()
 
-    _purge_run_history("run-keep", root, force=True)
+    purge_run_history("run-keep", root, force=True)
 
     assert keep.exists()
     assert latest.exists()
     assert not old.exists()
+

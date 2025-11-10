@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+import sys as _sys
+
+_module_ref = _sys.modules[__name__]
+_sys.modules.setdefault("phases.06_feature_eng.impl", _module_ref)
+_sys.modules.setdefault("phase_06_feature_eng", _module_ref)
+
+
 import json
 from dataclasses import dataclass
 from datetime import datetime

@@ -22,6 +22,8 @@ jobs:
       - run: pip install -U pip
       - run: pip install -r requirements.txt
       - run: pip install -r requirements-dev.txt
+      - name: Enforce test import policy
+        run: python tools/check_test_imports.py
       - run: ruff check .
       - run: mypy --ignore-missing-imports .
       - run: pytest -q || true

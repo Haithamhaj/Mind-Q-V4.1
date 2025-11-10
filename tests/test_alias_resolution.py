@@ -5,7 +5,7 @@ from pathlib import Path
 
 import polars as pl  # type: ignore
 
-from phases._09_business_validation.impl import OPS_ALIAS_CANDIDATES, _prepare_ops  # type: ignore
+from backend.src.app.services.business_validation import OPS_ALIAS_CANDIDATES, _prepare_ops  # type: ignore
 
 
 def test_prepare_ops_resolves_aliases(tmp_path: Path) -> None:

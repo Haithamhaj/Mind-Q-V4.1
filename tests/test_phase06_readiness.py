@@ -24,6 +24,7 @@ def _load_phase_impl(phase_dir: str):
             if spec is None or spec.loader is None:
                 continue
             module = importlib.util.module_from_spec(spec)
+            sys.modules.setdefault(spec.name, module)
             spec.loader.exec_module(module)
             return module
     raise FileNotFoundError(f"Unable to locate implementation for phase directory '{phase_dir}'")

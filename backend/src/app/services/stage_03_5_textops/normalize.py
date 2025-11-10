@@ -4,7 +4,12 @@ import html
 from typing import Optional
 
 import regex as re  # type: ignore
-import ftfy  # type: ignore
+try:
+    import ftfy  # type: ignore
+except Exception as exc:
+    raise RuntimeError(
+        "Missing optional dependency 'ftfy' required by Stage 03.5 TextOps. Install via `pip install ftfy`."
+    ) from exc
 
 _AR_DIACRITICS = re.compile(r"[\u0617-\u061A\u064B-\u0652\u0657-\u065F\u0670]")
 _AR_ALEF = re.compile(r"[\u0622\u0623\u0625\u0671\u0672\u0673\u0675\u0627]")
