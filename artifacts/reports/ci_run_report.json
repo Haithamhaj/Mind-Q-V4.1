@@ -1,0 +1,17 @@
+{
+  "version": "0.5.0",
+  "dry_run": {
+    "run_id": "stage_08_small_sample",
+    "description": "Sample pipeline walkthrough using bundled fixture data; referenced by CI for smoke validation.",
+    "artifact_hint": "stage_08_small_sample"
+  },
+  "real_run": {
+    "run_id": "stage_08_real-data-test",
+    "description": "Last customer-scale validation run captured prior to this patch; referenced for regression comparisons.",
+    "artifact_hint": "stage_08_real-data-test"
+  },
+  "notes": [
+    "Artifacts referenced here are stored alongside the repository under the same names for quick inspection.",
+    "CI uploads this report on every run so governance reviewers can link dry vs. real executions without rerunning heavy phases."
+  ]
+}

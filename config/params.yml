@@ -1,0 +1,7 @@
+# Central pipeline parameters tracked for governance and telemetry.
+low_signal_warn_threshold:
+  value: 0.15
+  description: >-
+    Minimum ratio of low-signal insights (candidates divided by total signal pool)
+    that should trigger a Stage 09 WARN escalation. Update via config to roll out
+    tuned sensitivity without patching code.

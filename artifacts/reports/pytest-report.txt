@@ -1,0 +1,6 @@
+command: pytest tests/test_stage07_knime_bridge.py tests/test_phase08_insights.py tests/test_p05_missing_autoplan.py tests/test_p09_basic.py -q
+status: passed
+python: 3.11.9
+notes:
+  - 26 tests passed in ~81s on 2025-11-10.
+  - Warnings emitted by numpy/period conversions; no regressions detected.
