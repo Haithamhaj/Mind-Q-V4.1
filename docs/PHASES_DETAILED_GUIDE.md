@@ -31,6 +31,16 @@ Each phase in this guide follows the same analytical frame so updates stay consi
 
 Feel free to reuse this structure when documenting enhancements or reviewing other phases.
 
+### ✅ November 2025 Update Highlights
+- **Stage 03.5 TextOps** now enforces the `ftfy>=6.2.0` dependency at import time, so missing optional packages fail fast with a clear remediation message before pipelines enter Stage 07/08.
+- **Stage 05 Missing Values** differentiates between geo columns with *zero* observations (keeps them indicator-only) versus partially observed coordinates (still imputes), reducing the risk of fabricating GPS points while keeping partially available telemetry usable.
+- **Stage 07 Analytics & Bridge utilities** remain opt-in; the pipeline always lists them in progress updates but only executes them when `run_stage07_analytics`, `run_stage07_timeseries`, or KNIME bridge flags are set. The KNIME bridge now scaffolds `phase_07_knime`/`phase_07_analytics` workspaces even when upstream assets are sparse, writes stub `analytics_summary.json`, and mirrors files under `stage_07_knime_bridge/profile` for Python consumers.
+- **Stage 08 Insights** gained an `advanced/` payload (cluster summary, anomalies, correlation matrix, orders forecast, and summary JSON) with automatic fallbacks whenever KNIME/Python analytics are absent. The published schemas explicitly allow the enriched `context` block consumed by Stage 09/10.
+- **Stage 09 Business Validation** expands `OPS_ALIAS_CANDIDATES` to catch more delivery timestamp variants and promotes low-signal diagnostics from Stage 08 into gate WARNs via the configurable `low_signal_warn_threshold`.
+- **Public pipeline surface**: `backend.src.app.pipeline_api` now re-exports `PipelineRequest`, `PipelineResponse`, and `run_pipeline`, so tests and tooling no longer import FastAPI internals, and the CLI/API share the same toggle names (textops, analytics, timeseries, causal, routing).
+
+
+
 ---
 
 ## 📥 Phase Group 1: Data Foundation
@@ -211,6 +221,7 @@ Many fulfillment delays, customer escalations, and SLA breaches are hidden in na
 
 #### Operational Mechanics
 - **Runtime bootstrap**: Loads `config/textops.yaml`, resolves artifact roots, seeds RNGs, and hydrates credentials from `.env`/`MINDQ_LLM_CREDENTIALS_FILE` while avoiding overrides of pre-set environment variables.
+- **Dependency guard**: The module now raises a descriptive runtime error when `ftfy` is missing, prompting teams to `pip install ftfy>=6.2.0` before Stage 07/08 rely on TextOps artifacts.
 - **Text sourcing & normalization**: Reads Stage 01 shipments parquet with Polars, auto-detects join keys, and selects candidate text columns from Stage 03 catalogs (then defaults to `item_desc`, `customer_note`). Uses bilingual normalization plus PII masking to produce clean concatenated text per shipment.
 - **Feature engineering**: Invokes `make_density_features`, `sentiment_lite`, and `vectors_hash_svd` to compute sentiment heuristics, token/character lengths, emoji flags, and hashing-vectorizer + SVD embeddings (with adaptive component reductions to stay within memory budgets).
 - **Quality scoring**: Measures coverage, unreadable share, language conflicts, and explained variance; emits WARN/STOP statuses when thresholds in the config are breached, with details recorded in `quality_findings.json`.
@@ -320,7 +331,7 @@ Reliable delivery forecasting and SLA analytics require consistent inputs even w
 
 #### Operational Mechanics
 - **Policy resolution**: Loads `contracts/impute/policy_relaxed.yml` (overrideable via config) and merges manual plans if `imputation_plan.json` already exists, producing a column-level strategy catalog (`plan["policies"]`).
-- **Strategy assignment**: For each feature, infers type, determines geo rules, and chooses groupwise medians/modes, time-aware interpolation, or indicator-only actions. Geo columns honor relaxed thresholds and fallback strategies to keep latitude/longitude available with warnings instead of hard stops.
+- **Strategy assignment**: For each feature, infers type, determines geo rules, and chooses groupwise medians/modes, time-aware interpolation, or indicator-only actions. Geo columns honor relaxed thresholds and now differentiate between zero-observation lanes (stay indicator-only) versus partially observed coordinates (still impute), keeping telemetry trustworthy without fabricating GPS points when sensors go dark.
 - **Execution engine**: Applies numeric, categorical, and datetime routines with fallback paths, automatically adding `_is_missing` indicators, winsorizing outliers, enforcing timezone consistency, and preventing future timestamps in prediction fields.
 - **Row & drift guards**: Checks row stability against Stage 01 baselines, computes Population Stability Index for imputed columns, and evaluates geo-missing thresholds to emit WARN/STOP statuses recorded in `quality_findings`.
 - **Audit trail**: Writes `changelog.jsonl`, `logs.jsonl`, and `cleaning_summary.json` with before/after metrics, groupwise fallbacks, and gating reasons so data scientists can justify transformations during audits.
@@ -524,6 +535,8 @@ artifacts/{run_id}/stage_07_readiness/
 #### Stage Definition
 > _Execution note: This Python analytics engine is not invoked from `cli.runner flow` or the `/flow` API; call `backend/src/app/services/stage_07_analytics/impl.py` (or wire it into your own orchestration) whenever the KNIME alternative is needed._
 Stage 07 Analytics is the Python-native alternative to KNIME workflows. It executes a full analytics suite—data quality rules, clustering, anomaly detection, correlation, and time-series forecasting—packaging outputs in `phase_07_analytics/` for downstream insight stages.
+
+> _Pipeline note_: The default CLI/API run keeps Stage 07 analytics disabled unless callers set `run_stage07_analytics=True` or `run_stage07_timeseries=True`. The pipeline progress API still lists the phases (so dashboards see SKIP vs PASS), but no analytics artifacts are produced unless those flags are supplied.
 
 #### Inputs
 - `inputs["features"]`: Stage 06 feature parquet to analyze.
@@ -836,6 +849,7 @@ Some logistics reviewers and regulators rely on KNIME workflows. This bridge aut
 - **Layer2 enrichment**: Builds `layer2_candidate.json` by combining variance/comparative/heatmap analytics; creates placeholder when upstream data is absent.
 - **Dual directory output**: Mirrors key files under `stage_07_knime_bridge/profile/` so Python consumers and KNIME users share identical artifacts.
 - **Optional batch execution**: When configured, runs the KNIME batch script (`knime/run_knime_workflow.ps1`), capturing stdout and exit codes in the bridge summary.
+- **Resilience & mirroring**: Even when KNIME outputs are missing, the bridge seeds `phase_07_knime`, `phase_07_knime_bridge/profile`, and minimal analytics summaries so Stage 08/09 can consume `layer2_candidate.json`, `bridge_summary.json`, and `analytics_summary.json` without manual patching.
 
 #### Inter-Stage Relationships
 - **Upstream dependencies**: Consumes Stage 06 Feature Engineering outputs, Stage 07 readiness manifests, Stage 07.5 analytics, and KPI contracts.
@@ -884,7 +898,7 @@ Stage 08 applies governed statistical analysis to generate actionable business i
 
 - **Readiness + analytics aware**: the engine now consumes Stage 07 readiness diagnostics and the Python analytics DQ/forecast summaries. WARN/STOP signals automatically downgrade Stage 08 gate status, inject readiness action cards into `story_ops.json`, and expose `readiness`, `analytics`, `textops`, and `llm_summary` sections inside `diagnostics.json`.
 - **TextOps + LLM transparency**: Stage 03.5 findings and sentiment stats are folded into `data_health` and `story` contexts, while Stage 07.6 `metrics.json` flags heuristic/cached runs so downstream teams know when to re-run with alternate providers.
-- **Shared story context**: `insights_report.json`, `story_ops.json`, and `cards.json` now export a `context` payload that carries readiness, analytics, TextOps, and LLM metadata forward to Stage 09/10 and BI consumers without manual joins.
+- **Shared story context**: `insights_report.json`, `story_ops.json`, and `cards.json` now export a `context` payload that carries readiness, analytics, TextOps, and LLM metadata forward to Stage 09/10 and BI consumers without manual joins. The Stage 08 JSON schema shipped with this guide explicitly allows that `context` object so downstream validations stop flagging it as an unexpected property.
 
 #### Inputs
 - `inputs["features"]`: Stage 06 feature dataset (defaults to `stage_06_feature_eng/features.parquet`).
@@ -902,6 +916,7 @@ Operations leadership needs curated, non-causal insights that highlight where lo
 - **Candidate generation**: Computes segment comparisons, effect sizes, and confidence/stability metrics; flags low-signal or Simpson’s paradox risks; records sampling notes.
 - **Policy enforcement**: Applies KPI prioritization, forbidden wording filters, and grouping rules defined in YAML policies; masks PII tokens automatically.
 - **Packaging & storytelling**: Emits `insights_report.json` with official recommendations, optional `insights_candidates.json`, `story_ops.json` cards, diagnostics, gate decisions, and coverage reports.
+- **Advanced analytics exports**: Always writes an `advanced/` folder containing `cluster_summary.json`, `anomalies.json`, `correlation_matrix.json`, `orders_forecast.parquet`, and `summary.json`, pulling directly from KNIME/Python analytics outputs when present or generating deterministic fallbacks when they are absent.
 - **Logging & telemetry**: Streams structured logs, anomaly metrics, and sampling metadata for traceability; annotates policy thresholds and time windows.
 
 #### Inter-Stage Relationships
@@ -919,6 +934,12 @@ artifacts/{run_id}/stage_08_insights/
 ├── column_coverage.json                # Field-level coverage statistics
 ├── sentiment_snapshot.json (optional)  # TextOps sentiment feeds when available
 ├── anomalies.json (optional)           # KPI anomaly detections
+├── advanced/
+    ├── cluster_summary.json         # Source-tagged clusters (knime/analytics/fallback)
+    ├── anomalies.json               # Layer-2 anomaly payload mirrored for BI
+    ├── correlation_matrix.json      # Segment correlation matrix for dashboards
+    ├── orders_forecast.parquet      # Short-term forecast feed (knime or fallback)
+    └── summary.json                 # Aggregated metadata + source provenance
 ├── logs.jsonl                          # Execution trace
 └── provenance metadata                 # Policy and sampling summaries embedded in diagnostics/gate
 ```
@@ -955,9 +976,9 @@ Executives and operations managers need vetted SLA %, RTO %, lead-time percentil
 
 #### Operational Mechanics
 - **Input harmonization**: Pulls Stage 01 ingestion metadata, Stage 06 standardized/engineered features, Stage 08 insights, SLA/KPI contracts, plus Stage 03.5 TextOps artifacts (profile, findings, sentiment) when present so `data_health.json` and `ops_actions.json` capture complaint hotspots alongside numeric KPIs.
-- **Ops fact preparation**: Derives entity IDs, normalizes timestamps to the configured zone, computes lead-time/SLA/RTO flags, and enriches with COD segmentation.
+- **Ops fact preparation**: Derives entity IDs, normalizes timestamps to the configured zone, computes lead-time/SLA/RTO flags, and enriches with COD segmentation. The alias resolver now includes additional delivery timestamp synonyms (e.g., `DELIVER DATE`, `pod_ts`, `final_status_time`) so new carrier exports align automatically.
 - **KPI evaluation**: Executes DuckDB expressions from `models.KPICatalog` to calculate KPI suite (SLA %, RTO %, COD rate, lead-time quantiles) with effect sizes imported from insights evidence.
-- **Validation & gating**: Generates `validation_report.json`, whitelist/blacklist feeds, and `ops_actions.json` capturing guard breaches, missing columns, and remediation steps.
+- **Validation & gating**: Generates `validation_report.json`, whitelist/blacklist feeds, and `ops_actions.json` capturing guard breaches, missing columns, and remediation steps. Low-signal diagnostics from Stage 08 now flow into the gate reasons (e.g., `insights::low-signal`), with the threshold configurable via `low_signal_warn_threshold` so SMEs can tune sensitivity.
 - **BI feed assembly**: Produces `bi_feed.parquet`, per-grain tiles, segment insights, and benchmarks ready for Stage 10 BI; records scenario, locale, and code-hash metadata for reproducibility.
 - **SLA diagnostics**: Summarizes SLA breaches, target performance, and contract references in `sla_summary.json`; materializes row-level decisions for audit trails.
 - **Logging & metrics**: Streams JSONL logs, data-health details, and metrics payload describing row counts, thresholds, and elapsed time.
