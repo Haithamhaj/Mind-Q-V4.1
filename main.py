@@ -10,8 +10,8 @@ backend_dir = Path(__file__).parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
-# Import the FastAPI app for uvicorn to access
-from backend.src.app.services.pipeline_api.app import app
+# Import the FastAPI app for uvicorn to access without reaching into backend internals
+from src.app.services.pipeline_api import app
 
 if __name__ == "__main__":
     import uvicorn

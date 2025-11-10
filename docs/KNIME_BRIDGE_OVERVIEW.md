@@ -83,3 +83,6 @@
 - الكود الرئيسي: `src/app/services/stage_07_knime_bridge/impl.py`.
 - السكربتات: `knime/run_knime_workflow.ps1`, `scripts/knime_approval.ps1`.
 - الوثائق الداعمة: `knime/README_QUICKSTART.md`, `docs/KNIME_ADVANCED_ANALYTICS.md`, `docs/PHASES_DETAILED_GUIDE.md`.
+### Safety toggle: enable_knime_stub
+
+Set `enable_knime_stub=true` (or export `MINDQ_ENABLE_KNIME_STUB=1`) only when you explicitly want the bridge to synthesize placeholder `analytics_summary.json`. The default is `false`, preventing accidental stub artifacts from leaking into Stage 08/09 when production analytics should be the only source of truth.

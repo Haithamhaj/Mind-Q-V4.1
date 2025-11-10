@@ -6,7 +6,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
-SCHEMA_PATH = Path("src/app/services/stage_08_insights/schema_insights.json")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SCHEMA_PATH = REPO_ROOT / "contracts/bi/story_v1.1.schema.json"
 FIXTURE_GLOBS = ("stage_08_run_*", "stage_08_small_sample", "stage_08_large_sample")
 ALLOWED_EXTRAS = {"context"}
 

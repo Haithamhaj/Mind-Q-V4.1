@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
-from backend.src.app.services.pipeline_api.app import _purge_run_history as _legacy_purge
+from src.app.services.pipeline_api import _purge_run_history as _legacy_purge
 from backend.src.app.services.pipeline_api.timeline import build_run_timeline
 
 PathLike = Union[str, Path]

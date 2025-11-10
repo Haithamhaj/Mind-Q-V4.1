@@ -20,7 +20,7 @@ jsonschema = pytest.importorskip("jsonschema")
 from backend.src.app.services.stage_08_insights import impl
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_PATH = BACKEND_ROOT / "src/app/services/stage_08_insights/schema_insights.json"
+SCHEMA_PATH = BACKEND_ROOT / "contracts/bi/story_v1.1.schema.json"
 
 
 def _write_json(path: Path, payload: Any) -> None:

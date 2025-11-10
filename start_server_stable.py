@@ -45,7 +45,7 @@ if __name__ == "__main__":
     try:
         import uvicorn
         # Import after path setup
-        from backend.src.app.services.pipeline_api.app import app
+        from src.app.services.pipeline_api import app
 
         # Run the server with the conservative stable defaults
         uvicorn.run(

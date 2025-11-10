@@ -92,3 +92,8 @@ python -m cli.runner flow --run-id smoke-test
 
 **Last Updated**: November 4, 2025  
 **Reason**: Optimize CI workflow for development branch
+## ✅ Run Reporting Artifacts
+
+- `artifacts/reports/ci_run_report.json` tracks the latest dry-run (fixture driven) and real-run IDs so reviewers can link governance evidence without rerunning the pipeline.
+- `artifacts/reports/stage_size_report.json` lists Stage 08/09 output sizes for every run under `artifacts/`, warning auditors when payloads grow unexpectedly.
+- Both files are regenerated on every CI pass and uploaded with workflow artifacts, covering the "dry vs. real" verification requirement.

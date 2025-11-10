@@ -62,6 +62,7 @@ def test_knime_bridge_generates_layer2_candidate(tmp_path: Path) -> None:
     config = {
         "artifacts_root": artifacts_root.as_posix(),
         "mode": "auto",
+        "enable_knime_stub": True,
     }
 
     result = knime_bridge.run(run_id, inputs, config)

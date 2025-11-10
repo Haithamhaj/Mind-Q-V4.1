@@ -24,11 +24,15 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - name: Enforce test import policy
         run: python tools/check_test_imports.py
+      - name: Enforce phases import policy
+        run: python tools/check_phases_imports.py
       - name: Check Stage 08 payload schema
         run: python tools/check_stage08_payload.py
       - run: ruff check .
       - run: mypy --ignore-missing-imports .
       - run: pytest -q || true
+      - name: Generate stage size snapshot
+        run: python tools/generate_stage_size_report.py
       - name: Smoke
         run: |
           bash scripts/run_smoke.sh || pwsh -File scripts/run_smoke.ps1 || python -m cli.runner flow --run-id smoke-ci || true
@@ -55,6 +59,8 @@ jobs:
           CI_STRICT: '1'
         run: |
           bash scripts/run_smoke.sh || python -m cli.runner flow --run-id smoke-main
+      - name: Generate stage size snapshot
+        run: python tools/generate_stage_size_report.py
       - name: Upload smoke artifacts
         if: always()
         uses: actions/upload-artifact@v4

@@ -86,7 +86,7 @@ Stage 08 (Insights)
 #### 1. **Prompt Mode** (الافتراضي)
 ```bash
 # لا يوجد متغير بيئة
-python -m backend.src.app.services.pipeline_api.app
+python -m src.app.services.pipeline_api
 ```
 **السلوك:**
 - عند الوصول لـ Stage 07، يظهر prompt في الـ console:
@@ -103,7 +103,7 @@ python -m backend.src.app.services.pipeline_api.app
 #### 2. **Auto Mode** (موافقة تلقائية)
 ```bash
 $env:MINDQ_KNIME_MODE = "auto"
-python -m backend.src.app.services.pipeline_api.app
+python -m src.app.services.pipeline_api
 ```
 **السلوك:**
 - يتخطى الـ prompt تماماً
@@ -113,7 +113,7 @@ python -m backend.src.app.services.pipeline_api.app
 #### 3. **Skip Mode** (تعطيل تام)
 ```bash
 $env:MINDQ_KNIME_MODE = "skip"
-python -m backend.src.app.services.pipeline_api.app
+python -m src.app.services.pipeline_api
 ```
 **السلوك:**
 - لا ينشئ `phase_07_knime/` على الإطلاق
@@ -501,7 +501,7 @@ $env:MINDQ_KNIME_MODE = "auto"
 
 # 2. تشغيل Backend
 cd "C:\Github - MindQ\Mind-Q-V4.1"
-python -m backend.src.app.services.pipeline_api.app
+python -m src.app.services.pipeline_api
 
 # 3. في terminal آخر، شغّل Pipeline
 curl -X POST http://localhost:8000/v1/runs/run-latest/execute-all `

@@ -13,6 +13,8 @@ import polars as pl  # type: ignore
 from zoneinfo import ZoneInfo
 
 from shared import sla as sla_utils  # type: ignore
+from shared.params import get_param  # type: ignore
+from shared.telemetry import snapshot_threshold  # type: ignore
 
 from . import io, models
 
@@ -33,6 +35,9 @@ OPS_ALIAS_CANDIDATES: Dict[str, List[str]] = {
         "DELIVERY_DATE",
         "delivered_at",
         "delivered_ts",
+        "DELIVERED_AT",
+        "DELIVERED_TIMESTAMP",
+        "delivered_timestamp",
         "delivery_ts",
         "delivery_time",
         "deliv_ts",
@@ -52,6 +57,7 @@ OPS_METRIC_KEYS = {"sla_pct", "rto_pct", "lead_time_p50", "lead_time_p90"}
 
 SLA_LIMIT_HOURS = 48.0
 RTO_PATTERN = "RTO|RETURN"
+DEFAULT_LOW_SIGNAL_WARN_THRESHOLD = 0.15
 
 # Core KPI and business logic columns (original)
 REQUIRED_FACT_COLUMNS = [
@@ -1067,10 +1073,36 @@ def _write_contracts(out_dir: Path) -> None:
 def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
     start = time.time()
     config = dict(config or {})
-    low_signal_warn_threshold = float(config.get("low_signal_warn_threshold", 0.15))
+    configured_threshold = config.get("low_signal_warn_threshold")
+    default_threshold = get_param(
+        "low_signal_warn_threshold",
+        DEFAULT_LOW_SIGNAL_WARN_THRESHOLD,
+        coerce=float,
+    )
+    try:
+        low_signal_warn_threshold = float(configured_threshold)
+    except (TypeError, ValueError):
+        low_signal_warn_threshold = float(default_threshold)
     artifacts_root = Path(config.get("artifacts_root", "artifacts")).expanduser().resolve()
     out_dir = artifacts_root / run_id / OUT_STAGE
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    threshold_previous = snapshot_threshold(
+        "low_signal_warn_threshold",
+        low_signal_warn_threshold,
+        artifacts_root,
+        details={"run_id": run_id, "stage": OUT_STAGE},
+    )
+    threshold_drift_flag: Optional[str] = None
+    if threshold_previous is not None and not math.isclose(
+        threshold_previous,
+        low_signal_warn_threshold,
+        rel_tol=1e-9,
+        abs_tol=1e-6,
+    ):
+        threshold_drift_flag = (
+            f"threshold::low_signal_warn::{threshold_previous:.3f}->{low_signal_warn_threshold:.3f}"
+        )
 
     project_kpi_path, project_rules_dir, project_bi_path = io.ensure_configs_structure(PROJECT_ROOT)
 
@@ -1251,6 +1283,8 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
         if low_signal_trigger:
             warnings.append("insights::low-signal")
             extra_warn_flags.append(f"insights::low-signal::{low_signal_ratio:.3f}")
+    if threshold_drift_flag:
+        extra_warn_flags.append(threshold_drift_flag)
 
     warn_flags_combined = list(sla_warn_flags)
     warn_flags_combined.extend(extra_warn_flags)
@@ -1342,6 +1376,16 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
             "duration_sec": round(time.time() - start, 4),
         },
     ]
+    if threshold_drift_flag and threshold_previous is not None:
+        logs.insert(
+            1,
+            {
+                "event": "threshold_drift",
+                "metric": "low_signal_warn_threshold",
+                "previous": threshold_previous,
+                "current": low_signal_warn_threshold,
+            },
+        )
     io.write_jsonl(logs, out_dir / "logs.jsonl")
 
     io.write_json_sorted(

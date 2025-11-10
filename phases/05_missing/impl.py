@@ -686,6 +686,7 @@ def _apply_plan(
     model_exclusions_plan = list(plan.get("model_exclusions") or [])
     model_exclusions_seen = set(model_exclusions_plan)
     timezone_converted: List[str] = []
+    geo_indicator_audit: List[Dict[str, Any]] = []
 
     policies = plan.get("policies") or []
     for policy in policies:
@@ -729,16 +730,27 @@ def _apply_plan(
             if indicator_name and indicator_name not in frame.columns:
                 frame[indicator_name] = mask_before.astype("int8")
                 indicator_columns.append(indicator_name)
+            integrity_ok = frame[feature].equals(original[feature])
             decision_entry.update(
                 {
                     "status": "indicator_only",
                     "strategy": None,
                     "filled": 0,
                     "indicator_created": bool(indicator_name),
+                    "geo_indicator_integrity": integrity_ok,
                 }
             )
             column_decisions.append(decision_entry)
+            geo_indicator_audit.append({"feature": feature, "unchanged": integrity_ok})
             logs.append({"event": "indicator_only", "feature": feature, "indicator": indicator_name})
+            if not integrity_ok:
+                logs.append(
+                    {
+                        "event": "geo_indicator_only_modified",
+                        "feature": feature,
+                        "severity": "WARN",
+                    }
+                )
             changelog.append(
                 {
                     "feature": feature,
@@ -931,6 +943,7 @@ def _apply_plan(
         "rows_imputed_total": int(sum(entry.get("filled", 0) for entry in changelog)),
         "timezone_converted": sorted(set(timezone_converted)),
         "decisions": column_decisions,
+        "geo_indicator_audit": geo_indicator_audit,
     }
 
 
@@ -1169,6 +1182,12 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
             "columns": geo_missing_stats,
         },
         "column_decisions": column_decisions,
+        "geo_indicator_only": {
+            "features": apply_result.get("geo_indicator_audit", []),
+            "all_unchanged": all(
+                entry.get("unchanged") for entry in apply_result.get("geo_indicator_audit", [])
+            ),
+        },
     }
     metrics_path = out_dir / "metrics.json"
     _save_json(metrics_path, metrics_payload)
@@ -1202,6 +1221,7 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         "summary": summary,
         "column_decisions": column_decisions,
         "geo_missing": metrics_payload["geo_missing"],
+        "geo_indicator_only": metrics_payload["geo_indicator_only"],
         "psi": psi_info,
         "cleaning_summary": cleaning_summary_path.as_posix(),
         "plan": plan_path.as_posix(),

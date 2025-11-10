@@ -13,7 +13,9 @@ dist/
 build/
 
 # Data & Artifacts
-artifacts/
+/artifacts/*
+!/artifacts/reports/
+!/artifacts/reports/**
 *.parquet
 *.csv
 data/raw/
@@ -54,3 +56,4 @@ frontend.log
 tmp/
 temp/
 *.tmp
+frontend/app/api/artifacts/

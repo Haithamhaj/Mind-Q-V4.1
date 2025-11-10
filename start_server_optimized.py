@@ -25,7 +25,7 @@ os.environ["MKL_NUM_THREADS"] = "4"
 if __name__ == "__main__":
     import uvicorn
     # Import after path setup
-    from backend.src.app.services.pipeline_api.app import app
+    from src.app.services.pipeline_api import app
     
     print("🚀 Starting Mind-Q Backend with optimized settings...")
     print("📊 Pipeline processing optimized for large datasets")

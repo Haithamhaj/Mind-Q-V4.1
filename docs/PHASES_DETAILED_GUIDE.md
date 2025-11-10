@@ -34,9 +34,10 @@ Feel free to reuse this structure when documenting enhancements or reviewing oth
 ### ✅ November 2025 Update Highlights
 - **Stage 03.5 TextOps** now enforces the `ftfy>=6.2.0` dependency at import time, so missing optional packages fail fast with a clear remediation message before pipelines enter Stage 07/08.
 - **Stage 05 Missing Values** differentiates between geo columns with *zero* observations (keeps them indicator-only) versus partially observed coordinates (still imputes), reducing the risk of fabricating GPS points while keeping partially available telemetry usable.
-- **Stage 07 Analytics & Bridge utilities** remain opt-in; the pipeline always lists them in progress updates but only executes them when `run_stage07_analytics`, `run_stage07_timeseries`, or KNIME bridge flags are set. The KNIME bridge now scaffolds `phase_07_knime`/`phase_07_analytics` workspaces even when upstream assets are sparse, writes stub `analytics_summary.json`, and mirrors files under `stage_07_knime_bridge/profile` for Python consumers.
-- **Stage 08 Insights** gained an `advanced/` payload (cluster summary, anomalies, correlation matrix, orders forecast, and summary JSON) with automatic fallbacks whenever KNIME/Python analytics are absent. The published schemas explicitly allow the enriched `context` block consumed by Stage 09/10.
-- **Stage 09 Business Validation** expands `OPS_ALIAS_CANDIDATES` to catch more delivery timestamp variants and promotes low-signal diagnostics from Stage 08 into gate WARNs via the configurable `low_signal_warn_threshold`.
+- **Stage 07 Analytics & Bridge utilities** remain opt-in; the pipeline always lists them in progress updates but only executes them when `run_stage07_analytics`, `run_stage07_timeseries`, or KNIME bridge flags are set. The KNIME bridge scaffolds `phase_07_knime`/`phase_07_analytics` workspaces even when upstream assets are sparse, mirrors files under `stage_07_knime_bridge/profile` for Python consumers, and now keeps the analytics stub **disabled by default** via `enable_knime_stub=false` so production runs never emit placeholder summaries unless the operator explicitly opts in.
+- **Stage 08 Insights** gained an `advanced/` payload (cluster summary, anomalies, correlation matrix, orders forecast, and summary JSON) with automatic fallbacks whenever KNIME/Python analytics are absent. Those JSON exports now enforce a 0.75 MB cap per file: oversized KNIME outputs are converted into lightweight stubs and logged as `advanced_payload_truncated` events so BI dashboards do not choke on surprise megabyte-scale payloads.
+- **Stage 08 contracts** live under `contracts/bi/story_v1.1.schema.json`, giving downstream teams a single immutable schema source instead of copying the file from the service directory.
+- **Stage 09 Business Validation** expands `OPS_ALIAS_CANDIDATES` to catch more delivery timestamp variants and promotes low-signal diagnostics from Stage 08 into gate WARNs via the configurable `low_signal_warn_threshold`. The threshold now resolves from `config/params.yml`, is snapshotted to telemetry, and emits a `threshold_drift` log whenever operators override it between releases.
 - **Public pipeline surface**: `backend.src.app.pipeline_api` now re-exports `PipelineRequest`, `PipelineResponse`, and `run_pipeline`, so tests and tooling no longer import FastAPI internals, and the CLI/API share the same toggle names (textops, analytics, timeseries, causal, routing).
 
 
@@ -318,6 +319,8 @@ artifacts/{run_id}/stage_04_profile/
 
 #### Stage Definition
 Stage 05 orchestrates hybrid imputation for logistics features, generating curated `clean_imputed.parquet`, indicator columns, PSI drift diagnostics, and a transparent imputation plan that downstream models can trust.
+
+- **Geo indicator safeguards**: Columns forced into `indicator_only` mode now emit an integrity audit inside `metrics.json` so operations can prove that GPS coordinates stay untouched whenever governance requires "indicator only" handling. Any accidental mutation is logged as `geo_indicator_only_modified` and surfaces in the gate reasons.
 
 #### Inputs
 - `inputs["raw"]` / `inputs["raw_uri"]`: Stage 04/Stage 06 pre-curated dataset (typically `stage_06_standardize/clean.parquet`).

@@ -13,11 +13,11 @@ os.chdir(backend_dir)
 
 if __name__ == "__main__":
     import uvicorn
-    
-    # Use import string format for reload=True
+
+    # Use import string format for reload=True without referencing backend internals
     uvicorn.run(
-        "backend.src.app.services.pipeline_api.app:app",
+        "src.app.services.pipeline_api:app",
         host="0.0.0.0",
         port=9000,
-        reload=True
+        reload=True,
     )

@@ -33,6 +33,7 @@ KPI_CONTRACT_PATH = BACKEND_ROOT / "contracts" / "kpis.yml"
 DEFAULT_GEO_COLUMN_HINTS = {"latitude", "lat", "longitude", "lon", "lng"}
 DEFAULT_GEO_WARN_THRESHOLD = 0.6
 DEFAULT_GEO_STOP_THRESHOLD = 0.95
+ADVANCED_PAYLOAD_MAX_BYTES = 750_000  # ~0.75 MB cap per derived JSON field
 
 
 def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
@@ -2394,14 +2395,51 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
     advanced_dir = out_dir / "advanced"
     advanced_dir.mkdir(parents=True, exist_ok=True)
     knime_outputs_dir = Path(settings.artifacts_root) / run_id / "phase_07_knime" / "outputs"
+    advanced_truncations: List[Dict[str, Any]] = []
+
+    def _record_truncation(filename: str, size: Optional[int], origin: Optional[Path]) -> None:
+        entry = {
+            "event": "advanced_payload_truncated",
+            "file": filename,
+            "size_bytes": size,
+            "origin": origin.as_posix() if origin else None,
+        }
+        logs.append(entry)
+        advanced_truncations.append(entry)
+
+    def _truncate_payload(filename: str, payload: Dict[str, Any], size: Optional[int], origin: Optional[Path]) -> Dict[str, Any]:
+        truncated = {
+            "run_id": payload.get("run_id", run_id),
+            "generated_at": payload.get("generated_at", datetime.now(tz).isoformat()),
+            "source": payload.get("source", "truncated"),
+            "notes": list(payload.get("notes") or []),
+            "truncated": True,
+        }
+        truncated["notes"].append(
+            f"{filename} limited to {ADVANCED_PAYLOAD_MAX_BYTES} bytes (original {size or 'unknown'})."
+        )
+        if origin:
+            truncated["origin"] = origin.as_posix()
+        if size is not None:
+            truncated["size_bytes"] = size
+        _record_truncation(filename, size, origin)
+        return truncated
 
     def _copy_or_build_json(source: Path, filename: str, builder) -> tuple[str, str]:
         dest = advanced_dir / filename
         if source.exists():
+            size = source.stat().st_size
+            if size > ADVANCED_PAYLOAD_MAX_BYTES:
+                payload = _truncate_payload(filename, {}, size, source)
+                _write_json(dest, payload)
+                return dest.as_posix(), "truncated"
             shutil.copy2(source, dest)
             label = "knime" if "phase_07_knime" in source.as_posix() else "analytics"
             return dest.as_posix(), label
         payload = builder()
+        encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        if len(encoded) > ADVANCED_PAYLOAD_MAX_BYTES:
+            payload = _truncate_payload(filename, payload, len(encoded), None)
         _write_json(dest, payload)
         label = str(payload.get("source", "fallback"))
         return dest.as_posix(), label
@@ -2482,6 +2520,7 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
             "anomalies": {"source": anomalies_source},
             "orders_forecast": {"source": forecast_source},
         },
+        "truncations": advanced_truncations,
     }
     summary_path = advanced_dir / "summary.json"
     _write_json(summary_path, summary_payload)
