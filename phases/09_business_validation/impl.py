@@ -27,7 +27,19 @@ OUT_STAGE = "stage_09_business_validation"
 
 OPS_ALIAS_CANDIDATES: Dict[str, List[str]] = {
     "created_ts": ["ENTRY_DATE", "created_at", "entry_datetime"],
-    "delivered_ts": ["DELIVER_DATE", "DELIVERY_DATE", "delivered_at"],
+    "delivered_ts": [
+        "DELIVER_DATE",
+        "DELIVER DATE",
+        "DELIVERY_DATE",
+        "delivered_at",
+        "delivered_ts",
+        "delivery_ts",
+        "delivery_time",
+        "deliv_ts",
+        "pod_time",
+        "pod_ts",
+        "final_status_time",
+    ],
     "status": ["STATUS", "Sub_Status"],
     "awb_no": ["AWB_NO"],
     "cod_amount": ["COD_AMOUNT", "COD"],
@@ -278,7 +290,7 @@ def _prepare_ops(
     prepared = df
 
     created_col = _pick(prepared, renames, OPS_ALIAS_CANDIDATES["created_ts"])
-    selections["created_ts"] = created_col
+    selections["created_ts"] = renames.get(created_col, created_col) if created_col else None
     if created_col:
         created_series = _to_riyadh(prepared[created_col]).rename("ts_created")
         prepared = prepared.with_columns(created_series)
@@ -288,7 +300,7 @@ def _prepare_ops(
         )
 
     delivered_col = _pick(prepared, renames, OPS_ALIAS_CANDIDATES["delivered_ts"])
-    selections["delivered_ts"] = delivered_col
+    selections["delivered_ts"] = renames.get(delivered_col, delivered_col) if delivered_col else None
     if delivered_col:
         delivered_series = _to_riyadh(prepared[delivered_col]).rename("ts_delivered")
         prepared = prepared.with_columns(delivered_series)
@@ -298,21 +310,21 @@ def _prepare_ops(
         )
 
     status_col = _pick(prepared, renames, OPS_ALIAS_CANDIDATES["status"])
-    selections["status"] = status_col
+    selections["status"] = renames.get(status_col, status_col) if status_col else None
     if status_col:
         prepared = prepared.with_columns(pl.col(status_col).cast(pl.Utf8).alias("STATUS"))
     else:
         prepared = prepared.with_columns(pl.lit(None, dtype=pl.Utf8).alias("STATUS"))
 
     cod_col = _pick(prepared, renames, OPS_ALIAS_CANDIDATES["cod_amount"])
-    selections["cod_amount"] = cod_col
+    selections["cod_amount"] = renames.get(cod_col, cod_col) if cod_col else None
     if cod_col:
         prepared = prepared.with_columns(pl.col(cod_col).cast(pl.Float64, strict=False).alias("COD_AMOUNT"))
     else:
         prepared = prepared.with_columns(pl.lit(0.0).alias("COD_AMOUNT"))
 
     mode_col = _pick(prepared, renames, OPS_ALIAS_CANDIDATES["receiver_mode"])
-    selections["receiver_mode"] = mode_col
+    selections["receiver_mode"] = renames.get(mode_col, mode_col) if mode_col else None
     if mode_col:
         prepared = prepared.with_columns(pl.col(mode_col).cast(pl.Utf8).alias("RECEIVER_MODE"))
     else:
@@ -1055,6 +1067,7 @@ def _write_contracts(out_dir: Path) -> None:
 def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
     start = time.time()
     config = dict(config or {})
+    low_signal_warn_threshold = float(config.get("low_signal_warn_threshold", 0.15))
     artifacts_root = Path(config.get("artifacts_root", "artifacts")).expanduser().resolve()
     out_dir = artifacts_root / run_id / OUT_STAGE
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -1214,13 +1227,40 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
         warnings.append("sla_manifest_missing")
     warnings.extend(f"sla_note::{note}" for note in sla_bundle.notes)
 
+    diagnostics_block = insights.get("diagnostics") if isinstance(insights, Mapping) else {}
+    if not diagnostics_block:
+        diagnostics_file = artifacts_root / run_id / STAGE_08_DIR / "diagnostics.json"
+        diagnostics_block = _read_json(diagnostics_file) if diagnostics_file.exists() else {}
+    diag_counts = diagnostics_block.get("counts") if isinstance(diagnostics_block, Mapping) else {}
+    def _to_int(value: Any) -> int:
+        try:
+            return int(value) if value is not None else 0
+        except (TypeError, ValueError):
+            return 0
+    low_signal_candidates = _to_int(diag_counts.get("low_signal")) if isinstance(diag_counts, Mapping) else 0
+    total_signal_candidates = _to_int(diag_counts.get("pairs_tested")) if isinstance(diag_counts, Mapping) else 0
+    if total_signal_candidates <= 0:
+        total_signal_candidates = len(insights.get("insights") or [])
+    summary_block = insights.get("summary") if isinstance(insights, Mapping) else {}
+    official_insights = _to_int(summary_block.get("official_count")) if isinstance(summary_block, Mapping) else 0
+    extra_warn_flags: List[str] = []
+    if low_signal_candidates:
+        denominator = max(total_signal_candidates, 1)
+        low_signal_ratio = low_signal_candidates / denominator
+        low_signal_trigger = low_signal_ratio >= low_signal_warn_threshold or official_insights <= 0
+        if low_signal_trigger:
+            warnings.append("insights::low-signal")
+            extra_warn_flags.append(f"insights::low-signal::{low_signal_ratio:.3f}")
+
+    warn_flags_combined = list(sla_warn_flags)
+    warn_flags_combined.extend(extra_warn_flags)
     gate_status, gate_reasons = _gate_status(
         kpi_deltas,
         failures,
         catalog.thresholds,
         warnings,
         stop_flags=sla_stop_flags,
-        warn_flags=sla_warn_flags,
+        warn_flags=warn_flags_combined,
     )
 
     total_decisions = max(len(decisions), 1)

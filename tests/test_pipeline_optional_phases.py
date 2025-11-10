@@ -8,6 +8,10 @@ def _request(**overrides):
         "llm_summary": False,
     }
     payload.update(overrides)
+    if payload.get("run_stage07_timeseries") and not payload.get("timeseries_inputs"):
+        payload["timeseries_inputs"] = {"timeseries_path": "/tmp/timeseries.parquet"}
+    if payload.get("run_routing") and not payload.get("routing_inputs"):
+        payload["routing_inputs"] = {"scenario_id": "demo"}
     return PipelineRequest(**payload)
 
 

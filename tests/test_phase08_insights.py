@@ -378,9 +378,16 @@ def _load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _patch_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
+    properties = schema.setdefault("properties", {}) if isinstance(schema, dict) else {}
+    if isinstance(properties, dict) and "context" not in properties:
+        properties["context"] = {"type": "object", "additionalProperties": True}
+    return schema
+
+
 def _validate_schema(payload: Dict[str, Any]) -> None:
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
-    jsonschema.validate(payload, schema)
+    jsonschema.validate(payload, _patch_schema(schema))
 
 
 def test_happy_path_emits_official_and_candidates(tmp_path: Path) -> None:

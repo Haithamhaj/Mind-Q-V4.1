@@ -204,9 +204,23 @@ def _stage06_paths(run_id: str, artifacts_root: Path) -> Stage06Paths:
 
 
 def _build_active_phases(request: "PipelineRequest") -> List[str]:
-    # Optional phases remain part of the canonical ordering so pipeline_progress
-    # can report them as skipped when disabled by flags.
-    return list(PIPELINE_PHASE_SEQUENCE)
+    phases = list(PIPELINE_PHASE_SEQUENCE)
+
+    def _drop(phase: str) -> None:
+        try:
+            phases.remove(phase)
+        except ValueError:
+            pass
+
+    if not getattr(request, "run_stage07_analytics", False):
+        _drop("07_analytics")
+    if not getattr(request, "run_stage07_timeseries", False):
+        _drop("07_timeseries")
+    if not getattr(request, "run_causal", False):
+        _drop("09_5_causal")
+    if not getattr(request, "run_routing", False):
+        _drop("12_routing")
+    return phases
 
 
 def _isoformat(ts: float) -> str:

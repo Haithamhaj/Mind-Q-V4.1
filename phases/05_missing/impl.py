@@ -341,10 +341,17 @@ def _build_plan(df: pd.DataFrame, policy: Dict[str, Any], *, strategy_override: 
 
         feature_lower = column.lower()
         allow_high_missing = is_geo and feature_lower in geo_allow_high_missing
-        if allow_high_missing and geo_strategy in {"drop", "skip", "drop_for_model_only"}:
-            geo_strategy = "impute"
-            entry["geo_strategy"] = geo_strategy
-            reasons.append("geo allow_high_missing")
+        if allow_high_missing:
+            zero_observed = missing_pct >= 0.9999
+            if zero_observed:
+                if geo_strategy != "indicator_only":
+                    geo_strategy = "indicator_only"
+                    entry["geo_strategy"] = geo_strategy
+                reasons.append("geo allow_high_missing")
+            elif geo_strategy in {"drop", "skip", "drop_for_model_only"}:
+                geo_strategy = "impute"
+                entry["geo_strategy"] = geo_strategy
+                reasons.append("geo allow_high_missing")
 
         if missing_pct >= high_missing_threshold and not allow_high_missing:
             entry["action"] = "drop_for_model_only"

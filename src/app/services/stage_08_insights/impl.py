@@ -2265,11 +2265,12 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
         llm_overlay,
         settings,
     )
-    story_items = _story_cards(official, coverage_summary) + supplemental_cards
+    core_story_items = _story_cards(official, coverage_summary)
     story_payload = {
         "run_id": run_id,
         "confidence_note": "Confidence = f(strength, stability, coverage). Non-causal.",
-        "items": story_items,
+        "items": core_story_items,
+        "supplemental": supplemental_cards,
         "context": story_context,
     }
     _write_json(out_dir / "story_ops.json", story_payload)
@@ -2278,8 +2279,8 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
     cards_payload = {
         "run_id": run_id,
         "generated_at": datetime.now(tz).isoformat(),
-        "count": len(story_items),
-        "cards": story_items,
+        "count": len(core_story_items),
+        "cards": core_story_items,
     }
     _write_json(out_dir / "cards.json", cards_payload)
     
@@ -2389,6 +2390,102 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
     write_jsonl(logs, (out_dir / "logs.jsonl").as_posix())
     logger.info(json.dumps({"gate_status": gate_status, "duration_sec": round(time.time() - start_time, 4)}))
 
+
+    advanced_dir = out_dir / "advanced"
+    advanced_dir.mkdir(parents=True, exist_ok=True)
+    knime_outputs_dir = Path(settings.artifacts_root) / run_id / "phase_07_knime" / "outputs"
+
+    def _copy_or_build_json(source: Path, filename: str, builder) -> tuple[str, str]:
+        dest = advanced_dir / filename
+        if source.exists():
+            shutil.copy2(source, dest)
+            label = "knime" if "phase_07_knime" in source.as_posix() else "analytics"
+            return dest.as_posix(), label
+        payload = builder()
+        _write_json(dest, payload)
+        label = str(payload.get("source", "fallback"))
+        return dest.as_posix(), label
+
+    def _fallback_cluster() -> Dict[str, Any]:
+        top_segment = "GLOBAL"
+        if "REGION" in features_df.columns and not features_df.is_empty():
+            region_series = features_df["REGION"].drop_nulls()
+            if region_series.is_empty():
+                top_segment = "GLOBAL"
+            else:
+                top_segment = str(region_series.head(1).item())
+        cluster_payload: Dict[str, Any] = {
+            "run_id": run_id,
+            "generated_at": datetime.now(tz).isoformat(),
+            "source": "fallback",
+            "clusters": [
+                {
+                    "id": top_segment,
+                    "count": int(features_df.height),
+                    "mean_cod": float(features_df["COD_AMOUNT"].mean()) if "COD_AMOUNT" in features_df.columns else None,
+                }
+            ],
+        }
+        return cluster_payload
+
+    def _fallback_anomalies() -> Dict[str, Any]:
+        return {
+            "run_id": run_id,
+            "generated_at": datetime.now(tz).isoformat(),
+            "source": "fallback",
+            "records": [],
+        }
+
+    def _fallback_correlation() -> Dict[str, Any]:
+        matrix: Dict[str, Dict[str, float]] = {}
+        if "DELIVERED" in features_df.columns and "IS_COD" in features_df.columns:
+            try:
+                value = float(features_df.select(pl.corr("DELIVERED", "IS_COD")).item())
+            except Exception:
+                value = 0.0
+            matrix = {"DELIVERED": {"IS_COD": value}}
+        return {
+            "run_id": run_id,
+            "generated_at": datetime.now(tz).isoformat(),
+            "source": "fallback",
+            "matrix": matrix,
+        }
+
+    cluster_path, cluster_source = _copy_or_build_json(paths["cluster_summary"], "cluster_summary.json", _fallback_cluster)
+    anomalies_path, anomalies_source = _copy_or_build_json(paths["anomalies"], "anomalies.json", _fallback_anomalies)
+    corr_path, _ = _copy_or_build_json(paths["correlation_matrix"], "correlation_matrix.json", _fallback_correlation)
+
+    forecast_dest = advanced_dir / "orders_forecast.parquet"
+    if paths["forecast"].exists():
+        shutil.copy2(paths["forecast"], forecast_dest)
+        forecast_source = "knime" if "phase_07_knime" in paths["forecast"].as_posix() else "analytics"
+    else:
+        future_dates = [datetime.now(tz) + timedelta(days=idx) for idx in range(1, 6)]
+        baseline = float(features_df["COD_AMOUNT"].mean()) if "COD_AMOUNT" in features_df.columns else 0.0
+        forecast_df = pl.DataFrame(
+            {
+                "forecast_date": future_dates,
+                "forecast": [baseline for _ in future_dates],
+                "step": list(range(1, len(future_dates) + 1)),
+                "metric": ["COD_AMOUNT"] * len(future_dates),
+                "method": ["fallback"] * len(future_dates),
+            }
+        )
+        forecast_df.write_parquet(forecast_dest.as_posix())
+        forecast_source = "fallback"
+
+    summary_payload = {
+        "run_id": run_id,
+        "generated_at": datetime.now(tz).isoformat(),
+        "sources": {
+            "cluster_summary": {"source": cluster_source},
+            "anomalies": {"source": anomalies_source},
+            "orders_forecast": {"source": forecast_source},
+        },
+    }
+    summary_path = advanced_dir / "summary.json"
+    _write_json(summary_path, summary_payload)
+
     outputs = {
         "insights_report": (out_dir / "insights_report.json").as_posix(),
         "story_ops": (out_dir / "story_ops.json").as_posix(),
@@ -2406,6 +2503,15 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
         "column_coverage": coverage_path.as_posix(),
         "quality_report": (out_dir / "quality_report.json").as_posix(),
     }
+    outputs.update(
+        {
+            "cluster_summary": cluster_path,
+            "anomalies": anomalies_path,
+            "correlation_matrix": corr_path,
+            "orders_forecast": forecast_dest.as_posix(),
+            "advanced_summary": summary_path.as_posix(),
+        }
+    )
     if settings.candidates_enable:
         outputs["insights_candidates"] = (out_dir / "insights_candidates.json").as_posix()
     if layer2_exports:

@@ -24,6 +24,8 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - name: Enforce test import policy
         run: python tools/check_test_imports.py
+      - name: Check Stage 08 payload schema
+        run: python tools/check_stage08_payload.py
       - run: ruff check .
       - run: mypy --ignore-missing-imports .
       - run: pytest -q || true
