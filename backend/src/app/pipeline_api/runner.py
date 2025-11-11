@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from src.app.services.pipeline_api import _run_phase10
+from .app import _run_phase10
 
 
 def run_pipeline(run_id: str, config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:

@@ -13,8 +13,12 @@ param(
 $ErrorActionPreference = "Stop"
 
 # Resolve important roots (this file lives in backend\knime, so repo root is one level above backend)
-$backendRoot = Split-Path -Parent $PSScriptRoot
-$repoRoot = Split-Path -Parent $backendRoot
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$backendRoot = Join-Path $repoRoot 'backend'
+if (-not (Test-Path $backendRoot)) {
+    $backendRoot = $repoRoot
+    $repoRoot = Split-Path -Parent $repoRoot
+}
 
 # Load approval gate (module resides in repo-level scripts/)
 . "$(Join-Path $repoRoot 'scripts/knime_approval.ps1')"
@@ -22,16 +26,54 @@ $repoRoot = Split-Path -Parent $backendRoot
 # Require approval before batch execution
 Confirm-KnimeApproval -Context "KNIME Batch Workflow ($RunId)" -RequireApproval:$RequireApproval -ApprovalCount $ApprovalCount -AutoApprove:$AutoApprove | Out-Null
 
-# Resolve KNIME executable path (KNIME_HOME > PATH > default locations)
+# Resolve KNIME executable path (priority: MINDQ_KNIME_BIN > KNIME_HOME > PATH > common install locations)
 $KnimeExe = $null
-if ($env:KNIME_HOME) {
-    $k1 = Join-Path $env:KNIME_HOME 'knime.exe'
-    if (Test-Path $k1) { $KnimeExe = $k1 }
+
+function Resolve-WindowsShortcut([string]$path) {
+    if ([string]::IsNullOrWhiteSpace($path)) { return $null }
+    try {
+        if ([System.IO.Path]::GetExtension($path).ToLower() -eq '.lnk') {
+            $shell = New-Object -ComObject WScript.Shell
+            $sc = $shell.CreateShortcut($path)
+            return $sc.TargetPath
+        }
+    } catch {
+        # ignore COM errors and return original path
+    }
+    return $path
 }
+
+# 1) MINDQ_KNIME_BIN (explicit binary path)
+if ($env:MINDQ_KNIME_BIN) {
+    $candidate = Resolve-WindowsShortcut($env:MINDQ_KNIME_BIN)
+    if ($candidate -and (Test-Path $candidate)) { $KnimeExe = $candidate }
+}
+
+# 2) KNIME_HOME (may point to folder or to a .lnk)
+if (-not $KnimeExe -and $env:KNIME_HOME) {
+    $k1 = Join-Path $env:KNIME_HOME 'knime.exe'
+    $k1Resolved = Resolve-WindowsShortcut($k1)
+    if (Test-Path $k1Resolved) { $KnimeExe = $k1Resolved }
+    else {
+        # If KNIME_HOME itself is a .lnk pointing to the exe
+        $homeResolved = Resolve-WindowsShortcut($env:KNIME_HOME)
+        if ($homeResolved) {
+            $homeExe = Join-Path $homeResolved 'knime.exe'
+            if (Test-Path $homeExe) { $KnimeExe = $homeExe }
+        }
+    }
+}
+
+# 3) knime on PATH
 if (-not $KnimeExe) {
     $cmd = Get-Command -Name knime -ErrorAction SilentlyContinue
-    if ($cmd) { $KnimeExe = $cmd.Source }
+    if ($cmd) {
+        $candidate = Resolve-WindowsShortcut($cmd.Source)
+        if (Test-Path $candidate) { $KnimeExe = $candidate } else { $KnimeExe = $cmd.Source }
+    }
 }
+
+# 4) common install locations
 if (-not $KnimeExe) {
     $k2 = 'C:\\Program Files\\KNIME\\knime.exe'
     if (Test-Path $k2) { $KnimeExe = $k2 }
@@ -41,7 +83,12 @@ if (-not $KnimeExe) {
     if (Test-Path $k3) { $KnimeExe = $k3 }
 }
 if (-not $KnimeExe) {
-    Write-Error "KNIME executable not found. Set KNIME_HOME or ensure knime.exe is on PATH."
+    $k4 = 'C:\\Users\\h.hussain\\AppData\\Local\\Programs\\KNIME\\knime.exe'
+    if (Test-Path $k4) { $KnimeExe = $k4 }
+}
+
+if (-not $KnimeExe) {
+    Write-Error "KNIME executable not found. Set MINDQ_KNIME_BIN or KNIME_HOME, or ensure knime.exe is on PATH."
     exit 1
 }
 

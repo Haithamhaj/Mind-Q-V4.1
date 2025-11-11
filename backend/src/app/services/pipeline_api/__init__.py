@@ -1,11 +1,8 @@
-"""Expose pipeline API application under the backend namespace."""
+"""Legacy shim exposing pipeline API from the canonical backend package."""
 
-import sys
-from importlib import import_module
+from backend.src.app import pipeline_api as _pipeline_module
 
-_pipeline_module = import_module("src.app.services.pipeline_api.app")
-sys.modules[__name__ + ".app"] = _pipeline_module
-fastapi_app = _pipeline_module.app  # type: ignore[attr-defined]
-app = fastapi_app
+app = _pipeline_module.app
+fastapi_app = app
 
-__all__ = ["fastapi_app", "app"]
+__all__ = ["app", "fastapi_app"]

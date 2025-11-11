@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
-import backend.src.app.services.pipeline_api.timeline as pipeline_timeline_module
+import backend.src.app.pipeline_api.timeline as pipeline_timeline_module
 from backend.src.app.services.run_history import purge_run_history
 from shared.phase_manifest import load_phase_manifest
 

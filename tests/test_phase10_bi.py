@@ -10,16 +10,7 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-try:
-    from backend.src.app.pipeline_api import run_pipeline
-except ModuleNotFoundError:  # pragma: no cover - transitional fallback until pipeline_api module lands
-    import backend.src.app.services.pipeline_api.app as pipeline_app_module  # type: ignore
-
-    run_pipeline = getattr(pipeline_app_module, "_run_phase10")  # type: ignore[attr-defined]
-else:  # pragma: no cover - executed once new public module is available
-    pipeline_app_module = None
-
-from backend.src.app.services.pipeline_api import app
+from backend.src.app.pipeline_api import app, run_pipeline
 from phases.phase10_bi import impl as phase10_impl  # type: ignore
 
 

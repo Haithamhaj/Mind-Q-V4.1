@@ -7,7 +7,7 @@ from typing import Any, Dict
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.src.app.services.pipeline_api.app import app
+from backend.src.app.pipeline_api import app
 
 client = TestClient(app)
 

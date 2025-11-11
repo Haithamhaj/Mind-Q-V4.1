@@ -16,7 +16,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from src.app.services.pipeline_api import (
+from backend.src.app.pipeline_api.app import (
     IngestionRequest,
     PhaseRequest,
     run_phase01,
@@ -178,6 +178,7 @@ async def _run_pipeline(
         config={"artifacts_root": artifacts_root_str},
         ingestion_overrides={
             "min_file_size_bytes": 0,
+            "min_rows": 1,
             "dtype_overrides": {
                 "COD_AMOUNT": "float",
             },

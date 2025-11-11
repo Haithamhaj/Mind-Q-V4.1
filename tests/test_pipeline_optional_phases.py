@@ -1,5 +1,5 @@
 from backend.src.app.pipeline_api import PipelineRequest
-from backend.src.app.services.pipeline_api.app import _build_active_phases
+from backend.src.app.pipeline_api.app import _build_active_phases
 
 
 def _request(**overrides):
