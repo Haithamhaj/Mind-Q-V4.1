@@ -52,7 +52,16 @@ def test_knime_bridge_generates_layer2_candidate(tmp_path: Path) -> None:
 
     features_dir = artifacts_root / run_id / "stage_06_feature_eng"
     features_dir.mkdir(parents=True, exist_ok=True)
-    df = pd.DataFrame({"COD_AMOUNT": [100, 120, 140], "REGION": ["Riyadh", "Jeddah", "Riyadh"]})
+    df = pd.DataFrame(
+        {
+            "order_id": [f"o{i}" for i in range(1, 8)],
+            "customer_id": ["c1", "c2", "c3", "c1", "c2", "c3", "c1"],
+            "COD_AMOUNT": [100, 120, 140, 160, 180, 200, 220],
+            "REGION": ["Riyadh", "Jeddah", "Riyadh", "Dammam", "Riyadh", "Jeddah", "Riyadh"],
+            "distance_km": [10, 20, 15, 30, 12, 22, 18],
+            "order_date": pd.date_range("2025-01-01", periods=7).astype(str),
+        }
+    )
     features_path = features_dir / "features.parquet"
     df.to_parquet(features_path, index=False)
 
@@ -82,4 +91,10 @@ def test_knime_bridge_generates_layer2_candidate(tmp_path: Path) -> None:
     assert summary_file.exists()
     knime_outputs_dir = artifacts_root / run_id / "phase_07_knime" / "outputs"
     assert knime_outputs_dir.exists()
+    dq_report = json.loads((profile_dir / "dq_report.json").read_text(encoding="utf-8"))
+    assert dq_report["results"], "DQ report should include rule evaluations"
+    insights_payload = json.loads((profile_dir / "insights_fdr.json").read_text(encoding="utf-8"))
+    assert insights_payload["meta"]["sources"], "Insights payload should track analytics sources"
+    transforms_dir = artifacts_root / run_id / "phase_07_knime" / "transforms" / "analytics"
+    assert (transforms_dir / "correlation_matrix.json").exists()
     assert result["metrics"].get("python_analytics") in {"SUCCESS", "skipped"}

@@ -27,7 +27,7 @@
     },
     {
       "original": "Recievable_Status",
-      "normalized": "حالة المستحقات",
+      "normalized": "Recievable Status",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -152,5 +152,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-06T09:06:42.380626"
+  "updated_at": "2025-11-12T16:46:05.066852"
 }

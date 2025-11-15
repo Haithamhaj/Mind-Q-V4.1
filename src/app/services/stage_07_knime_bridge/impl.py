@@ -1,16 +1,17 @@
+"""Stage 07 KNIME bridge rewritten as a pure-Python BI prep stage."""
+
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import shutil
 import subprocess
-import sys
-import importlib
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Tuple, cast
+from typing import Any, Dict, List, Optional, Tuple
 
-try:
+try:  # Optional dependency used when summarizing parquet shapes
     import pyarrow.parquet as pq  # type: ignore
 except Exception:  # pragma: no cover - optional dependency
     pq = None  # type: ignore
@@ -18,12 +19,12 @@ except Exception:  # pragma: no cover - optional dependency
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 BACKEND_ROOT = PROJECT_ROOT / "backend"
 ANALYTICS_MODULE = "src.app.services.stage_07_analytics.impl"
-DEFAULT_WORKFLOW_NAME = "phase07_feature_app.knwf"
+EXPORT_SUFFIXES = {".csv", ".json", ".parquet"}
 
 
 def _normalize_mode(value: Optional[Any]) -> str:
     if value is None:
-        return "prompt"
+        return "auto"
     text = str(value).strip().lower()
     if text in {"auto", "yes", "y", "1", "true", "enable", "enabled"}:
         return "auto"
@@ -31,7 +32,7 @@ def _normalize_mode(value: Optional[Any]) -> str:
         return "skip"
     if text in {"prompt", "ask", "askme"}:
         return "prompt"
-    return "prompt"
+    return "auto"
 
 
 def _resolve_mode(config: Dict[str, Any]) -> str:
@@ -48,34 +49,13 @@ def _resolve_mode(config: Dict[str, Any]) -> str:
         return "auto"
     if config.get("auto_skip") is True:
         return "skip"
-    return "prompt"
+    return "auto"
 
 
 def resolve_mode(config: Dict[str, Any]) -> str:
-    """Public helper so pipeline controller can detect KNIME execution mode."""
+    """Public helper used by the pipeline controller."""
+
     return _resolve_mode(config)
-
-
-def _prompt_user(run_id: str) -> bool:
-    message = (
-        f"\n[Stage 07 :: KNIME Bridge] Run '{run_id}' is ready for KNIME preparation.\n"
-        "Do you want to prepare artifacts for KNIME now?\n"
-        "  [Y]es  -> generate phase_07_knime inputs\n"
-        "  [N]o   -> skip for this run\n"
-        "Hint: set MINDQ_KNIME_MODE=auto to auto-approve or =skip to suppress this prompt.\n"
-    )
-    if not sys.stdin or not sys.stdin.isatty():
-        print(f"{message}No interactive TTY detected. Defaulting to 'No'.")
-        return False
-
-    try:
-        resp = input(message + "Your choice [y/N]: ").strip().lower()
-    except EOFError:
-        return False
-
-    if not resp:
-        return False
-    return resp in {"y", "yes", "1", "true"}
 
 
 def _copy_file(src: Optional[Path], dest: Path) -> Optional[str]:
@@ -123,8 +103,7 @@ def _parquet_overview(path: Path) -> Tuple[Optional[int], Optional[int]]:
         return None, None
 
 
-
-def _build_layer2_candidate(stage075_dir: Path, run_id: str) -> Optional[Dict[str, Any]]:
+def _build_layer2_candidate(stage075_dir: Path, run_id: str) -> Dict[str, Any]:
     variance_path = stage075_dir / "variance_analysis.json"
     comparative_path = stage075_dir / "comparative_summary.json"
     heatmap_path = stage075_dir / "heatmap_matrix.json"
@@ -132,9 +111,6 @@ def _build_layer2_candidate(stage075_dir: Path, run_id: str) -> Optional[Dict[st
     variance_payload = _load_json_any(variance_path) if variance_path.exists() else None
     comparative_payload = _load_json_any(comparative_path) if comparative_path.exists() else None
     heatmap_payload = _load_json_any(heatmap_path) if heatmap_path.exists() else None
-
-    if not any([variance_payload, comparative_payload, heatmap_payload]):
-        return None
 
     generated_at = datetime.now(timezone.utc).isoformat()
     sources = {
@@ -179,6 +155,242 @@ def _safe_git_info() -> Tuple[Optional[str], Optional[str]]:
     return sha, branch
 
 
+def _analytics_inputs(inputs: Dict[str, Any]) -> Dict[str, Any]:
+    keys = (
+        "features",
+        "schema",
+        "kpis",
+        "readiness_report",
+        "decision_manifest",
+        "feature_report",
+    )
+    payload: Dict[str, Any] = {}
+    for key in keys:
+        value = inputs.get(key)
+        if value:
+            payload[key] = value
+    return payload
+
+
+def _run_python_analytics(
+    run_id: str,
+    inputs: Dict[str, Any],
+    config: Dict[str, Any],
+    artifacts_root: Path,
+) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    try:
+        module = importlib.import_module(ANALYTICS_MODULE)
+    except Exception as exc:  # pragma: no cover - defensive
+        return None, f"analytics_import_error: {exc}"
+
+    run_fn = getattr(module, "run", None)
+    if not callable(run_fn):  # pragma: no cover - defensive
+        return None, "analytics_run_not_callable"
+
+    analytics_inputs = _analytics_inputs(inputs)
+    analytics_config = dict(config)
+    analytics_config.setdefault("artifacts_root", artifacts_root.as_posix())
+    try:
+        result = run_fn(run_id, analytics_inputs, analytics_config)
+    except Exception as exc:  # pragma: no cover - keep bridge resilient
+        return None, f"analytics_execution_failed: {exc}"
+    return result, None
+
+
+def _copy_analytics_outputs(
+    analytics_outputs_dir: Path,
+    knime_outputs_dir: Path,
+    transforms_dir: Path,
+) -> Dict[str, str]:
+    copied: Dict[str, str] = {}
+    if not analytics_outputs_dir.exists():
+        return copied
+    for entry in analytics_outputs_dir.rglob("*"):
+        if not entry.is_file():
+            continue
+        relative = entry.relative_to(analytics_outputs_dir)
+        dest = knime_outputs_dir / relative
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(entry, dest)
+        copied[relative.as_posix()] = dest.as_posix()
+        if entry.suffix.lower() in EXPORT_SUFFIXES:
+            tx_dest = transforms_dir / relative
+            tx_dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(entry, tx_dest)
+    return copied
+
+
+def _emit_dq_artifacts(dq_summary_path: Path, profile_dir: Path) -> Tuple[Optional[Path], Optional[Path]]:
+    if not dq_summary_path.exists():
+        return None, None
+    try:
+        summary = json.loads(dq_summary_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None, None
+
+    rules = summary.get("rules") or []
+    normalized: List[Dict[str, Any]] = []
+    for idx, rule in enumerate(rules):
+        if not isinstance(rule, dict):
+            continue
+        record: Dict[str, Any] = {
+            "id": str(rule.get("rule_id") or f"rule_{idx+1}"),
+            "title": rule.get("rule_name") or rule.get("rule_id"),
+            "passed": bool(rule.get("passed", False)),
+            "severity": rule.get("severity"),
+            "status": "pass" if rule.get("passed") else "fail",
+            "details": rule.get("details"),
+        }
+        if rule.get("column"):
+            record["column"] = rule["column"]
+        normalized.append(record)
+
+    dq_report = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "summary": {
+            "total_rules": summary.get("total_rules"),
+            "passed": summary.get("passed"),
+            "failed": summary.get("failed"),
+            "critical_failures": summary.get("critical_failures"),
+            "high_failures": summary.get("high_failures"),
+        },
+        "results": normalized,
+    }
+    dq_report_path = profile_dir / "dq_report.json"
+    dq_report_path.write_text(json.dumps(dq_report, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    coverage = {
+        "summary": {
+            "total_rows": summary.get("total_rows"),
+            "total_columns": summary.get("total_columns"),
+            "rules_evaluated": len(normalized),
+            "rules_failed": summary.get("failed"),
+            "critical_failures": summary.get("critical_failures"),
+        }
+    }
+    coverage_path = profile_dir / "dq_coverage_summary.json"
+    coverage_path.write_text(json.dumps(coverage, ensure_ascii=False, indent=2), encoding="utf-8")
+    return dq_report_path, coverage_path
+
+
+def _bucket_from_strength(value: float) -> str:
+    if value >= 0.7:
+        return "HIGH"
+    if value >= 0.5:
+        return "MEDIUM"
+    return "LOW"
+
+
+def _emit_insights_artifact(
+    correlation_path: Path,
+    cluster_path: Path,
+    anomalies_path: Path,
+    profile_dir: Path,
+) -> Path:
+    insights: List[Dict[str, Any]] = []
+    sources: Dict[str, Optional[str]] = {
+        "correlations": correlation_path.as_posix() if correlation_path.exists() else None,
+        "clusters": cluster_path.as_posix() if cluster_path.exists() else None,
+        "anomalies": anomalies_path.as_posix() if anomalies_path.exists() else None,
+    }
+
+    if correlation_path.exists():
+        try:
+            corr_payload = json.loads(correlation_path.read_text(encoding="utf-8"))
+        except Exception:
+            corr_payload = {}
+        for entry in corr_payload.get("top_correlations", [])[:20]:
+            if not isinstance(entry, dict):
+                continue
+            abs_corr = float(entry.get("abs_correlation", 0) or 0.0)
+            insights.append(
+                {
+                    "kpi": entry.get("col1"),
+                    "feature": entry.get("col2"),
+                    "strength": abs_corr,
+                    "direction": entry.get("direction"),
+                    "coverage": round(abs_corr * 100, 2),
+                    "confidence": min(0.95, 0.6 + abs_corr * 0.4),
+                    "bucket": _bucket_from_strength(abs_corr),
+                    "source": "correlation",
+                }
+            )
+
+    if cluster_path.exists():
+        try:
+            cluster_payload = json.loads(cluster_path.read_text(encoding="utf-8"))
+        except Exception:
+            cluster_payload = {}
+        for cluster in cluster_payload.get("clusters", [])[:5]:
+            if not isinstance(cluster, dict):
+                continue
+            insights.append(
+                {
+                    "kpi": "cluster",
+                    "feature": f"cluster_{cluster.get('cluster_id')}",
+                    "strength": float(cluster.get("percentage", 0)) / 100.0,
+                    "direction": "positive",
+                    "coverage": cluster.get("percentage"),
+                    "confidence": 0.7,
+                    "bucket": "MEDIUM",
+                    "notes": {k: v for k, v in cluster.items() if k not in {"cluster_id", "percentage"}},
+                    "source": "cluster",
+                }
+            )
+
+    if anomalies_path.exists():
+        try:
+            anomalies_payload = json.loads(anomalies_path.read_text(encoding="utf-8"))
+        except Exception:
+            anomalies_payload = {}
+        for record in anomalies_payload.get("top_anomalies", [])[:10]:
+            if not isinstance(record, dict):
+                continue
+            insights.append(
+                {
+                    "kpi": "anomaly",
+                    "feature": record.get("order_id") or record.get("customer_id") or "unknown",
+                    "strength": 1.0,
+                    "direction": "negative",
+                    "coverage": 1,
+                    "confidence": 0.65,
+                    "bucket": "HIGH",
+                    "notes": record.get("features"),
+                    "source": "anomaly",
+                }
+            )
+
+    payload = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "insights": insights,
+        "meta": {"sources": sources, "total_candidates": len(insights)},
+    }
+    insights_path = profile_dir / "insights_fdr.json"
+    insights_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return insights_path
+
+
+def _write_run_notes(
+    profile_dir: Path,
+    run_id: str,
+    dataset_path: Path,
+    analytics_status: str,
+    data_rows: Optional[int],
+) -> Path:
+    lines = [
+        f"# Stage 07 Python BI Prep :: {run_id}",
+        "",
+        "- Dataset: ``%s``" % dataset_path.as_posix(),
+        f"- Rows inspected: {data_rows if data_rows is not None else 'unknown'}",
+        f"- Analytics engine status: {analytics_status}",
+        "",
+        "This replaces the manual KNIME workflow and is generated automatically.",
+    ]
+    notes_path = profile_dir / "run_summary.md"
+    notes_path.write_text("\n".join(lines), encoding="utf-8")
+    return notes_path
+
+
 def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
     artifacts_root = Path(config.get("artifacts_root", "artifacts")).expanduser().resolve()
     mode = _resolve_mode(config)
@@ -191,29 +403,15 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
             "meta": {"mode": mode},
         }
 
-    approve = mode == "auto" or _prompt_user(run_id)
-    if not approve:
-        return {
-            "run_id": run_id,
-            "status": "SKIP",
-            "reason": "knime_bridge_declined",
-            "meta": {"mode": mode},
-        }
-
     features_path = Path(inputs["features"]).expanduser().resolve()
     if not features_path.exists():
         raise FileNotFoundError(f"Stage 06 features not found: {features_path}")
 
     layer1_path: Optional[Path] = None
-    layer1_input = inputs.get("layer1_dataset")
-    if layer1_input:
-        try:
-            candidate = Path(str(layer1_input)).expanduser().resolve()
-        except FileNotFoundError:
-            candidate = None
-        else:
-            if candidate.exists():
-                layer1_path = candidate
+    if inputs.get("layer1_dataset"):
+        candidate = Path(str(inputs["layer1_dataset"])).expanduser()
+        if candidate.exists():
+            layer1_path = candidate.resolve()
 
     dataset_path = layer1_path or features_path
 
@@ -225,7 +423,11 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
 
     knime_root = artifacts_root / run_id / "phase_07_knime"
     profile_dir = knime_root / "profile"
+    outputs_dir = knime_root / "outputs"
+    transforms_dir = knime_root / "transforms" / "analytics"
     profile_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+    transforms_dir.mkdir(parents=True, exist_ok=True)
 
     copied: Dict[str, Optional[str]] = {}
     copied["data"] = _copy_file(dataset_path, knime_root / "data.parquet")
@@ -234,8 +436,6 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
 
     data_rows, data_cols = _parquet_overview(dataset_path)
 
-
-    # Schema preferred from stage 03; fallback to global schema.
     if not schema_path or not schema_path.exists():
         schema_fallback = (artifacts_root / run_id / "stage_03_schema" / "schema_v1.json").expanduser()
         if schema_fallback.exists():
@@ -244,7 +444,6 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
             default_schema = PROJECT_ROOT / "contracts" / "schema.json"
             if default_schema.exists():
                 schema_path = default_schema
-
     if schema_path and schema_path.exists():
         copied["schema"] = _copy_file(schema_path, knime_root / "schema.json")
 
@@ -262,14 +461,8 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
     readiness_payload = _load_json(readiness_path)
     gate_info = (readiness_payload or {}).get("gate") if isinstance(readiness_payload, dict) else None
     key_stats = (readiness_payload or {}).get("key_stats") if isinstance(readiness_payload, dict) else None
-    if isinstance(gate_info, dict):
-        gate_dict = cast(Dict[str, Any], gate_info)
-    else:
-        gate_dict = {}
-    if isinstance(key_stats, dict):
-        key_stats_dict = cast(Dict[str, Any], key_stats)
-    else:
-        key_stats_dict = {}
+    gate_dict = gate_info if isinstance(gate_info, dict) else {}
+    key_stats_dict = key_stats if isinstance(key_stats, dict) else {}
 
     now = datetime.now(timezone.utc).isoformat()
     git_sha, git_branch = _safe_git_info()
@@ -277,7 +470,7 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
     run_meta: Dict[str, Any] = {
         "run_id": run_id,
         "created_at": now,
-        "workflow": DEFAULT_WORKFLOW_NAME,
+        "workflow": "python_bi_prep",
         "git_sha": git_sha,
         "git_branch": git_branch,
         "prompt": {"mode": mode, "approved": True, "timestamp": now},
@@ -302,178 +495,9 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
             "n_cols": key_stats_dict.get("n_cols"),
         },
     }
-
-
-    run_meta_path = knime_root / "run_meta.json"
-    run_meta_path.write_text(json.dumps(run_meta, ensure_ascii=False, indent=2), encoding="utf-8")
-    copied["run_meta"] = run_meta_path.as_posix()
+    (knime_root / "run_meta.json").write_text(json.dumps(run_meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
     bridge_summary_path = profile_dir / "bridge_summary.json"
-    bridge_summary: Dict[str, Any] = {
+    bridge_summary = {
         "run_id": run_id,
-        "generated_at": now,
-        "mode": mode,
-        "git_sha": git_sha,
-        "git_branch": git_branch,
-        "dataset_source": dataset_path.as_posix(),
-        "features_source": features_path.as_posix(),
-        "dataset_origin": "layer1_dataset" if layer1_path and layer1_path.exists() else "features",
-        "data_rows": data_rows,
-        "data_columns": data_cols,
-        "copied": copied,
-    }
-
-    bridge_summary_path.write_text(json.dumps(bridge_summary, ensure_ascii=False, indent=2), encoding="utf-8")
-    copied["bridge_summary"] = bridge_summary_path.as_posix()
-
-    stage075_dir = artifacts_root / run_id / "stage_07_5_feature_report"
-    layer2_candidate = _build_layer2_candidate(stage075_dir, run_id)
-    candidate_path = profile_dir / "layer2_candidate.json"
-    
-    # Always create layer2_candidate.json, even if empty
-    if layer2_candidate:
-        candidate_path.write_text(json.dumps(layer2_candidate, ensure_ascii=False, indent=2), encoding="utf-8")
-    else:
-        # Create empty layer2_candidate.json if no data available
-        empty_candidate = {
-            "run_id": run_id,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "sources": {
-                "variance": None,
-                "comparative": None,
-                "heatmap": None,
-            },
-            "variance": None,
-            "comparative": None,
-            "heatmap": None,
-            "notes": ["No layer2 data available from stage_07_5_feature_report"],
-        }
-        candidate_path.write_text(json.dumps(empty_candidate, ensure_ascii=False, indent=2), encoding="utf-8")
-    
-    copied["layer2_candidate"] = candidate_path.as_posix()
-
-    # Also create stage_07_knime_bridge directory and copy files there for expected output location
-    stage_bridge_dir = artifacts_root / run_id / "stage_07_knime_bridge"
-    stage_bridge_profile_dir = stage_bridge_dir / "profile"
-    stage_bridge_profile_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Copy/link files to stage_07_knime_bridge/profile for expected outputs
-    if bridge_summary_path.exists():
-        shutil.copy2(bridge_summary_path, stage_bridge_profile_dir / "bridge_summary.json")
-    if candidate_path.exists():
-        shutil.copy2(candidate_path, stage_bridge_profile_dir / "layer2_candidate.json")
-    profile_feature_report = profile_dir / "feature_report.json"
-    if profile_feature_report.exists():
-        shutil.copy2(profile_feature_report, stage_bridge_profile_dir / "feature_report.json")
-
-    # Ensure all expected outputs are included
-    outputs = {key: value for key, value in copied.items() if value}
-    
-    # Ensure layer2_candidate is in outputs (from stage_07_knime_bridge/profile)
-    stage_layer2_path = stage_bridge_profile_dir / "layer2_candidate.json"
-    if stage_layer2_path.exists():
-        outputs["layer2_candidate"] = stage_layer2_path.as_posix()
-    elif candidate_path.exists():
-        outputs["layer2_candidate"] = candidate_path.as_posix()
-    
-    # Ensure bridge_summary is in outputs (from stage_07_knime_bridge/profile)
-    stage_bridge_summary_path = stage_bridge_profile_dir / "bridge_summary.json"
-    if stage_bridge_summary_path.exists():
-        outputs["bridge_summary"] = stage_bridge_summary_path.as_posix()
-    elif bridge_summary_path.exists():
-        outputs["bridge_summary"] = bridge_summary_path.as_posix()
-    
-    # Ensure feature_report is in outputs (from stage_07_knime_bridge/profile)
-    stage_feature_report_path = stage_bridge_profile_dir / "feature_report.json"
-    if stage_feature_report_path.exists():
-        outputs["feature_report"] = stage_feature_report_path.as_posix()
-    elif profile_feature_report.exists():
-        outputs["feature_report"] = profile_feature_report.as_posix()
-    
-    status = "PASS" if len([k for k in ["layer2_candidate", "bridge_summary", "feature_report"] if k in outputs]) >= 3 else "WARN"
-    metrics: Dict[str, Any] = {
-        "prepared_files": len(outputs),
-        "mode": mode,
-        "dataset_source": dataset_path.as_posix(),
-        "dataset_origin": "layer1_dataset" if layer1_path and layer1_path.exists() else "features",
-    }
-    if data_rows is not None:
-        metrics["data_rows"] = data_rows
-    if data_cols is not None:
-        metrics["data_columns"] = data_cols
-
-
-    # Optional: execute KNIME batch after preparation (useful during testing)
-    def _run_knime_batch(run_id_local: str, knime_root_local: Path) -> Tuple[int, Optional[str]]:
-        script = PROJECT_ROOT / "knime" / "run_knime_workflow.ps1"
-        logs_dir = knime_root_local / "logs"
-        logs_dir.mkdir(parents=True, exist_ok=True)
-        stdout_path = logs_dir / f"knime_batch_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}.log"
-        if not script.exists():
-            msg = f"KNIME script not found: {script.as_posix()}"
-            try:
-                stdout_path.write_text(msg, encoding="utf-8")
-            except Exception:
-                pass
-            return 127, stdout_path.as_posix()
-        cmd = [
-            "pwsh",
-            "-NoLogo",
-            "-NonInteractive",
-            "-File",
-            script.as_posix(),
-            "-RunId",
-            run_id_local,
-            "-AutoApprove",
-        ]
-        try:
-            with stdout_path.open("w", encoding="utf-8") as out:
-                proc = subprocess.run(cmd, cwd=PROJECT_ROOT, stdout=out, stderr=subprocess.STDOUT)
-            return proc.returncode, stdout_path.as_posix()
-        except Exception as e:  # best-effort, do not fail the bridge
-            try:
-                stdout_path.write_text(f"Failed to start KNIME batch: {e}", encoding="utf-8")
-            except Exception:
-                pass
-            return 126, stdout_path.as_posix()
-
-    # Decide whether to execute batch now
-    run_batch = bool(config.get("run_batch")) or (mode == "auto" and bool(config.get("auto_execute", True)))
-    only_execute = bool(config.get("only_execute"))
-
-    knime_exit_code: Optional[int] = None
-    knime_stdout: Optional[str] = None
-
-    if only_execute or run_batch:
-        # If only_execute, assume preparation already done; otherwise we just prepared above
-        knime_exit_code, knime_stdout = _run_knime_batch(run_id, knime_root)
-        # Append batch info into bridge_summary.json
-        try:
-            summary_path = profile_dir / "bridge_summary.json"
-            summary = json.loads(summary_path.read_text(encoding="utf-8")) if summary_path.exists() else {}
-            summary.setdefault("batch", {})
-            summary["batch"].update({
-                "exit_code": knime_exit_code,
-                "stdout_path": knime_stdout,
-            })
-            summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-        except Exception:
-            pass
-
-        # Reflect batch result in overall status/metrics
-        if knime_exit_code is not None and knime_exit_code != 0:
-            status = "WARN"
-        metrics["knime_exit_code"] = knime_exit_code
-
-    result: Dict[str, Any] = {
-        "run_id": run_id,
-        "status": status,
-        "outputs": outputs,
-        "metrics": metrics,
-    }
-    if knime_stdout:
-        result["logs"] = {"knime_stdout": knime_stdout}
-    return result
-
-
-__all__ = ["run", "resolve_mode"]
+`````
