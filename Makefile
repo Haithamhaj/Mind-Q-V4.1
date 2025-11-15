@@ -1,44 +1,35 @@
-.PHONY: lint test smoke formatVENV=.venv
+PY ?= python
+VENV ?= .venv
 
-lint: ; ruff check . && mypy --ignore-missing-imports .PY=poetry run
-
-test: ; pytest -q
-
-smoke: ; python -m cli.runner flow --run-id smoke-local.PHONY: venv install fmt lint types test run
-
-format: ; ruff format . && isort .
+.PHONY: venv install fmt lint types test smoke run stage01 migrate-smoke
 
 venv:
 	python -m venv $(VENV)
 
 install:
-	$(PY) pip install --upgrade pip
-	$(PY) pip install -r requirements.txt || true
+	$(PY) -m pip install --upgrade pip
+	$(PY) -m pip install -r requirements.txt || true
+	$(PY) -m pip install -r requirements-dev.txt || true
 
 fmt:
-	$(PY) black .
+	$(PY) -m black .
+	$(PY) -m ruff format .
 
 lint:
-	$(PY) ruff check .
+	$(PY) -m ruff check .
+	$(PY) -m mypy --ignore-missing-imports .
 
 types:
-	$(PY) mypy src || true
+	$(PY) -m mypy src || true
 
 test:
-	$(PY) pytest -q
+	$(PY) -m pytest -q
+
+smoke:
+	$(PY) -m cli.runner flow --run-id smoke-local
 
 run:
-	$(PY) python -m cli.runner flow --run-id demo --config configs/default.yml
-PY?=python
-
-.PHONY: test stage01 migrate-smoke
-
-test:
-	$(PY) -m pytest backend/tests/stage_02_ingestion -q
-	$(PY) -m pytest backend/tests/stage_02_quality -q
-	$(PY) -m pytest backend/tests/stage_06_standardize -q
-	$(PY) -m pytest backend/tests/stage_06_feature_eng -q
-	$(PY) -m pytest backend/tests/api_kpi -q
+	$(PY) -m cli.runner flow --run-id demo --config configs/default.yml
 
 stage01:
 	$(PY) -m cli.runner stage01 --files "data/*.csv"
