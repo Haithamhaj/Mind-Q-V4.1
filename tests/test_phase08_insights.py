@@ -6,7 +6,7 @@ import math
 from pathlib import Path
 
 import numpy as np
-from typing import Any, Dict, Optional, TYPE_CHECKING, cast
+from typing import Any, Dict, Optional, Sequence, TYPE_CHECKING, cast
 
 import pytest
 
@@ -47,6 +47,100 @@ def _load_phase_impl(phase_dir: str) -> Any:
 
 feature_report_impl = _load_phase_impl("07_5_feature_report")
 
+
+def _seed_nzv_artifacts(
+    artifacts_root: Path,
+    run_id: str,
+    *,
+    low_variance: Optional[Sequence[str]] = None,
+    high_imbalance: Optional[Sequence[str]] = None,
+) -> None:
+    stage05_dir = artifacts_root / run_id / "stage_05_missing"
+    stage05_dir.mkdir(parents=True, exist_ok=True)
+    columns: List[Dict[str, Any]] = []
+    low_variance = list(low_variance or [])
+    high_imbalance = list(high_imbalance or [])
+    for name in low_variance:
+        columns.append(
+            {
+                "name": name,
+                "n_valid": 100,
+                "missing_pct": 0.0,
+                "unique_count": 1,
+                "dominant_value": "A",
+                "dominant_pct": 0.98,
+                "top_values": [{"value": "A", "pct": 0.98}],
+                "nzv_category": "near_zero_variance",
+                "is_nzv": True,
+                "nzv_reason": "dominant_pct>=0.95,max_unique<=5",
+            }
+        )
+    for name in high_imbalance:
+        columns.append(
+            {
+                "name": name,
+                "n_valid": 100,
+                "missing_pct": 0.0,
+                "unique_count": 3,
+                "dominant_value": "X",
+                "dominant_pct": 0.92,
+                "top_values": [{"value": "X", "pct": 0.92}],
+                "nzv_category": "high_imbalance",
+                "is_nzv": False,
+                "nzv_reason": "dominant_pct>=0.90",
+            }
+        )
+    summary_payload = {
+        "imputed_columns": [],
+        "indicator_columns": [],
+        "model_exclusions": [],
+        "nzv_summary": {
+            "n_nzv_columns": len(low_variance),
+            "n_constant_like": len(low_variance),
+            "n_high_imbalance": len(high_imbalance),
+            "n_total_columns": len(low_variance) + len(high_imbalance),
+            "nzv_ratio": float(len(low_variance)) / float(max(1, len(low_variance) + len(high_imbalance))),
+        },
+    }
+    (stage05_dir / "summary.json").write_text(json.dumps(summary_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    nzv_payload = {
+        "run_id": run_id,
+        "n_rows": 100,
+        "columns": columns,
+        "nzv_summary": summary_payload["nzv_summary"],
+    }
+    (stage05_dir / "nzv_summaries.json").write_text(json.dumps(nzv_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    stage06_dir = artifacts_root / run_id / "stage_06_standardize"
+    stage06_dir.mkdir(parents=True, exist_ok=True)
+    stage06_columns: Dict[str, Dict[str, Any]] = {}
+    for name in low_variance:
+        stage06_columns[name] = {
+            "original_name": name,
+            "standardized_name": name,
+            "dtype_before": "string",
+            "dtype_after": "string",
+            "is_nzv": True,
+            "nzv_category": "near_zero_variance",
+            "nzv_reason": "dominant_pct>=0.95,max_unique<=5",
+            "nzv_dominant_value": "A",
+            "nzv_dominant_pct": 0.98,
+        }
+    for name in high_imbalance:
+        stage06_columns.setdefault(
+            name,
+            {
+                "original_name": name,
+                "standardized_name": name,
+                "dtype_before": "string",
+                "dtype_after": "string",
+            },
+        )
+    stage06_payload = {
+        "columns": stage06_columns,
+        "nzv_summary": summary_payload["nzv_summary"],
+    }
+    (stage06_dir / "standardize_report.json").write_text(json.dumps(stage06_payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 
@@ -398,7 +492,9 @@ def test_happy_path_emits_official_and_candidates(tmp_path: Path) -> None:
 
     outputs = result["outputs"]
     assert "layer2_snapshot" in outputs
-    layer2_dir = out_dir / "layer2"
+    advanced_dir = out_dir / "advanced"
+    legacy_layer2_dir = out_dir / "layer2"
+    layer2_dir = advanced_dir if advanced_dir.exists() else legacy_layer2_dir
     assert layer2_dir.exists()
     snapshot = _load_json(layer2_dir / "layer2_snapshot.json")
     assert snapshot["sources"]
@@ -503,6 +599,35 @@ def test_advanced_outputs_use_knime_when_available(tmp_path: Path) -> None:
     assert outputs["orders_forecast"].endswith("orders_forecast.parquet")
 
 
+def test_stage08_ignores_low_variance_fields(tmp_path: Path) -> None:
+    run_id = "nzv_skip"
+    artifacts_root = _make_artifacts(tmp_path, run_id)
+    _seed_nzv_artifacts(artifacts_root, run_id, low_variance=["CARRIER"])
+    result, out_dir = _run_stage(tmp_path, run_id)
+    assert result["status"] in {"PASS", "WARN"}
+    diagnostics = _load_json(out_dir / "diagnostics.json")
+    impact = diagnostics.get("nzv_impact", {})
+    ignored = impact.get("low_variance_ignored_columns", [])
+    assert all(isinstance(entry, dict) for entry in ignored)
+    assert any(entry.get("name") == "CARRIER" for entry in ignored)
+    assert any(entry.get("usage_hint") == "context_only" for entry in ignored)
+    insights = _load_json(out_dir / "insights_report.json")
+    impact_report = insights.get("nzv_impact", {})
+    assert any(entry.get("name") == "CARRIER" for entry in impact_report.get("low_variance_ignored_columns", []))
+
+
+def test_stage08_tags_high_imbalance_columns(tmp_path: Path) -> None:
+    run_id = "nzv_high_imbalance"
+    artifacts_root = _make_artifacts(tmp_path, run_id)
+    _seed_nzv_artifacts(artifacts_root, run_id, high_imbalance=["REGION"])
+    result, out_dir = _run_stage(tmp_path, run_id)
+    assert result["status"] in {"PASS", "WARN"}
+    diagnostics = _load_json(out_dir / "diagnostics.json")
+    impact = diagnostics.get("nzv_impact", {})
+    high_imbalance = impact.get("high_imbalance_included_columns", [])
+    assert any(entry.get("name") == "REGION" for entry in high_imbalance)
+
+
 def test_anomalies_absent_when_sample_small(tmp_path: Path) -> None:
     run_id = "small_sample"
     _, out_dir = _run_stage(tmp_path, run_id, features=_build_features())
@@ -557,7 +682,11 @@ def test_anomalies_detected_for_large_shift(tmp_path: Path) -> None:
     story_path = out_dir / "story_ops.json"
     story = _load_json(story_path)
     insights = _load_json(out_dir / "insights_report.json")
-    assert len(story["items"]) == insights["summary"]["official_count"]
+    story_items = story["items"]
+    assert len(story_items) >= insights["summary"]["official_count"]
+    official_kpis = {entry["kpi"] for entry in insights["insights"]}
+    story_kpis = {item.get("kpi") for item in story_items if item.get("kpi")}
+    assert official_kpis.issubset(story_kpis)
     assert story["confidence_note"].endswith("Non-causal.")
 
     segment_stats_path = out_dir / "segment_stats.parquet"

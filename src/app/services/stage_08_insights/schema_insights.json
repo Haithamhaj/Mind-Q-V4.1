@@ -57,6 +57,20 @@
         },
         "additionalProperties": true
       }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "nzv_impact": {
+      "type": "object",
+      "properties": {
+        "low_variance_ignored_columns": { "type": "array" },
+        "high_imbalance_included_columns": { "type": "array" },
+        "nzv_summary": { "type": ["object", "null"] },
+        "nzv_source": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
     }
   },
   "additionalProperties": false

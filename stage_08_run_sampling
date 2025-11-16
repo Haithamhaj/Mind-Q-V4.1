@@ -1,3 +1,2 @@
-2025-11-05 17:59:20,273 WARNING Stage 08 policy file not found at C:\Github - MindQ\Mind-Q-V4.1\backend\contracts\impute\policy.yml; using defaults.
-2025-11-05 17:59:20,281 INFO {"event": "sampling", "enabled": true, "fraction": 0.5, "population_rows": 8, "sampled_rows": 4}
-2025-11-05 17:59:20,453 INFO {"gate_status": "PASS", "duration_sec": 0.1923}
+2025-11-16 16:28:41,082 INFO {"event": "sampling", "enabled": true, "fraction": 0.5, "population_rows": 8, "sampled_rows": 4}
+2025-11-16 16:28:41,092 INFO {"gate_status": "PASS", "duration_sec": 0.0127}

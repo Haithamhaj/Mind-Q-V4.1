@@ -6,7 +6,7 @@ import math
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 import duckdb  # type: ignore
 import polars as pl  # type: ignore
@@ -24,6 +24,7 @@ STAGE_01_DIR = "stage_01_ingestion"
 STAGE_06_DIR = "stage_06_standardize"
 STAGE_08_DIR = "stage_08_insights"
 OUT_STAGE = "stage_09_business_validation"
+LOW_VARIANCE_CATEGORIES = {"constant_like", "near_zero_variance"}
 
 OPS_ALIAS_CANDIDATES: Dict[str, List[str]] = {
     "created_ts": ["ENTRY_DATE", "created_at", "entry_datetime"],
@@ -132,6 +133,218 @@ def _read_json(path: Path) -> Dict[str, Any]:
     if not path.exists():
         return {}
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _read_json_safe(path: Path) -> Optional[Dict[str, Any]]:
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _safe_json_value(value: Any) -> Any:
+    if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+        return None
+    return value
+
+
+def _load_stage05_nzv(artifacts_root: Path, run_id: str) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Path]]:
+    nzv_path = artifacts_root / run_id / "stage_05_missing" / "nzv_summaries.json"
+    payload = _read_json_safe(nzv_path)
+    if not payload:
+        return [], None, None
+    columns_payload = payload.get("columns")
+    summary = payload.get("nzv_summary") if isinstance(payload.get("nzv_summary"), dict) else None
+    column_entries = [entry for entry in columns_payload if isinstance(entry, dict)] if isinstance(columns_payload, list) else []
+    return column_entries, summary, nzv_path
+
+
+def _load_standardize_columns(artifacts_root: Path, run_id: str) -> Tuple[Dict[str, Dict[str, Any]], Optional[Path]]:
+    report_path = artifacts_root / run_id / STAGE_06_DIR / "standardize_report.json"
+    payload = _read_json_safe(report_path)
+    if not payload:
+        return {}, None
+    columns_payload = payload.get("columns")
+    if isinstance(columns_payload, dict):
+        return {str(name): dict(meta) for name, meta in columns_payload.items() if isinstance(meta, dict)}, report_path
+    return {}, report_path
+
+
+def _build_nzv_metadata(
+    artifacts_root: Path,
+    run_id: str,
+) -> Tuple[Dict[str, Dict[str, Any]], Optional[Dict[str, Any]], Optional[Path], Optional[Path], List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    stage05_columns, stage05_summary, stage05_path = _load_stage05_nzv(artifacts_root, run_id)
+    stage06_columns, stage06_path = _load_standardize_columns(artifacts_root, run_id)
+
+    stage05_lookup: Dict[str, Dict[str, Any]] = {}
+    stage05_lookup_lower: Dict[str, Dict[str, Any]] = {}
+    for entry in stage05_columns:
+        name = entry.get("name")
+        if not isinstance(name, str):
+            continue
+        stage05_lookup[name] = entry
+        stage05_lookup_lower[name.lower()] = entry
+
+    nzv_lookup: Dict[str, Dict[str, Any]] = {}
+    if stage06_columns:
+        for standardized, meta in stage06_columns.items():
+            category = str(meta.get("nzv_category") or "").lower()
+            is_nzv = bool(meta.get("is_nzv")) or category in LOW_VARIANCE_CATEGORIES
+            if not is_nzv:
+                continue
+            original = meta.get("original_name")
+            stage05_entry = None
+            if isinstance(original, str):
+                stage05_entry = stage05_lookup.get(original) or stage05_lookup_lower.get(original.lower())
+            if stage05_entry is None:
+                stage05_entry = stage05_lookup.get(standardized) or stage05_lookup_lower.get(standardized.lower())
+            record = {
+                "standardized_name": standardized,
+                "original_name": original or standardized,
+                "nzv_category": meta.get("nzv_category"),
+                "nzv_reason": meta.get("nzv_reason"),
+                "nzv_source": stage05_path.as_posix() if stage05_path else stage06_path.as_posix() if stage06_path else None,
+                "is_nzv": True,
+                "dominant_value": None,
+                "dominant_pct": None,
+                "unique_count": None,
+                "missing_pct": None,
+                "top_values": None,
+            }
+            if stage05_entry:
+                record["dominant_value"] = stage05_entry.get("dominant_value")
+                record["dominant_pct"] = stage05_entry.get("dominant_pct")
+                record["unique_count"] = stage05_entry.get("unique_count")
+                record["missing_pct"] = stage05_entry.get("missing_pct")
+                record["top_values"] = stage05_entry.get("top_values")
+            else:
+                record["dominant_value"] = meta.get("nzv_dominant_value")
+                record["dominant_pct"] = meta.get("nzv_dominant_pct")
+            nzv_lookup[standardized] = record
+    elif stage05_columns:
+        for entry in stage05_columns:
+            name = entry.get("name")
+            if not isinstance(name, str):
+                continue
+            category = str(entry.get("nzv_category") or "").lower()
+            is_nzv = category in LOW_VARIANCE_CATEGORIES or bool(entry.get("is_nzv"))
+            if not is_nzv:
+                continue
+            nzv_lookup[name] = {
+                "standardized_name": name,
+                "original_name": name,
+                "nzv_category": entry.get("nzv_category"),
+                "nzv_reason": entry.get("nzv_reason"),
+                "nzv_source": stage05_path.as_posix() if stage05_path else None,
+                "is_nzv": True,
+                "dominant_value": entry.get("dominant_value"),
+                "dominant_pct": entry.get("dominant_pct"),
+                "unique_count": entry.get("unique_count"),
+                "missing_pct": entry.get("missing_pct"),
+                "top_values": entry.get("top_values"),
+            }
+
+    if stage05_summary is None and stage06_path:
+        stage06_payload = _read_json_safe(stage06_path)
+        if stage06_payload:
+            summary_candidate = stage06_payload.get("nzv_summary")
+            if isinstance(summary_candidate, dict):
+                stage05_summary = summary_candidate
+
+    return nzv_lookup, stage05_summary, stage05_path, stage06_path, stage05_columns, stage06_columns
+
+
+def _standardize_name(name: str, stage06_columns: Mapping[str, Dict[str, Any]]) -> str:
+    if not name:
+        return name
+    if name in stage06_columns:
+        return name
+    lowered = name.lower()
+    for standardized, meta in stage06_columns.items():
+        original = meta.get("original_name")
+        if isinstance(original, str) and original.lower() == lowered:
+            return standardized
+    return name
+
+
+def _apply_low_variance_filter(
+    df: pl.DataFrame,
+    nzv_lookup: Mapping[str, Dict[str, Any]],
+    protected: Set[str],
+) -> Tuple[pl.DataFrame, List[Dict[str, Any]]]:
+    if not nzv_lookup:
+        return df, []
+    protected_lower = {col.lower() for col in protected}
+    details_lookup = {
+        str(entry.get("standardized_name") or entry.get("original_name")).lower(): entry
+        for entry in nzv_lookup.values()
+        if entry.get("standardized_name") or entry.get("original_name")
+        if str(entry.get("nzv_category") or "").lower() in LOW_VARIANCE_CATEGORIES
+    }
+    removed: List[str] = []
+    for column in df.columns:
+        lowered = column.lower()
+        if lowered in protected_lower:
+            continue
+        if lowered in details_lookup:
+            removed.append(column)
+    if not removed:
+        return df, []
+    keep = [column for column in df.columns if column not in removed]
+    filtered = df.select(keep) if keep else df
+    removed_details: List[Dict[str, Any]] = []
+    for column in removed:
+        entry = details_lookup.get(column.lower())
+        if entry:
+            removed_details.append(
+                {
+                    "name": entry.get("standardized_name") or entry.get("original_name") or column,
+                    "original_name": entry.get("original_name"),
+                    "nzv_category": entry.get("nzv_category"),
+                    "nzv_reason": entry.get("nzv_reason"),
+                    "dominant_value": entry.get("dominant_value"),
+                    "dominant_pct": entry.get("dominant_pct"),
+                    "usage_hint": "context_only",
+                }
+            )
+        else:
+            removed_details.append({"name": column, "nzv_category": "near_zero_variance", "usage_hint": "context_only"})
+    return filtered, removed_details
+
+
+def _describe_high_imbalance(
+    stage05_columns: Sequence[Mapping[str, Any]],
+    stage06_columns: Mapping[str, Dict[str, Any]],
+    present_columns: Sequence[str],
+) -> List[Dict[str, Any]]:
+    if not stage05_columns:
+        return []
+    present_lower = {col.lower() for col in present_columns}
+    details: List[Dict[str, Any]] = []
+    for entry in stage05_columns:
+        category = str(entry.get("nzv_category") or "").lower()
+        if category != "high_imbalance":
+            continue
+        name = entry.get("name")
+        if not isinstance(name, str):
+            continue
+        standardized = _standardize_name(name, stage06_columns)
+        if standardized.lower() not in present_lower:
+            continue
+        details.append(
+            {
+                "name": standardized,
+                "original_name": name,
+                "dominant_value": entry.get("dominant_value"),
+                "dominant_pct": entry.get("dominant_pct"),
+                "high_imbalance": True,
+            }
+        )
+    return details
 
 
 def _load_renames(artifacts_root: Path, run_id: str) -> Dict[str, str]:
@@ -1058,6 +1271,9 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     artifacts_root = Path(config.get("artifacts_root", "artifacts")).expanduser().resolve()
     out_dir = artifacts_root / run_id / OUT_STAGE
     out_dir.mkdir(parents=True, exist_ok=True)
+    nzv_lookup, nzv_summary_payload, stage05_path, stage06_path, stage05_columns, stage06_columns = _build_nzv_metadata(
+        artifacts_root, run_id
+    )
 
     project_kpi_path, project_rules_dir, project_bi_path = io.ensure_configs_structure(PROJECT_ROOT)
 
@@ -1098,6 +1314,36 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     clean_df = pl.read_parquet(clean_path.as_posix())
     clean_df, _alias_matches = _prepare_ops(clean_df, artifacts_root, run_id)
     kpi_source_df = _prepare_kpi_source(raw_path, clean_df)
+    protected_low_variance: Set[str] = set(REQUIRED_FACT_COLUMNS)
+    clean_df, low_variance_removed = _apply_low_variance_filter(clean_df, nzv_lookup, protected_low_variance)
+    if nzv_lookup and protected_low_variance:
+        protected_lower = {column.lower() for column in protected_low_variance}
+        removed_names = {str(entry.get("name")).lower() for entry in low_variance_removed if entry.get("name")}
+        for entry in nzv_lookup.values():
+            name = entry.get("standardized_name") or entry.get("original_name")
+            if not isinstance(name, str):
+                continue
+            lowered = name.lower()
+            if lowered not in protected_lower or lowered in removed_names:
+                continue
+            detail = {
+                "name": name,
+                "original_name": entry.get("original_name"),
+                "nzv_category": entry.get("nzv_category"),
+                "nzv_reason": entry.get("nzv_reason"),
+                "dominant_value": entry.get("dominant_value"),
+                "dominant_pct": entry.get("dominant_pct"),
+                "usage_hint": "context_only_protected",
+            }
+            low_variance_removed.append(detail)
+    high_imbalance_details = _describe_high_imbalance(stage05_columns, stage06_columns, clean_df.columns)
+    nzv_source = stage05_path or stage06_path
+    nzv_impact_payload = {
+        "low_variance_ignored_columns": low_variance_removed,
+        "high_imbalance_included_columns": high_imbalance_details,
+        "nzv_summary": nzv_summary_payload,
+        "nzv_source": nzv_source.as_posix() if nzv_source else None,
+    }
     entity_ids = _entity_series(clean_df)
     clean_df = clean_df.with_columns(entity_ids.alias("entity_id"))
     clean_df = clean_df.with_columns(_extract_ts(clean_df))
@@ -1114,6 +1360,17 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     )
 
     insights = _read_json(insights_path)
+    stage08_gate_reasons: List[str] = []
+    stage08_gate_status: Optional[str] = None
+    stage08_gate_path = insights_path.parent / "gate.json"
+    stage08_gate_payload = _read_json(stage08_gate_path)
+    if isinstance(stage08_gate_payload, dict):
+        status = stage08_gate_payload.get("status")
+        if isinstance(status, str):
+            stage08_gate_status = status.upper()
+        reasons_payload = stage08_gate_payload.get("reasons")
+        if isinstance(reasons_payload, list):
+            stage08_gate_reasons = [str(reason) for reason in reasons_payload if isinstance(reason, str)]
     effect_metrics = _extract_effect_metrics(insights)
     missing_effect = [key for key, value in effect_metrics.items() if value is None]
 
@@ -1180,6 +1437,7 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     segment_df = _segment_insights(insights)
     targets_payload = _targets_from_contract(contract)
     data_health = _data_health(clean_df, catalog)
+    data_health["nzv_impact"] = nzv_impact_payload
     if textops_context:
         data_health["text_ops"] = textops_context
 
@@ -1191,6 +1449,8 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     sla_results, sla_stop_flags, sla_warn_flags = _evaluate_sla_terms(sla_bundle, metrics_for_sla)
     if sla_bundle.entries and not sla_results:
         sla_warn_flags.append("sla::no_terms_detected")
+    gate_warn_flags = list(sla_warn_flags)
+    gate_stop_flags = list(sla_stop_flags)
     sla_summary_payload = {
         "run_id": run_id,
         "generated_at": datetime.now(TZ).isoformat(),
@@ -1202,12 +1462,19 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     io.write_json_sorted(sla_summary_payload, sla_summary_path)
 
     warnings: List[str] = list(ops_metric_warnings)
+    if stage08_gate_reasons:
+        warnings.extend(stage08_gate_reasons)
+    if stage08_gate_status == "WARN":
+        gate_warn_flags.append("stage08::warn")
+    elif stage08_gate_status == "STOP":
+        gate_stop_flags.append("stage08::stop")
     if suppressed_columns:
         warnings.append(f"column_policy::suppressed::{','.join(suppressed_columns)}")
     if missing_governed_columns:
         warnings.append(f"column_policy::missing::{','.join(missing_governed_columns)}")
     if missing_effect:
         warnings.append(f"missing_insights::{','.join(missing_effect)}")
+        gate_warn_flags.append("missing_insights")
     if missing_reference:
         warnings.append(f"missing_kpi_reference::{','.join(missing_reference)}")
     if sla_bundle.manifest_path is None and not sla_bundle.entries:
@@ -1219,19 +1486,28 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
         failures,
         catalog.thresholds,
         warnings,
-        stop_flags=sla_stop_flags,
-        warn_flags=sla_warn_flags,
+        stop_flags=gate_stop_flags,
+        warn_flags=gate_warn_flags,
     )
 
     total_decisions = max(len(decisions), 1)
     approved = sum(1 for item in decisions if item.decision == "APPROVE")
     rejected = total_decisions - approved
+    decision_counts = {
+        "total": len(decisions),
+        "approve": approved,
+        "reject": rejected,
+    }
     perf = {
         "rows": int(clean_df.height),
         "approve_pct": round(approved / total_decisions, 4),
         "reject_pct": round(rejected / total_decisions, 4),
         "exec_seconds": round(time.time() - start, 4),
     }
+    kpi_delta_payload = [delta.model_dump(mode="json") for delta in kpi_deltas]
+    rule_failure_payload = [failure.to_failure().model_dump(mode="json") for failure in failures]
+    effect_metrics_clean = {key: _safe_json_value(value) for key, value in effect_metrics.items()}
+    ops_metrics_clean = {key: _safe_json_value(value) for key, value in ops_metrics.items()}
 
     rule_texts = [path.read_text(encoding="utf-8") for path in sorted(rules_dir.glob("*.yaml"))]
     rules_version = models.stable_hash("".join(rule_texts) or "rules::empty")
@@ -1261,9 +1537,37 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
             "explain_url_template": explain_template,
         },
         sla=sla_summary_payload["results"],
+        nzv_impact=nzv_impact_payload,
     )
+    gate_payload = {
+        "status": gate_status,
+        "reasons": gate_reasons,
+        "counts": decision_counts,
+        "warnings": warnings,
+        "sla_flags": {
+            "warn": sla_warn_flags,
+            "stop": sla_stop_flags,
+        },
+        "nzv_impact": nzv_impact_payload,
+    }
+    diagnostics_payload = {
+        "run_id": run_id,
+        "generated_at": datetime.now(TZ).isoformat(),
+        "decision_counts": decision_counts,
+        "kpi_deltas": kpi_delta_payload,
+        "effect_metrics": effect_metrics_clean,
+        "ops_metrics": ops_metrics_clean,
+        "ops_metric_warnings": ops_metric_warnings,
+        "rule_failures": rule_failure_payload,
+        "warnings": warnings,
+        "sla_results": sla_summary_payload["results"],
+        "gate_status": gate_status,
+        "nzv_impact": nzv_impact_payload,
+    }
 
     io.write_json_sorted(validation_report.model_dump(mode="json"), out_dir / "validation_report.json")
+    io.write_json_sorted(gate_payload, out_dir / "gate.json")
+    io.write_json_sorted(diagnostics_payload, out_dir / "diagnostics.json")
     io.write_jsonl(whitelist, out_dir / "bi_whitelist.jsonl")
     io.write_json_sorted(blacklist, out_dir / "bi_blacklist.json")
     io.write_parquet(decisions_df, out_dir / "row_decisions.parquet")
@@ -1291,6 +1595,12 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
             "event": "phase_start",
             "timestamp": datetime.now(TZ).isoformat(),
             "run_id": run_id,
+        },
+        {
+            "event": "nzv_filter",
+            "low_variance_removed": [entry.get("name") for entry in low_variance_removed if entry.get("name")],
+            "high_imbalance_present": [entry.get("name") for entry in high_imbalance_details if entry.get("name")],
+            "nzv_source": nzv_source.as_posix() if nzv_source else None,
         },
         {
             "event": "gate",
@@ -1337,6 +1647,8 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
         "metrics": (out_dir / "metrics.json").as_posix(),
         "changelog": (out_dir / "changelog.json").as_posix(),
         "sla_summary": sla_summary_path.as_posix(),
+        "gate": (out_dir / "gate.json").as_posix(),
+        "diagnostics": (out_dir / "diagnostics.json").as_posix(),
     }
 
     return {

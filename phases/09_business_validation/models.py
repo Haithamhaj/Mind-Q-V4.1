@@ -55,6 +55,7 @@ class ValidationReport(BaseModel):
     perf: Dict[str, Any]
     bi_hints: Dict[str, Any]
     sla: List[Dict[str, Any]] = Field(default_factory=list)
+    nzv_impact: Optional[Dict[str, Any]] = None
 
 
 class KPIThresholds(BaseModel):

@@ -33,6 +33,7 @@ KPI_CONTRACT_PATH = BACKEND_ROOT / "contracts" / "kpis.yml"
 DEFAULT_GEO_COLUMN_HINTS = {"latitude", "lat", "longitude", "lon", "lng"}
 DEFAULT_GEO_WARN_THRESHOLD = 0.6
 DEFAULT_GEO_STOP_THRESHOLD = 0.95
+LOW_VARIANCE_CATEGORIES = {"constant_like", "near_zero_variance"}
 
 
 def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
@@ -49,6 +50,219 @@ def _load_policy(path: Path) -> Dict[str, Any]:
         return {}
 
 
+def _read_json_safe(path: Path) -> Optional[Dict[str, Any]]:
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _load_stage05_nzv(artifacts_root: Path, run_id: str) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Path]]:
+    nzv_path = artifacts_root / run_id / "stage_05_missing" / "nzv_summaries.json"
+    payload = _read_json_safe(nzv_path)
+    if not payload:
+        return [], None, None
+    columns = payload.get("columns")
+    summary = payload.get("nzv_summary") if isinstance(payload.get("nzv_summary"), dict) else None
+    column_entries = [entry for entry in columns if isinstance(entry, dict)] if isinstance(columns, list) else []
+    return column_entries, summary, nzv_path
+
+
+def _load_standardize_columns(artifacts_root: Path, run_id: str) -> Tuple[Dict[str, Dict[str, Any]], Optional[Path]]:
+    report_path = artifacts_root / run_id / "stage_06_standardize" / "standardize_report.json"
+    payload = _read_json_safe(report_path)
+    if not payload:
+        return {}, None
+    columns_payload = payload.get("columns")
+    if isinstance(columns_payload, dict):
+        return {str(name): dict(meta) for name, meta in columns_payload.items() if isinstance(meta, dict)}, report_path
+    return {}, report_path
+
+
+def _build_nzv_metadata(
+    artifacts_root: Path,
+    run_id: str,
+) -> Tuple[Dict[str, Dict[str, Any]], Optional[Dict[str, Any]], Optional[Path], Optional[Path], List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    stage05_columns, stage05_summary, stage05_path = _load_stage05_nzv(artifacts_root, run_id)
+    stage06_columns, stage06_path = _load_standardize_columns(artifacts_root, run_id)
+
+    stage05_lookup: Dict[str, Dict[str, Any]] = {}
+    stage05_lookup_lower: Dict[str, Dict[str, Any]] = {}
+    for entry in stage05_columns:
+        name = entry.get("name")
+        if not isinstance(name, str):
+            continue
+        stage05_lookup[name] = entry
+        stage05_lookup_lower[name.lower()] = entry
+
+    nzv_lookup: Dict[str, Dict[str, Any]] = {}
+    if stage06_columns:
+        for standardized, meta in stage06_columns.items():
+            category = str(meta.get("nzv_category") or "").lower()
+            is_nzv = bool(meta.get("is_nzv")) or category in LOW_VARIANCE_CATEGORIES
+            if not is_nzv:
+                continue
+            original = meta.get("original_name")
+            stage05_entry = None
+            if isinstance(original, str):
+                stage05_entry = stage05_lookup.get(original) or stage05_lookup_lower.get(original.lower())
+            if stage05_entry is None:
+                stage05_entry = stage05_lookup.get(standardized) or stage05_lookup_lower.get(standardized.lower())
+            record = {
+                "standardized_name": standardized,
+                "original_name": original or standardized,
+                "nzv_category": meta.get("nzv_category"),
+                "nzv_reason": meta.get("nzv_reason"),
+                "nzv_source": stage05_path.as_posix() if stage05_path else stage06_path.as_posix() if stage06_path else None,
+                "is_nzv": True,
+                "dominant_value": None,
+                "dominant_pct": None,
+                "unique_count": None,
+                "missing_pct": None,
+                "top_values": None,
+            }
+            if stage05_entry:
+                record["dominant_value"] = stage05_entry.get("dominant_value")
+                record["dominant_pct"] = stage05_entry.get("dominant_pct")
+                record["unique_count"] = stage05_entry.get("unique_count")
+                record["missing_pct"] = stage05_entry.get("missing_pct")
+                record["top_values"] = stage05_entry.get("top_values")
+            else:
+                record["dominant_value"] = meta.get("nzv_dominant_value")
+                record["dominant_pct"] = meta.get("nzv_dominant_pct")
+            nzv_lookup[standardized] = record
+    elif stage05_columns:
+        for entry in stage05_columns:
+            name = entry.get("name")
+            if not isinstance(name, str):
+                continue
+            category = str(entry.get("nzv_category") or "").lower()
+            is_nzv = category in LOW_VARIANCE_CATEGORIES or bool(entry.get("is_nzv"))
+            if not is_nzv:
+                continue
+            nzv_lookup[name] = {
+                "standardized_name": name,
+                "original_name": name,
+                "nzv_category": entry.get("nzv_category"),
+                "nzv_reason": entry.get("nzv_reason"),
+                "nzv_source": stage05_path.as_posix() if stage05_path else None,
+                "is_nzv": True,
+                "dominant_value": entry.get("dominant_value"),
+                "dominant_pct": entry.get("dominant_pct"),
+                "unique_count": entry.get("unique_count"),
+                "missing_pct": entry.get("missing_pct"),
+                "top_values": entry.get("top_values"),
+            }
+
+    if stage05_summary is None and stage06_path:
+        stage06_payload = _read_json_safe(stage06_path)
+        if stage06_payload:
+            summary_candidate = stage06_payload.get("nzv_summary")
+            if isinstance(summary_candidate, dict):
+                stage05_summary = summary_candidate
+
+    return nzv_lookup, stage05_summary, stage05_path, stage06_path, stage05_columns, stage06_columns
+
+
+def _standardize_name(name: str, stage06_columns: Mapping[str, Dict[str, Any]]) -> str:
+    if not name:
+        return name
+    if name in stage06_columns:
+        return name
+    lowered = name.lower()
+    for standardized, meta in stage06_columns.items():
+        original = meta.get("original_name")
+        if isinstance(original, str) and original.lower() == lowered:
+            return standardized
+    return name
+
+
+def _apply_low_variance_filter(
+    df: pl.DataFrame,
+    nzv_lookup: Mapping[str, Dict[str, Any]],
+    protected: Set[str],
+) -> Tuple[pl.DataFrame, List[Dict[str, Any]]]:
+    if not nzv_lookup:
+        return df, []
+    low_variance_lower: Set[str] = set()
+    details: List[Dict[str, Any]] = []
+    for entry in nzv_lookup.values():
+        category = str(entry.get("nzv_category") or "").lower()
+        if category not in LOW_VARIANCE_CATEGORIES:
+            continue
+        name = entry.get("standardized_name") or entry.get("original_name")
+        if not isinstance(name, str):
+            continue
+        lowered = name.lower()
+        low_variance_lower.add(lowered)
+        details.append(
+            {
+                "name": entry.get("standardized_name") or entry.get("original_name"),
+                "original_name": entry.get("original_name"),
+                "nzv_category": entry.get("nzv_category"),
+                "nzv_reason": entry.get("nzv_reason"),
+                "dominant_value": entry.get("dominant_value"),
+                "dominant_pct": entry.get("dominant_pct"),
+                "usage_hint": "context_only",
+            }
+        )
+
+    if not low_variance_lower:
+        return df, []
+
+    protected_lower = {col.lower() for col in protected if isinstance(col, str)}
+    removed_columns = [
+        col for col in df.columns if col.lower() in low_variance_lower and col.lower() not in protected_lower
+    ]
+    if not removed_columns:
+        return df, []
+
+    keep_columns = [col for col in df.columns if col not in removed_columns]
+    filtered = df.select(keep_columns) if keep_columns else df
+    detail_lookup = {str(detail.get("name")).lower(): detail for detail in details if detail.get("name")}
+    removed_details: List[Dict[str, Any]] = []
+    for column in removed_columns:
+        entry = detail_lookup.get(column.lower())
+        if entry:
+            removed_details.append(entry)
+        else:
+            removed_details.append({"name": column, "nzv_category": "near_zero_variance", "usage_hint": "context_only"})
+    return filtered, removed_details
+
+
+def _describe_high_imbalance(
+    stage05_columns: Sequence[Mapping[str, Any]],
+    stage06_columns: Mapping[str, Dict[str, Any]],
+    present_columns: Sequence[str],
+) -> List[Dict[str, Any]]:
+    if not stage05_columns:
+        return []
+    present_lower = {col.lower() for col in present_columns}
+    details: List[Dict[str, Any]] = []
+    for entry in stage05_columns:
+        category = str(entry.get("nzv_category") or "").lower()
+        if category != "high_imbalance":
+            continue
+        name = entry.get("name")
+        if not isinstance(name, str):
+            continue
+        standardized = _standardize_name(name, stage06_columns)
+        lowered = standardized.lower()
+        if lowered not in present_lower:
+            continue
+        details.append(
+            {
+                "name": standardized,
+                "original_name": name,
+                "dominant_value": entry.get("dominant_value"),
+                "dominant_pct": entry.get("dominant_pct"),
+                "high_imbalance": True,
+            }
+        )
+    return details
 def _safe_float(value: Any) -> Optional[float]:
     try:
         if value is None:
@@ -1827,6 +2041,81 @@ def _keyphrases_payload(run_id: str, text_profile: Optional[Mapping[str, Any]]) 
     }
 
 
+def _top_categories(df: pl.DataFrame, column: str, limit: int = 5) -> List[Dict[str, Any]]:
+    if column not in df.columns:
+        return []
+    try:
+        counts = (
+            df.group_by(column)
+            .len()
+            .rename({"len": "count"})
+            .sort("count", descending=True)
+            .head(limit)
+            .to_dicts()
+        )
+    except Exception:
+        return []
+    top_entries: List[Dict[str, Any]] = []
+    for item in counts:
+        value = item.get(column)
+        if value is None:
+            continue
+        top_entries.append({"value": value, "count": int(item.get("count", 0) or 0)})
+    return top_entries
+
+
+def _build_cluster_summary_fallback(run_id: str, df: pl.DataFrame, tz: ZoneInfo) -> Dict[str, Any]:
+    dimensions: List[Dict[str, Any]] = []
+    for column in ("REGION", "CARRIER", "DESTINATION"):
+        top_entries = _top_categories(df, column)
+        if top_entries:
+            dimensions.append({"dimension": column, "top": top_entries})
+    return {
+        "run_id": run_id,
+        "generated_at": datetime.now(tz).isoformat(),
+        "source": "fallback",
+        "clusters": [
+            {
+                "id": "global",
+                "count": int(df.height),
+                "dimensions": dimensions,
+            }
+        ],
+    }
+
+
+def _build_anomalies_fallback(run_id: str, tz: ZoneInfo) -> Dict[str, Any]:
+    return {
+        "run_id": run_id,
+        "generated_at": datetime.now(tz).isoformat(),
+        "source": "fallback",
+        "method": "zscore",
+        "records": [],
+    }
+
+
+def _build_forecast_fallback(run_id: str, df: pl.DataFrame, tz: ZoneInfo, metric: str = "COD_AMOUNT") -> pl.DataFrame:
+    base = datetime.now(tz)
+    metric_value: float
+    if metric in df.columns and df[metric].dtype.is_numeric():
+        series = df[metric].drop_nulls()
+        metric_value = float(series.mean()) if series.len() else float(df.height or 0)
+    else:
+        metric_value = float(df.height or 0)
+    rows: List[Dict[str, Any]] = []
+    for step in range(1, 8):
+        rows.append(
+            {
+                "forecast_date": base + timedelta(days=step),
+                "forecast": metric_value,
+                "step": step,
+                "metric": metric,
+                "method": "fallback",
+            }
+        )
+    return pl.DataFrame(rows)
+
+
 def _write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -1852,8 +2141,8 @@ def _materialise_layer2_artifacts(
         candidates["layer2_candidate"] = candidate_src
     if not candidates:
         return {}
-    layer2_dir = out_dir / "layer2"
-    layer2_dir.mkdir(parents=True, exist_ok=True)
+    advanced_dir = out_dir / "advanced"
+    advanced_dir.mkdir(parents=True, exist_ok=True)
     summary: Dict[str, Any] = {
         "run_id": run_id,
         "generated_at": datetime.now(tz).isoformat(),
@@ -1861,7 +2150,7 @@ def _materialise_layer2_artifacts(
     }
     exported: Dict[str, Path] = {}
     for key, src in candidates.items():
-        dest = layer2_dir / src.name
+        dest = advanced_dir / src.name
         try:
             shutil.copyfile(src, dest)
         except Exception as exc:  # pragma: no cover - defensive
@@ -1875,10 +2164,77 @@ def _materialise_layer2_artifacts(
             summary.setdefault("errors", []).append({key: str(exc)})
     if not exported:
         return {}
-    snapshot_path = layer2_dir / "layer2_snapshot.json"
+    snapshot_path = advanced_dir / "layer2_snapshot.json"
     _write_json(snapshot_path, summary)
     exported["layer2_snapshot"] = snapshot_path
     return exported
+
+
+def _materialise_advanced_profiles(
+    run_id: str,
+    tz: ZoneInfo,
+    paths: Mapping[str, Path],
+    out_dir: Path,
+    features_df: pl.DataFrame,
+) -> Dict[str, Path]:
+    advanced_dir = out_dir / "advanced"
+    advanced_dir.mkdir(parents=True, exist_ok=True)
+    exports: Dict[str, Path] = {}
+    summary: Dict[str, Any] = {
+        "run_id": run_id,
+        "generated_at": datetime.now(tz).isoformat(),
+        "sources": {},
+    }
+
+    def _copy_or_fallback(name: str, source_path: Optional[Path], fallback_payload: Dict[str, Any]) -> Path:
+        dest = advanced_dir / f"{name}.json"
+        source_label = "fallback"
+        if source_path and source_path.exists():
+            shutil.copyfile(source_path, dest)
+            source_label = _infer_stage07_origin(source_path)
+        else:
+            _write_json(dest, fallback_payload)
+        summary["sources"][name] = {"path": dest.as_posix(), "source": source_label}
+        exports[name] = dest
+        return dest
+
+    cluster_payload = _build_cluster_summary_fallback(run_id, features_df, tz)
+    cluster_src = paths.get("cluster_summary")
+    _copy_or_fallback("cluster_summary", cluster_src, cluster_payload)
+
+    anomalies_payload = _build_anomalies_fallback(run_id, tz)
+    anomalies_src = paths.get("anomalies")
+    _copy_or_fallback("anomalies", anomalies_src, anomalies_payload)
+
+    correlation_src = paths.get("correlation_matrix")
+    correlation_payload = {
+        "run_id": run_id,
+        "generated_at": datetime.now(tz).isoformat(),
+        "source": "fallback",
+        "matrix": {},
+    }
+    _copy_or_fallback("correlation_matrix", correlation_src, correlation_payload)
+
+    forecast_src = paths.get("forecast")
+    forecast_dest = advanced_dir / "orders_forecast.parquet"
+    forecast_source = "fallback"
+    if forecast_src and forecast_src.exists():
+        shutil.copyfile(forecast_src, forecast_dest)
+        forecast_source = _infer_stage07_origin(forecast_src)
+    else:
+        metric = "COD_AMOUNT" if "COD_AMOUNT" in features_df.columns else "orders_cnt"
+        forecast_df = _build_forecast_fallback(run_id, features_df, tz, metric=metric)
+        forecast_df.write_parquet(forecast_dest.as_posix())
+    summary["sources"]["orders_forecast"] = {
+        "path": forecast_dest.as_posix(),
+        "source": forecast_source,
+    }
+    exports["orders_forecast"] = forecast_dest
+
+    summary_path = advanced_dir / "summary.json"
+    _write_json(summary_path, summary)
+    exports["advanced_summary"] = summary_path
+    return exports
 
 
 def _text_stats(run_id: str, text_profile: Optional[Mapping[str, Any]], tz: ZoneInfo) -> Dict[str, Any]:
@@ -1909,6 +2265,11 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
     start_time = time.time()
     paths = _load_inputs(run_id, settings)
     logger = setup_logger(f"stage_08_{run_id}")
+    artifacts_root = Path(settings.artifacts_root).expanduser().resolve()
+    nzv_lookup, nzv_summary_payload, stage05_path, stage06_path, stage05_columns, stage06_columns = _build_nzv_metadata(
+        artifacts_root,
+        run_id,
+    )
 
     policy_path = Path(settings.policy_path)
     if not policy_path.is_absolute():
@@ -1934,6 +2295,16 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
     features_df = pl.read_parquet(paths["features"].as_posix())
     features_df, sampling_info = _apply_sampling(features_df, settings, logger)
     features_df, coverage_summary = _screen_columns(features_df, settings)
+    protected_low_variance: Set[str] = set(filter(None, [settings.timestamp_col, settings.text_join_key]))
+    features_df, low_variance_removed = _apply_low_variance_filter(features_df, nzv_lookup, protected_low_variance)
+    high_imbalance_details = _describe_high_imbalance(stage05_columns, stage06_columns, features_df.columns)
+    nzv_source = stage05_path or stage06_path
+    nzv_impact_payload = {
+        "low_variance_ignored_columns": low_variance_removed,
+        "high_imbalance_included_columns": high_imbalance_details,
+        "nzv_summary": nzv_summary_payload,
+        "nzv_source": nzv_source.as_posix() if nzv_source else None,
+    }
     raw_correlations = _load_json(paths["correlations"])
     kpi_names = _load_kpi_names()
     correlations, correlations_converted = _normalize_correlations(raw_correlations, kpi_names)
@@ -1984,6 +2355,12 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
             "dropped": len(coverage_summary["dropped"]),
             "kept": len(coverage_summary["kept"]),
             "dropped_columns": [entry["column"] for entry in coverage_summary["dropped"]],
+        },
+        {
+            "event": "nzv_filter",
+            "low_variance_removed": [entry.get("name") for entry in low_variance_removed if entry.get("name")],
+            "high_imbalance_present": [entry.get("name") for entry in high_imbalance_details if entry.get("name")],
+            "nzv_source": stage05_path.as_posix() if stage05_path else stage06_path.as_posix() if stage06_path else None,
         },
         {"event": "preflight", **preflight},
     ]
@@ -2045,11 +2422,19 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
     _write_json(out_dir / "quality_report.json", quality_report_payload)
 
     layer2_exports = _materialise_layer2_artifacts(run_id, tz, paths, out_dir)
+    advanced_profile_exports = _materialise_advanced_profiles(run_id, tz, paths, out_dir, features_df)
     if layer2_exports:
         logs.append(
             {
                 "event": "layer2_ingest",
                 "artifacts": {key: path.as_posix() for key, path in layer2_exports.items()},
+            }
+        )
+    if advanced_profile_exports:
+        logs.append(
+            {
+                "event": "advanced_profiles",
+                "artifacts": {key: path.as_posix() for key, path in advanced_profile_exports.items()},
             }
         )
 
@@ -2156,6 +2541,7 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
         "insights": official_payloads,
         "context": story_context,
     }
+    insights_payload["nzv_impact"] = nzv_impact_payload
     _write_json(out_dir / "insights_report.json", insights_payload)
 
     if settings.candidates_enable:
@@ -2240,6 +2626,7 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
             "records": anomaly_records,
         },
     }
+    diagnostics_payload["nzv_impact"] = nzv_impact_payload
     _write_json(out_dir / "diagnostics.json", diagnostics_payload)
 
     low_signal_count = sum(1 for record in records if record.low_signal)
@@ -2256,6 +2643,7 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
             "geo_columns": geo_columns_cfg,
         },
     }
+    gate_payload["nzv_impact"] = nzv_impact_payload
     _write_json(out_dir / "gate.json", gate_payload)
 
     supplemental_cards = _build_supplemental_cards(
@@ -2410,6 +2798,8 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
         outputs["insights_candidates"] = (out_dir / "insights_candidates.json").as_posix()
     if layer2_exports:
         outputs.update({key: path.as_posix() for key, path in layer2_exports.items()})
+    if advanced_profile_exports:
+        outputs.update({key: path.as_posix() for key, path in advanced_profile_exports.items()})
 
     return {
         "run_id": run_id,

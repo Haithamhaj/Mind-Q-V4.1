@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 import pytest
 from zoneinfo import ZoneInfo
@@ -41,6 +41,101 @@ def _build_rows(
     return rows
 
 
+def _seed_nzv_artifacts(
+    artifacts_root: Path,
+    run_id: str,
+    *,
+    low_variance: Optional[Sequence[str]] = None,
+    high_imbalance: Optional[Sequence[str]] = None,
+) -> None:
+    stage05_dir = artifacts_root / run_id / "stage_05_missing"
+    stage05_dir.mkdir(parents=True, exist_ok=True)
+    low_variance = list(low_variance or [])
+    high_imbalance = list(high_imbalance or [])
+    columns: List[Dict[str, Any]] = []
+    for name in low_variance:
+        columns.append(
+            {
+                "name": name,
+                "n_valid": 100,
+                "missing_pct": 0.0,
+                "unique_count": 1,
+                "dominant_value": "A",
+                "dominant_pct": 0.98,
+                "top_values": [{"value": "A", "pct": 0.98}],
+                "nzv_category": "near_zero_variance",
+                "is_nzv": True,
+                "nzv_reason": "dominant_pct>=0.95,max_unique<=5",
+            }
+        )
+    for name in high_imbalance:
+        columns.append(
+            {
+                "name": name,
+                "n_valid": 100,
+                "missing_pct": 0.0,
+                "unique_count": 3,
+                "dominant_value": "X",
+                "dominant_pct": 0.92,
+                "top_values": [{"value": "X", "pct": 0.92}],
+                "nzv_category": "high_imbalance",
+                "is_nzv": False,
+                "nzv_reason": "dominant_pct>=0.90",
+            }
+        )
+    summary_payload = {
+        "imputed_columns": [],
+        "indicator_columns": [],
+        "model_exclusions": [],
+        "nzv_summary": {
+            "n_nzv_columns": len(low_variance),
+            "n_constant_like": len(low_variance),
+            "n_high_imbalance": len(high_imbalance),
+            "n_total_columns": len(low_variance) + len(high_imbalance),
+            "nzv_ratio": float(len(low_variance)) / float(max(1, len(low_variance) + len(high_imbalance))),
+        },
+    }
+    (stage05_dir / "summary.json").write_text(json.dumps(summary_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    nzv_payload = {
+        "run_id": run_id,
+        "n_rows": 100,
+        "columns": columns,
+        "nzv_summary": summary_payload["nzv_summary"],
+    }
+    (stage05_dir / "nzv_summaries.json").write_text(json.dumps(nzv_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    stage06_dir = artifacts_root / run_id / "stage_06_standardize"
+    stage06_dir.mkdir(parents=True, exist_ok=True)
+    stage06_columns: Dict[str, Dict[str, Any]] = {}
+    for name in low_variance:
+        stage06_columns[name] = {
+            "original_name": name,
+            "standardized_name": name,
+            "dtype_before": "string",
+            "dtype_after": "string",
+            "is_nzv": True,
+            "nzv_category": "near_zero_variance",
+            "nzv_reason": "dominant_pct>=0.95,max_unique<=5",
+            "nzv_dominant_value": "A",
+            "nzv_dominant_pct": 0.98,
+        }
+    for name in high_imbalance:
+        stage06_columns.setdefault(
+            name,
+            {
+                "original_name": name,
+                "standardized_name": name,
+                "dtype_before": "string",
+                "dtype_after": "string",
+            },
+        )
+    stage06_payload = {
+        "columns": stage06_columns,
+        "nzv_summary": summary_payload["nzv_summary"],
+    }
+    (stage06_dir / "standardize_report.json").write_text(json.dumps(stage06_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def write_stage_artifacts(
     tmp_path: Path,
     run_id: str,
@@ -53,6 +148,8 @@ def write_stage_artifacts(
     insights_override: Optional[Dict[str, Any]] = None,
     gate_override: Optional[Dict[str, Any]] = None,
     diagnostics_override: Optional[Dict[str, Any]] = None,
+    nzv_low_variance: Optional[Sequence[str]] = None,
+    nzv_high_imbalance: Optional[Sequence[str]] = None,
 ) -> Path:
     artifacts_root = tmp_path / "artifacts"
     stage06_dir = artifacts_root / run_id / "stage_06_standardize"
@@ -147,6 +244,14 @@ def write_stage_artifacts(
     (stage08_dir / "diagnostics.json").write_text(json.dumps(diagnostics_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     (stage08_dir / "quality_report.json").write_text(json.dumps(quality_report_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     (stage08_dir / "insights_candidates.json").write_text(json.dumps({"candidates": insights_payload.get("insights", [])}, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    if nzv_low_variance or nzv_high_imbalance:
+        _seed_nzv_artifacts(
+            artifacts_root,
+            run_id,
+            low_variance=nzv_low_variance,
+            high_imbalance=nzv_high_imbalance,
+        )
 
     return artifacts_root
 

@@ -55,6 +55,8 @@ def test_p09_basic(tmp_path: Path) -> None:
     targets_path = out_dir / "targets.json"
     targets = json.loads(targets_path.read_text(encoding="utf-8"))
     assert "cod_rate" in targets
+    assert (out_dir / "gate.json").exists()
+    assert (out_dir / "diagnostics.json").exists()
 
 
 def test_p09_warn_on_low_signal(tmp_path: Path) -> None:
@@ -128,3 +130,27 @@ def test_p09_textops_context(tmp_path: Path) -> None:
 
     ops_actions = json.loads((artifacts_root / run_id / "stage_09_business_validation" / "ops_actions.json").read_text(encoding="utf-8"))
     assert any(action.get("entity_id") == "textops::sentiment" for action in ops_actions)
+
+
+def test_p09_reports_nzv_impact(tmp_path: Path) -> None:
+    run_id = "run_nzv"
+    artifacts_root = write_stage_artifacts(
+        tmp_path,
+        run_id,
+        n_rows=8,
+        nzv_low_variance=["RECEIVER_MODE"],
+        nzv_high_imbalance=["STATUS"],
+    )
+    impl = load_impl()
+    impl.run(run_id, {}, {"artifacts_root": artifacts_root.as_posix()})
+    out_dir = artifacts_root / run_id / "stage_09_business_validation"
+    validation = json.loads((out_dir / "validation_report.json").read_text(encoding="utf-8"))
+    impact = validation.get("nzv_impact", {})
+    assert any(entry.get("name") == "RECEIVER_MODE" for entry in impact.get("low_variance_ignored_columns", []))
+    assert any(entry.get("name") == "STATUS" for entry in impact.get("high_imbalance_included_columns", []))
+    data_health = json.loads((out_dir / "data_health.json").read_text(encoding="utf-8"))
+    assert data_health.get("nzv_impact")
+    gate_payload = json.loads((out_dir / "gate.json").read_text(encoding="utf-8"))
+    assert gate_payload.get("nzv_impact", {}).get("low_variance_ignored_columns")
+    diagnostics_payload = json.loads((out_dir / "diagnostics.json").read_text(encoding="utf-8"))
+    assert diagnostics_payload.get("nzv_impact", {}).get("high_imbalance_included_columns")
