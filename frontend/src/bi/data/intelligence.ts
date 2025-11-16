@@ -115,6 +115,50 @@ const knimeSummarySchema = z.object({
   report_summary: knimeReportSummarySchema,
 });
 
+const advancedOrdersForecastSchema = z.object({
+  path: z.string().optional(),
+  rows: z.number().optional(),
+  preview: z.array(z.record(z.string(), z.unknown())).optional(),
+  error: z.string().optional(),
+});
+
+const advancedBundleSchema = z
+  .object({
+    summary: z.record(z.unknown()).optional(),
+    cluster_summary: z.record(z.unknown()).optional(),
+    anomalies: z.record(z.unknown()).optional(),
+    correlation_matrix: z.record(z.unknown()).optional(),
+    orders_forecast: advancedOrdersForecastSchema.optional(),
+  })
+  .optional();
+
+const nzvImpactSchema = z
+  .object({
+    low_variance_ignored_columns: z.array(z.record(z.string(), z.unknown())).optional(),
+    high_imbalance_included_columns: z.array(z.record(z.string(), z.unknown())).optional(),
+    nzv_summary: z.record(z.unknown()).optional(),
+  })
+  .optional();
+
+const businessGateSchema = z
+  .object({
+    status: z.string(),
+    reasons: z.array(z.string()).optional(),
+    counts: z.record(z.unknown()).optional(),
+    warnings: z.array(z.string()).optional(),
+    nzv_impact: nzvImpactSchema.optional(),
+  })
+  .optional();
+
+const businessValidationSchema = z
+  .object({
+    gate: businessGateSchema,
+    diagnostics: z.record(z.unknown()).optional(),
+    validation_report: z.record(z.unknown()).optional(),
+    data_health: z.record(z.unknown()).optional(),
+  })
+  .optional();
+
 export const layer3IntelligenceSchema = z.object({
   run: z.string(),
   generated_at: z.string(),
@@ -123,6 +167,8 @@ export const layer3IntelligenceSchema = z.object({
   anomalies: intelligenceTimelineSchema,
   predictive: intelligencePredictiveSchema,
   knime: knimeSummarySchema,
+  advanced: advancedBundleSchema,
+  business_validation: businessValidationSchema,
 });
 
 export type Layer3Intelligence = z.infer<typeof layer3IntelligenceSchema>;
@@ -232,6 +278,48 @@ const sampleLayer3Intelligence: Layer3Intelligence = layer3IntelligenceSchema.pa
       insight_count: 4,
       export_count: 3,
       coverage: 0.92,
+    },
+  },
+  advanced: {
+    summary: {
+      sources: {
+        cluster_summary: { path: "artifacts/run-latest/stage_08_insights/advanced/cluster_summary.json", source: "python" },
+        anomalies: { path: "artifacts/run-latest/stage_08_insights/advanced/anomalies.json", source: "python" },
+        orders_forecast: { path: "artifacts/run-latest/stage_08_insights/advanced/orders_forecast.parquet", source: "python" },
+      },
+    },
+    cluster_summary: {
+      clusters: [
+        { id: "Cluster A", count: 180, share: 0.42 },
+        { id: "Cluster B", count: 110, share: 0.24 },
+      ],
+    },
+    orders_forecast: {
+      path: "artifacts/run-latest/stage_08_insights/advanced/orders_forecast.parquet",
+      rows: 3,
+      preview: [
+        { forecast_date: "2025-10-24T00:00:00+03:00", forecast: 164, step: 1, metric: "COD_AMOUNT" },
+        { forecast_date: "2025-10-25T00:00:00+03:00", forecast: 178, step: 2, metric: "COD_AMOUNT" },
+        { forecast_date: "2025-10-26T00:00:00+03:00", forecast: 192, step: 3, metric: "COD_AMOUNT" },
+      ],
+    },
+  },
+  business_validation: {
+    gate: {
+      status: "WARN",
+      reasons: ["kpi_guard::lead_time_insufficient_n", "stage08::warn"],
+      warnings: ["Low-signal fallback candidates present; treat as exploratory signals."],
+      nzv_impact: {
+        low_variance_ignored_columns: [{ name: "RECEIVER_MODE", nzv_category: "near_zero_variance" }],
+        high_imbalance_included_columns: [{ name: "STATUS", dominant_value: "DELIVERED" }],
+      },
+    },
+    diagnostics: {
+      decision_counts: { approve: 1800, reject: 120 },
+      ops_metric_warnings: ["kpi_guard::sla_pct_insufficient_n"],
+      nzv_impact: {
+        low_variance_ignored_columns: [{ name: "RECEIVER_MODE", nzv_category: "near_zero_variance" }],
+      },
     },
   },
 });
