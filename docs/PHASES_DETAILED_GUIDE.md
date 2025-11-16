@@ -686,6 +686,7 @@ Operations leaders need narrative-rich diagnostics that explain which dimensions
 - **Profile ingestion**: Reads readiness outputs (`feature_decisions.json`, `layer1_catalog.json`) and Stage 06 feature parquet to identify numeric vs. categorical columns while masking PII tokens.
 - **Layer 2 analytics**: Computes variance rankings, comparative summaries across categorical dimensions, and optional heatmaps driven by configuration (`layer2_metric`, `layer2_heatmap`).
 - **Focus reporting**: Honors analyst-selected focus columns, produces filtered reports, and renders Markdown plus optional PDF (via Pandoc) for sharing.
+- **Fallback keep logic**: When readiness does not emit a KEEP list (common in early EDA runs), the phase now auto-selects up to 80 high-value columns from Stage 06—respecting `exclude`/`focus` filters—and records the fallback in `logs.jsonl` so Stage 07.6 and Stage 08 still receive a usable report.
 - **Metrics & logging**: Records execution metrics (row counts, runtime, memory) and step-by-step logs for traceability.
 
 #### Inter-Stage Relationships
@@ -735,6 +736,7 @@ Senior stakeholders require concise Arabic narratives and recommendations instea
 #### Operational Mechanics
 - **Prompt construction**: Builds per-column analytic “cards” from `report.json`, masks PII, and crafts system/user prompts, hashing them for provenance.
 - **LLM execution & fallback**: Calls `src.agents.llm_adapter` with configurable provider/model/temperature; when providers are unavailable, generates heuristic summaries while flagging WARN status.
+- **Heuristic enrichment**: If focus scopes remove all columns or LLM credentials are absent, the fallback layer now mines the Stage 07.5 report to highlight the top-risk columns (missingness, variance, correlation) so recommendations remain actionable instead of using placeholder text.
 - **Validation pipeline**: Uses `pydantic` models to validate summary structure (length limits, evidence keys) and collects invalid references for remediation.
 - **Cost estimation & telemetry**: Estimates token costs based on provider rate sheets, writing metrics and provenance to support budget controls.
 

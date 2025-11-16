@@ -330,7 +330,8 @@ def _generate_fallback_summary(
 
     numeric_std_values: List[float] = []
     candidates: List[Dict[str, Any]] = []
-    for col in allowed_columns:
+    column_scope = list(dict.fromkeys(allowed_columns or list(columns.keys())))
+    for col in column_scope:
         profile = columns.get(col)
         if not isinstance(profile, Mapping):
             continue
@@ -402,8 +403,8 @@ def _generate_fallback_summary(
             }
         )
 
-    if not recommendations and allowed_columns:
-        column = allowed_columns[0]
+    if not recommendations and column_scope:
+        column = column_scope[0]
         fallback_evidence = _first_resolvable_path(
             report,
             [f"columns.{column}.missing_pct", f"columns.{column}.unique"],

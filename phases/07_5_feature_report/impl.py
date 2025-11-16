@@ -551,16 +551,41 @@ def run(run_id: str, inputs: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, A
 
     manifest = _read_json(decision_path)
     keep: Sequence[str] = manifest.get("keep") or manifest.get("keep_features") or []
+    if keep is None:
+        keep = []
     if not isinstance(keep, Sequence):
         raise ValueError("Decision manifest missing KEEP list")
     keep_list = [str(col) for col in keep]
     logs.append({"step": "load_decisions", "keep": len(keep_list), "exclude": len(exclude_cols), "focus": len(focus_cols)})
 
     working_cols_ordered: List[str] = []
+    seen: set[str] = set()
     for col in keep_list:
-        if col in exclude_cols:
+        if col in exclude_cols or col in seen:
             continue
+        seen.add(col)
         working_cols_ordered.append(col)
+
+    if not working_cols_ordered:
+        candidate_cols = [col for col in df.columns if col not in exclude_cols]
+        if focus_cols:
+            focus_set = set(focus_cols)
+            candidate_cols = [col for col in candidate_cols if col in focus_set]
+        if not candidate_cols:
+            candidate_cols = list(df.columns)
+        fallback_max = int(cfg.get("fallback_max_cols", 80))
+        if fallback_max <= 0 or fallback_max > len(candidate_cols):
+            fallback_max = len(candidate_cols)
+        working_cols_ordered = candidate_cols[:fallback_max]
+        logs.append(
+            {
+                "step": "fallback_keep",
+                "reason": "empty_decision_manifest",
+                "selected": working_cols_ordered,
+                "fallback_max_cols": fallback_max,
+            }
+        )
+
     if focus_cols:
         focus_set = set(focus_cols)
         working_cols_ordered = [col for col in working_cols_ordered if col in focus_set]

@@ -154,3 +154,44 @@ def test_stage_07_5_generates_profiles(tmp_path: Path) -> None:
     assert heatmap_payload["metric"] == "amount"
     assert heatmap_payload["matrix"]
     assert {"x", "y", "value"}.issubset(heatmap_payload["matrix"][0].keys())
+
+
+def test_stage_07_5_handles_empty_keep_list(tmp_path: Path) -> None:
+    run_id = "fallbackrun"
+    artifacts_root = tmp_path / "artifacts"
+    features_dir = artifacts_root / run_id / "stage_06_feature_eng"
+    readiness_dir = artifacts_root / run_id / "stage_07_readiness"
+    features_dir.mkdir(parents=True, exist_ok=True)
+    readiness_dir.mkdir(parents=True, exist_ok=True)
+
+    df = _build_dataset()
+    features_path = features_dir / "features.parquet"
+    df.to_parquet(features_path, index=False)
+
+    manifest_path = readiness_dir / "decision_manifest.json"
+    manifest_path.write_text(json.dumps({"run_id": run_id, "entries": []}, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    cfg = {
+        "artifacts_root": artifacts_root.as_posix(),
+        "fallback_max_cols": 2,
+        "exclude_cols": [],
+        "focus_cols": [],
+    }
+    inputs = {
+        "features": features_path.as_posix(),
+        "decision_manifest": manifest_path.as_posix(),
+    }
+
+    feature_report.run(run_id, inputs, cfg)  # type: ignore[arg-type]
+
+    report_path = artifacts_root / run_id / "stage_07_5_feature_report" / "report.json"
+    assert report_path.exists()
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    summary = report["summary"]
+    assert summary["n_cols_reported"] == 2
+    assert list(report["columns"].keys())
+
+    logs_path = artifacts_root / run_id / "stage_07_5_feature_report" / "logs.jsonl"
+    assert logs_path.exists()
+    with logs_path.open("r", encoding="utf-8") as handle:
+        assert any("fallback_keep" in line for line in handle)

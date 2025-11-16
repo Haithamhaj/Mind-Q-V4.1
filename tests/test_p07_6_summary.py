@@ -159,3 +159,49 @@ def test_stage_07_6_fallback_outputs(tmp_path: Path) -> None:
     with logs_path.open("r", encoding="utf-8") as handle:
         lines = handle.readlines()
     assert any("llm_plan" in line for line in lines)
+
+
+def test_stage_07_6_handles_empty_focus_scope(tmp_path: Path) -> None:
+    run_id = "focusfallback"
+    artifacts_root = tmp_path / "artifacts"
+    features_dir = artifacts_root / run_id / "stage_06_feature_eng"
+    readiness_dir = artifacts_root / run_id / "stage_07_readiness"
+    features_dir.mkdir(parents=True, exist_ok=True)
+    readiness_dir.mkdir(parents=True, exist_ok=True)
+
+    df = _build_dataset()
+    features_path = features_dir / "features.parquet"
+    df.to_parquet(features_path, index=False)
+
+    manifest_path = readiness_dir / "decision_manifest.json"
+    keep_cols = ["amount", "COD_AMOUNT", "created_at", "customer_email", "carrier"]
+    _write_manifest(manifest_path, keep_cols)
+
+    cfg_report = {
+        "artifacts_root": artifacts_root.as_posix(),
+        "focus_cols": keep_cols,
+        "top_k": 3,
+    }
+    inputs_report = {
+        "features": features_path.as_posix(),
+        "decision_manifest": manifest_path.as_posix(),
+    }
+    feature_report.run(run_id, inputs_report, cfg_report)  # type: ignore[arg-type]
+
+    report_path = artifacts_root / run_id / "stage_07_5_feature_report" / "report.json"
+    assert report_path.exists()
+
+    cfg_summary = {
+        "artifacts_root": artifacts_root.as_posix(),
+        "focus_cols": ["nonexistent_field"],
+        "budget_usd": 0.0,
+    }
+    inputs_summary = {"report": report_path.as_posix()}
+    llm_summary.run(run_id, inputs_summary, cfg_summary)  # type: ignore[arg-type]
+
+    recommendations_path = artifacts_root / run_id / "stage_07_6_llm_summary" / "recommendations.json"
+    assert recommendations_path.exists()
+    recommendations = json.loads(recommendations_path.read_text(encoding="utf-8"))
+    assert recommendations["recommendations"]
+    assert recommendations["recommendations"][0]["column_name"] in keep_cols
+    assert "?" not in recommendations["recommendations"][0]["reason"]
