@@ -2,7 +2,7 @@
   "column": "STATUS",
   "mappings": [
     {
-      "original": "delivery state",
+      "original": "Delivery State",
       "normalized": "حالة التوصيل",
       "confidence": 1.0,
       "source": "terminology"
@@ -27,7 +27,7 @@
     },
     {
       "original": "STATUS",
-      "normalized": "STATUS",
+      "normalized": "حالة التوصيل",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -75,13 +75,13 @@
     },
     {
       "original": "Out for delivery",
-      "normalized": "في مرحلة التوصيل",
+      "normalized": "في طريق التوصيل",
       "confidence": 1.0,
       "source": "llm"
     },
     {
       "original": "In Transit",
-      "normalized": "في الطريق",
+      "normalized": "في النقل",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -176,5 +176,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-12T16:46:04.291943"
+  "updated_at": "2025-11-16T07:58:04.033579"
 }

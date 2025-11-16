@@ -27,7 +27,7 @@
     },
     {
       "original": "FORWARD_COMPANY",
-      "normalized": "FORWARD COMPANY",
+      "normalized": "شركة الشحن",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -105,19 +105,19 @@
     },
     {
       "original": "SMSA v2",
-      "normalized": "شركة الشحن SMSA v2",
+      "normalized": "شركة الشحن",
       "confidence": 1.0,
       "source": "llm"
     },
     {
       "original": "Aramex",
-      "normalized": "شركة الشحن Aramex",
+      "normalized": "شركة الشحن",
       "confidence": 1.0,
       "source": "llm"
     },
     {
       "original": "J&T",
-      "normalized": "شركة الشحن J&T",
+      "normalized": "شركة الشحن",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -165,13 +165,13 @@
     },
     {
       "original": "Wepik Express",
-      "normalized": "Wepik Express",
+      "normalized": "شركة الشحن",
       "confidence": 1.0,
       "source": "llm"
     },
     {
       "original": "Red Box",
-      "normalized": "Red Box",
+      "normalized": "شركة الشحن",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -260,5 +260,5 @@
       "source": "llm"
     }
   ],
-  "updated_at": "2025-11-12T16:46:04.696076"
+  "updated_at": "2025-11-16T07:58:09.554245"
 }

@@ -2,13 +2,13 @@
   "column": "System_Name",
   "mappings": [
     {
-      "original": "Logistics System",
+      "original": "logistics system",
       "normalized": "اسم النظام",
       "confidence": 1.0,
       "source": "terminology"
     },
     {
-      "original": "Delivery System",
+      "original": "delivery system",
       "normalized": "اسم النظام",
       "confidence": 1.0,
       "source": "terminology"
@@ -27,7 +27,7 @@
     },
     {
       "original": "System_Name",
-      "normalized": "System_Name",
+      "normalized": "اسم النظام",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -236,5 +236,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-12T16:46:05.275767"
+  "updated_at": "2025-11-16T07:59:32.249320"
 }

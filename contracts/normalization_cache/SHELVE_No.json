@@ -27,7 +27,7 @@
     },
     {
       "original": "SHELVE_No",
-      "normalized": "SHELVE No",
+      "normalized": "رقم الرف",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -72,7 +72,31 @@
       "normalized": "رقم الرف",
       "confidence": 1.0,
       "source": "terminology"
+    },
+    {
+      "original": "shelve status",
+      "normalized": "رقم الرف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "shipment status",
+      "normalized": "رقم الرف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة الرف",
+      "normalized": "رقم الرف",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة الشحنة",
+      "normalized": "رقم الرف",
+      "confidence": 1.0,
+      "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-12T16:46:04.416764"
+  "updated_at": "2025-11-16T07:58:04.171031"
 }

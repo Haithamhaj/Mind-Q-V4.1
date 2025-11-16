@@ -205,3 +205,9 @@ def test_stage_07_6_handles_empty_focus_scope(tmp_path: Path) -> None:
     assert recommendations["recommendations"]
     assert recommendations["recommendations"][0]["column_name"] in keep_cols
     assert "?" not in recommendations["recommendations"][0]["reason"]
+
+
+def test_llm_provider_plan_respects_env_model(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-5.1")
+    plan = llm_summary._llm_provider_plan({})  # type: ignore[attr-defined]
+    assert plan[0] == ("openai", "gpt-5.1")

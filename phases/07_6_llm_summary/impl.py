@@ -110,6 +110,14 @@ def _llm_provider_plan(config: Mapping[str, Any]) -> List[Tuple[str, Optional[st
             plan.extend((entry, None) for entry in entries)
     if not plan:
         plan.extend((provider, None) for provider in DEFAULT_PROVIDER_PLAN)
+
+    enriched: List[Tuple[str, Optional[str]]] = []
+    for provider, model in plan:
+        model_override = os.getenv(f"{provider.upper()}_MODEL")
+        selected_model = model or model_override
+        enriched.append((provider, selected_model))
+    plan = enriched
+
     # Preserve order while removing duplicates
     ordered: List[Tuple[str, Optional[str]]] = []
     seen: set[str] = set()
