@@ -150,7 +150,13 @@
       "normalized": "حالة المستحقات",
       "confidence": 1.0,
       "source": "terminology"
+    },
+    {
+      "original": "حالة المستحقات المالية",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-16T07:59:19.923234"
+  "updated_at": "2025-11-16T09:48:31.447948"
 }

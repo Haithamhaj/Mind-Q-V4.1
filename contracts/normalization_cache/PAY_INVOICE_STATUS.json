@@ -3,31 +3,31 @@
   "mappings": [
     {
       "original": "invoice payment status",
-      "normalized": "حالة دفع الفاتورة",
+      "normalized": "حالة فاتورة الدفع",
       "confidence": 1.0,
       "source": "terminology"
     },
     {
       "original": "payment status",
-      "normalized": "حالة دفع الفاتورة",
+      "normalized": "حالة فاتورة الدفع",
       "confidence": 1.0,
       "source": "terminology"
     },
     {
       "original": "حالة دفع الفاتورة",
-      "normalized": "حالة دفع الفاتورة",
+      "normalized": "حالة فاتورة الدفع",
       "confidence": 1.0,
       "source": "terminology"
     },
     {
       "original": "حالة الدفع",
-      "normalized": "حالة دفع الفاتورة",
+      "normalized": "حالة فاتورة الدفع",
       "confidence": 1.0,
       "source": "terminology"
     },
     {
       "original": "PAY_INVOICE_STATUS",
-      "normalized": "PAY INVOICE STATUS",
+      "normalized": "حالة فاتورة الدفع",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -68,5 +68,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-16T07:12:16.120556"
+  "updated_at": "2025-11-16T09:47:21.801183"
 }

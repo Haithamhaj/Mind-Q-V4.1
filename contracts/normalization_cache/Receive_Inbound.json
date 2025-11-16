@@ -60,7 +60,19 @@
       "normalized": "استلام الوارد",
       "confidence": 1.0,
       "source": "terminology"
+    },
+    {
+      "original": "Received Shipment",
+      "normalized": "استلام الوارد",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "الشحنة المستلمة",
+      "normalized": "استلام الوارد",
+      "confidence": 1.0,
+      "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-16T07:57:59.747204"
+  "updated_at": "2025-11-16T09:47:21.730996"
 }

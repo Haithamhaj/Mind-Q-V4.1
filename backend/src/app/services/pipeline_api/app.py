@@ -18,9 +18,9 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, root_validator
 from dotenv import dotenv_values
 
-from src.app.api.bi.router import router as bi_router
-from src.app.api.pipeline.router import router as pipeline_router
-from src.app.services.pipeline_api.timeline import build_run_timeline
+from backend.src.app.api.bi.router import router as bi_router
+from backend.src.app.api.pipeline.router import router as pipeline_router
+from backend.src.app.services.pipeline_api.timeline import build_run_timeline
 from shared.run_events import PhaseRunRecorder, derive_phase_identity
 from shared.stage_paths import Stage06Paths, resolve_stage06_paths
 

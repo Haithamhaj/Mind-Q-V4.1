@@ -27,7 +27,7 @@
     },
     {
       "original": "Area_Name",
-      "normalized": "Area Name",
+      "normalized": "اسم المنطقة",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -122,5 +122,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-16T07:12:16.986869"
+  "updated_at": "2025-11-16T09:48:54.676649"
 }

@@ -75,7 +75,7 @@
     },
     {
       "original": "Labaih",
-      "normalized": "شركة الشحن Labaih",
+      "normalized": "شركة الشحن",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -87,7 +87,7 @@
     },
     {
       "original": "Yamama (LT)",
-      "normalized": "شركة الشحن Yamama (LT)",
+      "normalized": "شركة الشحن",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -260,5 +260,5 @@
       "source": "llm"
     }
   ],
-  "updated_at": "2025-11-16T07:58:09.554245"
+  "updated_at": "2025-11-16T09:47:25.988573"
 }

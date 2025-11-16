@@ -394,10 +394,12 @@ def _generate_fallback_summary(
             reason_parts.append(f"ترابط قوي مع مؤشر التدفق (|r|={corr_abs:.2f})")
         if not reason_parts:
             reason_parts.append(f"سلوك `{column}` يتطلب متابعة لضمان جودة النمذجة")
-        evidence_candidates = [
-            f"columns.{column}.missing_pct",
-            f"columns.{column}.stats_numeric.std",
-        ]
+        evidence_candidates = [f"columns.{column}.missing_pct"]
+        if entry_profile.get("stats_numeric"):
+            evidence_candidates.append(f"columns.{column}.stats_numeric.std")
+            evidence_candidates.append(f"columns.{column}.stats_numeric.p50")
+        if entry_profile.get("top_categories"):
+            evidence_candidates.append(f"columns.{column}.top_categories[0].value")
         if driver_index is not None:
             evidence_candidates.insert(0, f"summary.drivers_preview[{driver_index}].abs_r")
         evidence_key = _first_resolvable_path(report, evidence_candidates)
