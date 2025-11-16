@@ -21,7 +21,6 @@ from dotenv import dotenv_values
 from src.app.api.bi import router as bi_router
 from src.app.api.pipeline import router as pipeline_router
 from src.app.services.pipeline_api.timeline import build_run_timeline
-from src.app.services.stage_07_knime_bridge import impl as knime_bridge_impl
 from shared.run_events import PhaseRunRecorder, derive_phase_identity
 from shared.stage_paths import Stage06Paths, resolve_stage06_paths
 
@@ -58,7 +57,7 @@ PHASE_MODULES = {
     "07_5_feature_report": "phases.07_5_feature_report.impl",
     "07_6_llm_summary": "phases.07_6_llm_summary.impl",
     "07_timeseries": "backend.src.app.services.stage_07_timeseries.impl",
-    "07_knime_bridge": "src.app.services.stage_07_knime_bridge.impl",
+    "07_knime_bridge": "src.app.services.stage_07_bi_prep_python.impl",
     "08_insights": "src.app.services.stage_08_insights.impl",
     "09_business_validation": "phases.09_business_validation.impl",
     "09_5_causal": "src.app.services.stage_09_5_causal_inference.impl",
@@ -160,7 +159,7 @@ STAGE_LABELS: Dict[str, str] = {
     "stage_07_7_business_correlations": "Business Correlations",
     "stage_07_5_feature_report": "Feature Report",
     "stage_07_6_llm_summary": "LLM Summary",
-    "stage_07_knime_bridge": "KNIME Bridge",
+    "stage_07_knime_bridge": "BI Prep (Python)",
     # Non-standard phase folder (prepared by bridge and KNIME batch)
     "phase_07_knime": "KNIME Profile",
     "stage_08_insights": "Insights",
@@ -332,35 +331,6 @@ def _pipeline_progress_path(run_id: str, artifacts_root: Path) -> Path:
     status_dir = artifacts_root / run_id / "_status"
     status_dir.mkdir(parents=True, exist_ok=True)
     return status_dir / "pipeline_progress.json"
-
-
-def _async_jobs_dir(run_id: str, artifacts_root: Path) -> Path:
-    return artifacts_root / run_id / "_status" / "async_jobs"
-
-
-def _async_job_manifest_path(run_id: str, artifacts_root: Path, job_id: str) -> Path:
-    return _async_jobs_dir(run_id, artifacts_root) / f"{job_id}.json"
-
-
-def _write_async_job_manifest(
-    run_id: str, artifacts_root: Path, job_id: str, payload: Mapping[str, Any]
-) -> Path:
-    path = _async_job_manifest_path(run_id, artifacts_root, job_id)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    return path
-
-
-def _remove_async_job_manifest(run_id: str, artifacts_root: Path, job_id: str) -> None:
-    path = _async_job_manifest_path(run_id, artifacts_root, job_id)
-    if path.exists():
-        path.unlink()
-    parent = path.parent
-    if parent.exists():
-        try:
-            next(parent.iterdir())
-        except StopIteration:
-            parent.rmdir()
 
 
 def _write_pipeline_progress(
@@ -2207,54 +2177,10 @@ async def _run_full_pipeline_impl(run_id: str, request: PipelineRequest, artifac
             )
             _record_progress()
 
-        knime_phase_request = _phase_request()
-        knime_config = dict(knime_phase_request.config or {})
-        knime_config.setdefault("artifacts_root", artifacts_root.as_posix())
-        knime_config.setdefault("mode", "auto")
-        knime_mode = knime_bridge_impl.resolve_mode(knime_config)
-        knime_phase_request.config = knime_config
-        _remove_async_job_manifest(run_id, artifacts_root, "knime_bridge")
-
-        if knime_mode == "prompt":
-            queued_at = datetime.now(timezone.utc).isoformat()
-            deferred_phases.add("07_knime_bridge")
-            manifest_path = _async_job_manifest_path(run_id, artifacts_root, "knime_bridge")
-            try:
-                manifest_ref = manifest_path.relative_to(artifacts_root).as_posix()
-            except ValueError:
-                manifest_ref = manifest_path.as_posix()
-            request_payload = knime_phase_request.model_dump()
-            job_payload: Dict[str, Any] = {
-                "id": "knime_bridge",
-                "phase": "07_knime_bridge",
-                "status": "waiting_for_user",
-                "mode": knime_mode,
-                "queued_at": queued_at,
-                "resume_endpoint": f"/v1/runs/{run_id}/phases/07/knime-bridge",
-                "artifacts_root": artifacts_root.as_posix(),
-                "request": request_payload,
-                "instructions": [
-                    f"Run POST /v1/runs/{run_id}/phases/07/knime-bridge to generate KNIME artifacts.",
-                    "Set MINDQ_KNIME_MODE=auto to auto-approve future runs.",
-                ],
-                "manifest": manifest_ref,
-            }
-            _write_async_job_manifest(run_id, artifacts_root, "knime_bridge", job_payload)
-            async_jobs_state["knime_bridge"] = job_payload
-            phases_results.append(
-                {
-                    "phase": "07_knime_bridge",
-                    "status": "DEFERRED",
-                    "reason": "knime_bridge_waiting_for_manual_approval",
-                    "meta": job_payload,
-                }
-            )
-            _record_progress()
-        else:
-            await _run_phase(
-                "07_knime_bridge",
-                run_phase07_knime_bridge(run_id, knime_phase_request),
-            )
+        await _run_phase(
+            "07_knime_bridge",
+            run_phase07_knime_bridge(run_id, _phase_request()),
+        )
         
         if textops_task is not None and not textops_task.done():
             logger.info("Phase 08 waiting for TextOps (Phase 3.5) to complete...")
@@ -2396,10 +2322,6 @@ async def run_full_pipeline(
 
 
 __all__ = ["app"]
-
-
-
-
 
 
 

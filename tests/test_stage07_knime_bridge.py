@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 import pandas as pd  # type: ignore
 
-from backend.src.app.services.stage_07_knime_bridge import impl as knime_bridge
+from backend.src.app.services.stage_07_bi_prep_python import impl as bi_prep
 
 
 def _write_json(path: Path, payload: Dict[str, Any]) -> None:
@@ -73,7 +73,7 @@ def test_knime_bridge_generates_layer2_candidate(tmp_path: Path) -> None:
         "mode": "auto",
     }
 
-    result = knime_bridge.run(run_id, inputs, config)
+    result = bi_prep.run(run_id, inputs, config)
 
     profile_dir = artifacts_root / run_id / "phase_07_knime" / "profile"
     candidate_path = profile_dir / "layer2_candidate.json"

@@ -1,3 +1,5 @@
+# DEPRECATED: retained for legacy KNIME workflows only. Stage 07 runs via Python now.
+
 param(
     [Parameter(Mandatory = $true)]
     [string]$RunId,

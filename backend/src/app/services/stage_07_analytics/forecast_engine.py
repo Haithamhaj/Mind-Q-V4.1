@@ -53,7 +53,7 @@ def run_forecast(
         df_with_date
         .group_by("forecast_date")
         .agg([
-            pl.count().alias("order_count"),
+            pl.len().alias("order_count"),
             pl.col("cod_amount").sum().alias("total_cod") if "cod_amount" in df.columns else pl.lit(0).alias("total_cod")
         ])
         .sort("forecast_date")

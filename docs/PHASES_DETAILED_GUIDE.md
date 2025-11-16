@@ -824,18 +824,18 @@ Stage 07 KNIME Bridge packages readiness outputs, feature datasets, and semantic
 - `inputs["features"]`: Stage 06 feature parquet.
 - Optional artifacts: `inputs["layer1_dataset"]`, `inputs["schema"]`, `inputs["kpis"]`, `inputs["readiness_report"]`, `inputs["decision_manifest"]`, `inputs["feature_report"]`.
 - `config["artifacts_root"]`: root directory for `phase_07_knime`.
-- KNIME mode settings (`config["mode"]`, env vars `MINDQ_KNIME_MODE`) controlling auto/prompt/skip.
+- BI prep mode settings (`config["bi_prep_mode"]`, env vars `MINDQ_BI_PREP_MODE` / legacy `MINDQ_KNIME_MODE`) controlling auto/skip.
 - Stage 07.5 outputs (variance/comparative/heatmap) accessed from artifacts root to build layer2 candidates.
 
 #### Business Objective
 Some logistics reviewers and regulators rely on KNIME workflows. This bridge automates artifact preparation, ensuring the same curated data, readiness reports, and layer-2 analytics used in Python pipelines are exported for KNIME review without manual copying.
 
 #### Operational Mechanics
-- **Approval modes**: Resolves execution mode (`auto`, `prompt`, `skip`) via config/env vars and prompts interactively when required, allowing teams to control KNIME packaging per run.
+- **Execution modes**: Resolves `bi_prep_mode` (`auto` or `skip`) via config/env vars; defaults to `auto` so the Python BI prep runs without any manual approval.
 - **Artifact preparation**: Copies `layer1_dataset`, `features.parquet`, schema, KPI map, readiness report, decision manifest, and Stage 07.5 feature report into `phase_07_knime/`, generating `run_meta.json` and `bridge_summary.json` with git and gate metadata.
 - **Layer2 enrichment**: Builds `layer2_candidate.json` by combining variance/comparative/heatmap analytics; creates placeholder when upstream data is absent.
 - **Dual directory output**: Mirrors key files under `stage_07_knime_bridge/profile/` so Python consumers and KNIME users share identical artifacts.
-- **Optional batch execution**: When configured, runs the KNIME batch script (`knime/run_knime_workflow.ps1`), capturing stdout and exit codes in the bridge summary.
+- **Historical KNIME batch (deprecated)**: The old PowerShell launcher is retained for legacy audits but is no longer invoked by the default BI path.
 
 #### Inter-Stage Relationships
 - **Upstream dependencies**: Consumes Stage 06 Feature Engineering outputs, Stage 07 readiness manifests, Stage 07.5 analytics, and KPI contracts.

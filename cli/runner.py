@@ -39,9 +39,10 @@ from src.app.services.pipeline_api.app import (
     run_phase10,
     run_phase12,
 )
+from src.app.services.stage_11_ml_sandbox import build_ml_base_table, run_client_clustering
 
 LLM_ENV_KEYS: Sequence[str] = ("OPENAI_API_KEY", "GOOGLE_API_KEY", "KPI_API_KEY")
-KNIME_MODE_KEY = "MINDQ_KNIME_MODE"
+BI_MODE_ENV_KEYS: Sequence[str] = ("MINDQ_BI_PREP_MODE", "BI_PREP_MODE")
 
 
 @dataclass
@@ -80,17 +81,10 @@ def _llm_credentials_available() -> bool:
     return any(os.environ.get(key) for key in LLM_ENV_KEYS)
 
 
-def _ensure_knime_prompt_mode() -> None:
-    mode = os.environ.get(KNIME_MODE_KEY, "")
-    normalized = mode.strip().lower()
-    if not normalized:
-        os.environ[KNIME_MODE_KEY] = "prompt"
-        print("MINDQ_KNIME_MODE not set; defaulting to 'prompt' for KNIME bridge safety.", file=sys.stderr)
-    elif normalized != "prompt":
-        print(
-            f"Warning: MINDQ_KNIME_MODE is '{mode}'. Stage 07 KNIME bridge expects 'prompt' to require manual approval.",
-            file=sys.stderr,
-        )
+def _ensure_bi_prep_mode() -> None:
+    if any(os.environ.get(key) for key in BI_MODE_ENV_KEYS):
+        return
+    os.environ["MINDQ_BI_PREP_MODE"] = "auto"
 
 
 def _rollup_status(statuses: Sequence[Optional[str]]) -> Optional[str]:
@@ -298,9 +292,9 @@ async def _run_pipeline(
     return results
 
 
-def flow(run_id: str, flags: PipelineFlags) -> None:
-    _ensure_knime_prompt_mode()
-    artifacts_root = Path("artifacts").resolve()
+def flow(run_id: str, flags: PipelineFlags, artifacts_root: Path) -> None:
+    _ensure_bi_prep_mode()
+    artifacts_root = artifacts_root.expanduser().resolve()
     artifacts_root.mkdir(parents=True, exist_ok=True)
 
     data_files = _default_data_files()
@@ -338,10 +332,40 @@ def flow(run_id: str, flags: PipelineFlags) -> None:
             print(f"Warning: failed to update run-latest: {exc}", file=sys.stderr)
 
 
+def run_ml_sandbox(flow_run_id: str, artifacts_root: Path, n_clusters: int) -> None:
+    """
+    Build the Stage 11 ML sandbox outputs without touching the upstream BI flow.
+    """
+
+    _ensure_bi_prep_mode()
+    artifacts_root = artifacts_root.expanduser().resolve()
+    stage_dir = artifacts_root / flow_run_id / "stage_11_ml_sandbox"
+    stage_dir.mkdir(parents=True, exist_ok=True)
+
+    base_meta = build_ml_base_table(flow_run_id, stage_dir.as_posix())
+    cluster_meta = run_client_clustering(flow_run_id, stage_dir.as_posix(), n_clusters=n_clusters)
+
+    payload = {"run_id": flow_run_id, "base_table": base_meta, "clustering": cluster_meta}
+    summary_path = stage_dir / "ml_sandbox_summary.json"
+    summary_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="cli.runner")
-    parser.add_argument("flow", help="run the default flow", nargs="?")
+    parser.add_argument(
+        "command",
+        help="Pipeline command to execute",
+        nargs="?",
+        default="flow",
+        choices=("flow", "ml-sandbox"),
+    )
     parser.add_argument("--run-id", dest="run_id", default="demo")
+    parser.add_argument(
+        "--artifacts-root",
+        default="artifacts",
+        help="Root directory where run artifacts are stored (default: %(default)s)",
+    )
     parser.add_argument(
         "--textops",
         dest="run_textops",
@@ -388,7 +412,19 @@ def main() -> None:
         "--routing-config",
         help="Path to JSON scenario file for Stage 12 routing",
     )
+    parser.add_argument(
+        "--n-clusters",
+        type=int,
+        default=5,
+        help="Number of clusters for the ML sandbox command (default: %(default)s)",
+    )
     args = parser.parse_args()
+    artifacts_root = Path(args.artifacts_root)
+
+    if args.command == "ml-sandbox":
+        run_ml_sandbox(args.run_id, artifacts_root, n_clusters=args.n_clusters)
+        return
+
     timeseries_inputs = None
     if args.stage07_timeseries_config:
         timeseries_inputs = _load_json_payload(args.stage07_timeseries_config)
@@ -415,7 +451,7 @@ def main() -> None:
         run_routing=run_routing,
         routing_inputs=routing_inputs,
     )
-    flow(args.run_id, flags)
+    flow(args.run_id, flags, artifacts_root)
 
 
 if __name__ == "__main__":

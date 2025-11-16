@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Centralized approval gate for KNIME executions.
+  Centralized approval gate for KNIME executions. (Deprecated)
 
 .DESCRIPTION
   Provides an interactive (or pre-configured) approval step before launching KNIME GUI
@@ -19,6 +19,9 @@
 
   # Bypass prompt
   Ensure-KnimeApproval -Context "GUI" -AutoApprove
+
+  NOTE: Stage 07 BI prep now runs entirely in Python. This script remains for
+  legacy references and is not part of the default pipeline.
 #>
 
 Set-StrictMode -Version Latest

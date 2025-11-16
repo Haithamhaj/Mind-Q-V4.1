@@ -29,8 +29,8 @@ stage_06_feature_eng/features.parquet
 ```
 
 ## 3. ضبط وضعية التشغيل
-- الدالة `_resolve_mode` تقرأ المفاتيح `mode` أو `knime_mode` من التهيئة، ثم القيم البيئية `MINDQ_KNIME_MODE` أو `KNIME_PIPELINE_MODE`، مع دعم الأعلام `auto_approve` و`auto_skip` (`src/app/services/stage_07_knime_bridge/impl.py`).
-- القيم الممكنة: `auto` (تشغيل محرك Python مباشرة)، `prompt` (تتعامل الآن كـ auto لكن تُسجَّل في `run_meta`)، `skip` (يتجاهل التحضير ويعيد حالة SKIP).
+- الدالة `_resolve_mode` تقرأ المفاتيح `bi_prep_mode` أو `mode` (مع دعم الاسم القديم `knime_mode`)، ثم القيم البيئية `MINDQ_BI_PREP_MODE` أو `BI_PREP_MODE` (ويتم قبول `MINDQ_KNIME_MODE`/`KNIME_PIPELINE_MODE` فقط لضمان التوافق الرجعي)، مع دعم الأعلام `auto_approve` و`auto_skip` (`src/app/services/stage_07_bi_prep_python/impl.py`).
+- القيم الممكنة: `auto` (تشغيل محرك Python مباشرة) و`skip` (يتجاهل التحضير ويعيد حالة SKIP). أي قيمة أخرى يتم تحويلها تلقائياً إلى `auto`.
 - لا يوجد تفاعل يدوي أو سكربت خارجي؛ كل المخرجات تُبنى تلقائياً.
 
 ## 4. الملفات التي يتم تجهيزها
@@ -50,14 +50,11 @@ stage_06_feature_eng/features.parquet
 - حقل `metrics` يعرض الآن حالة `python_analytics` (نجاح/تخطي/تحذير) وعدد الصفوف/الأعمدة التي تم تحضيرها.
 
 ## 6. بوابة الموافقات
-- سكربت `scripts/knime_approval.ps1` يوفر الدالة `Confirm-KnimeApproval` لإنفاذ الموافقات أو تخزين رصيد تشغيلات مسبقة (`scripts/knime_approval.ps1:1`).
-- يدعم المتغيرات البيئية `KNIME_REQUIRE_APPROVAL`, `KNIME_APPROVAL_COUNT`, والـ switch `-AutoApprove` في حال دمجه مع CI.
-- يسجل الرصيد في `tools/knime/.approval_state.json` حتى يتم استهلاكه.
+- تمت أرشفة سكربت `scripts/knime_approval.ps1` والأعلام المرتبطة به. لم تعد هناك حاجة لأي موافقة يدوية أو رصيد تشغيلات، إذ يعمل الـ BI Prep بالكامل داخل Python.
+- في حال الحاجة لأي تكامل قديم، يمكن الرجوع إلى السكربت كمرجع تاريخي فقط دون أن يكون جزءاً من المسار الرسمي.
 
 ## 7. تشغيل KNIME Batch
-> **ملاحظة:** هذه المرحلة لم تعد تستدعي `knime.exe` أو أي Workflow خارجي. الفقرة التالية محفوظة لأغراض الأرشفة لمن يضطر لتشغيل KNIME Desktop في بيئات قديمة.
-
-- السكربت `knime/run_knime_workflow.ps1` ما زال متوفراً لكنه لم يعد جزءاً من خط BI الافتراضي. جميع المخرجات المطلوبة تبنى عبر Python داخل `stage_07_knime_bridge` و `stage_07_analytics`.
+> **ملاحظة:** تم إيقاف تشغيل KNIME batch من خط الـ BI الرسمي. يمكن الرجوع إلى السكربت `knime/run_knime_workflow.ps1` لأغراض التوثيق أو الدعم التاريخي، لكنه لم يعد مستخدماً في أي بيئة إنتاجية.
 
 ## 8. مكونات التحليلات البايثونية
 - `backend/src/app/services/stage_07_analytics/impl.py`: المحرك الرئيسي ويستدعي المحركات الفرعية.
@@ -81,13 +78,12 @@ stage_06_feature_eng/features.parquet
 - يمكن محاكاة التشغيل الكامل عن طريق إنشاء مجلد artifacts محليًا ثم تشغيل السكربت batch للتحقق من المخرجات.
 
 ## 11. قائمة مرجعية للتسليم
-- [ ] ضبط `mode` أو `MINDQ_KNIME_MODE` حسب سيناريو التشغيل (Local vs CI).
+- [ ] ضبط `bi_prep_mode` أو `MINDQ_BI_PREP_MODE` لتعطيل المرحلة فقط عندما يكون الهدف هو التخطي الصريح.
 - [ ] التأكد من توفر schema وkpi_map في القنوات الأساسية أو إعداد fallback.
 - [ ] مراجعة ملفات Stage 07_5 لضمان اكتمال `layer2_candidate`.
-- [ ] تفعيل `run_batch`/`auto_execute` فقط في البيئات التي يتوفر فيها `knime.exe`.
 - [ ] الاحتفاظ بسجلات `bridge_summary.json` ضمن artefacts لمراجعة سريعة خلال التحقيقات.
 
 ## 12. مراجع إضافية
-- الكود الرئيسي: `src/app/services/stage_07_knime_bridge/impl.py`.
+- الكود الرئيسي: `src/app/services/stage_07_bi_prep_python/impl.py` (مع alias قديم `stage_07_knime_bridge`).
 - السكربتات: `knime/run_knime_workflow.ps1`, `scripts/knime_approval.ps1`.
 - الوثائق الداعمة: `knime/README_QUICKSTART.md`, `docs/KNIME_ADVANCED_ANALYTICS.md`, `docs/PHASES_DETAILED_GUIDE.md`.
