@@ -15,6 +15,31 @@
 cd /Users/haitham/development/Mind-Q-V4.1-port
 ```
 
+---
+
+## 🚀 الطريقة الأسهل: استخدام السكربتات
+
+### 1️⃣ تشغيل Backend
+```bash
+./start_backend.sh
+```
+
+### 2️⃣ تشغيل Frontend (في terminal جديد)
+```bash
+./start_frontend.sh
+```
+
+### 3️⃣ تشغيل Pipeline (في terminal جديد)
+```bash
+./run_pipeline.sh test-run data/sample.csv
+```
+
+السكربتات تضبط `PYTHONPATH` تلقائياً وتتأكد من المسارات الصحيحة.
+
+---
+
+## 📝 الطريقة اليدوية
+
 ### 1️⃣ تشغيل Backend
 
 من المجلد الرئيسي، شغّل:
@@ -46,11 +71,24 @@ npm run dev
 
 **السبب:** تشغيل السكربت من مسار خاطئ أو PYTHONPATH غير صحيح
 
-**الحل:**
+**الحل السريع:** استخدم السكربتات الجاهزة:
+```bash
+./start_backend.sh   # للـ Backend
+./run_pipeline.sh    # للـ Pipeline
+```
+
+**الحل اليدوي:**
 1. تأكد أنك في المجلد الرئيسي: `cd /Users/haitham/development/Mind-Q-V4.1-port`
-2. أو أضف المسار إلى PYTHONPATH:
+2. أضف المسار إلى PYTHONPATH:
    ```bash
    export PYTHONPATH=/Users/haitham/development/Mind-Q-V4.1-port:$PYTHONPATH
+   ```
+3. أو أضف في بداية السكربت:
+   ```python
+   import sys
+   from pathlib import Path
+   PROJECT_ROOT = Path(__file__).resolve().parent
+   sys.path.insert(0, str(PROJECT_ROOT))
    ```
 
 ### المشكلة: `Address already in use`
