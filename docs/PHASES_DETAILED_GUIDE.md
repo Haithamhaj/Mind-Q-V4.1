@@ -320,6 +320,8 @@ Reliable delivery forecasting and SLA analytics require consistent inputs even w
 
 #### Operational Mechanics
 - **Policy resolution**: Loads `contracts/impute/policy_relaxed.yml` (overrideable via config) and merges manual plans if `imputation_plan.json` already exists, producing a column-level strategy catalog (`plan["policies"]`).
+- **NZV policy bootstrapping**: Initializes the shared `contracts/nzv/policy.yml` thresholds through `backend/src/app/services/nzv_policy.py`, giving Stage 05 access to cached rules for `constant_like`, `near_zero_variance`, and `high_imbalance` detection plus `force_nzv` / `force_not_nzv` overrides that later phases reuse verbatim.
+- **Low-variance profiling**: After writing `clean_imputed.parquet`, the stage scans every column, computes dominant ratios/top values, classifies them via `nzv_policy.classify_column`, and emits both detailed `nzv_summaries.json` and aggregated counts (`nzv_summary`) embedded inside `summary.json` / `metrics.json` for downstream readiness, standardization, Stage 07.5/07.6, and analytics gates.
 - **Strategy assignment**: For each feature, infers type, determines geo rules, and chooses groupwise medians/modes, time-aware interpolation, or indicator-only actions. Geo columns honor relaxed thresholds and fallback strategies to keep latitude/longitude available with warnings instead of hard stops.
 - **Execution engine**: Applies numeric, categorical, and datetime routines with fallback paths, automatically adding `_is_missing` indicators, winsorizing outliers, enforcing timezone consistency, and preventing future timestamps in prediction fields.
 - **Row & drift guards**: Checks row stability against Stage 01 baselines, computes Population Stability Index for imputed columns, and evaluates geo-missing thresholds to emit WARN/STOP statuses recorded in `quality_findings`.
@@ -328,6 +330,7 @@ Reliable delivery forecasting and SLA analytics require consistent inputs even w
 #### Inter-Stage Relationships
 - **Upstream dependencies**: Consumes Stage 01 `missing_summary.json` and Stage 05 policy files; relies on Stage 04 row counts for guardrails.
 - **Downstream consumers**: Stage 06 Feature Engineering and Stage 07 readiness rely on `clean_imputed.parquet`, indicator columns, and PSI warnings to build stable feature sets and leakage detectors; Stage 08 Insights surfaces gating reasons to business teams.
+- **NZV ecosystem alignment**: The new NZV contract and freshly emitted `nzv_summaries.json`/`nzv_summary` feed Stage 06 standardization, Stage 07 readiness, Stage 07.5/07.6 reporting, and Stage 08/09 analytics so every downstream step reuses the same low-variance definitions and context.
 
 #### Outputs & Reports
 ```
@@ -338,9 +341,11 @@ artifacts/{run_id}/stage_05_missing/
 ├── metrics.json                                # Run metrics, geo stats, PSI results, gating reasons
 ├── imputation_report.json                      # Human-readable summary + links to artifacts
 ├── psi_summary.json                            # Population stability breakdown (warn/stop/missing)
+├── nzv_summaries.json                          # Column-level NZV stats (dominant values, overrides, reasons)
 ├── changelog.jsonl                             # Per-column imputation actions
 ├── logs.jsonl                                  # Execution log (groupwise fallbacks, geo flags)
 └── row_meta.json & summary.json                # Volume signature + lists of imputed/indicator columns
+`summary.json` embeds `nzv_summary` (counts, ratios) so Stage 06/07 consumers can quickly gauge how many fields are constant-like, near-zero, or high-imbalance without re-reading the per-column file.
 ```
 
 #### Core Libraries & Components
@@ -377,6 +382,7 @@ Logistics partners rely on consistent column naming and value semantics across r
 - **Value normalization**: Delegates to `normalize_values` (`phases/06_standardize/normalizer.py`) to standardize categorical spellings, trim whitespace, and harmonize enumerations; pending reviews are written to mapping files for data stewardship.
 - **Numeric coercion**: Uses heuristics to coerce string/object columns into numeric types when threshold ratios are met, yielding typed metrics ready for modeling.
 - **Output provisioning**: Writes `features.pre.parquet` for transparency, `features.curated.parquet` for downstream ingestion, and mirrors metadata (`exclusions_applied.json`, `standardize_report.json`, `row_meta.json`) into both standardize and feature-eng directories.
+- **NZV awareness**: Reads Stage 05 `nzv_summaries.json`, copies the aggregate `nzv_summary`, and enriches `standardize_report.json` with a `columns` map that lists each column's original/standardized names, dtype shifts, and NZV decorations (`is_nzv`, `nzv_category`, `nzv_reason`, `usage_hint=context_only` for low-variance fields). Downstream readiness, feature reports, LLM summaries, and analytics now consume this document instead of recomputing NZV stats.
 
 #### Inter-Stage Relationships
 - **Upstream dependencies**: Consumes Stage 05 clean dataset; uses Stage 01 baselines to ensure row integrity and leverages exclusion requests from configuration or artifacts.
@@ -388,7 +394,7 @@ artifacts/{run_id}/stage_06_standardize/
 ├── clean.parquet                         # Standardized dataset (authoritative for Stage 06)
 ├── features.pre.parquet                  # Pre-standardization snapshot
 ├── ../stage_06_feature_eng/features.curated.parquet  # Mirrored curated dataset
-├── standardize_report.json               # Column rename/exclusion summary and normalization metadata
+├── standardize_report.json               # Column rename/exclusion summary, normalization metadata, NZV summary, per-column NZV annotations
 ├── exclusions_applied.json               # Applied, protected, and ignored exclusions
 ├── row_meta.json                         # Volume signature tied to curated output
 ├── logs.jsonl                            # Normalization + coercion events

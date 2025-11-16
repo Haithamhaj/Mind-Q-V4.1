@@ -1,0 +1,16 @@
+# Default policy for near-zero variance detection across stages 05-09.
+# Update thresholds or overrides here instead of changing application code.
+version: 1
+defaults:
+  dominant_constant_like: 0.98
+  dominant_nzv: 0.95
+  dominant_high_imbalance: 0.90
+  max_unique_for_nzv: 5
+  min_rows_required: 50
+  enable_readiness_adjustment: true
+  max_nzv_ratio_for_pass: 0.35
+overrides:
+  force_nzv: []
+  force_not_nzv: []
+special_columns:
+  context_only: []
