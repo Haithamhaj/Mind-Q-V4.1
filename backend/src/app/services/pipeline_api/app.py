@@ -937,9 +937,14 @@ def _run_standard_phase(
     module_path: str,
     run_id: str,
     inputs: Dict[str, Any],
-    config: Dict[str, Any],
+    config: Optional[Dict[str, Any]],
     artifacts_root: Path,
 ) -> Dict[str, Any]:
+    if config is None:
+        config = {}
+    config.setdefault("artifacts_root", artifacts_root.as_posix())
+    _prepare_llm_environment(config)
+
     module = _load_module(module_path)
     phase_id, stage_dir = derive_phase_identity(module_path)
     with PhaseRunRecorder(
@@ -2322,7 +2327,6 @@ async def run_full_pipeline(
 
 
 __all__ = ["app"]
-
 
 
 
