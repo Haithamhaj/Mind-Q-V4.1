@@ -5,7 +5,7 @@ import math
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 import numpy as np  # type: ignore
 from zoneinfo import ZoneInfo
@@ -17,6 +17,8 @@ except Exception as exc:  # pragma: no cover
     raise RuntimeError("pandas is required for phase 07.5 feature reporting") from exc
 
 from shared.logging import setup_logger  # type: ignore
+
+LOW_VARIANCE_CATEGORIES = {"constant_like", "near_zero_variance"}
 PII_COLUMN_TOKENS = {"phone", "mobile", "msisdn", "email", "name"}
 MISSING_LABEL = "<MISSING>"
 MASK_LABEL = "<REDACTED>"
@@ -39,6 +41,16 @@ def _read_json(path: Path) -> Dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"Required input missing: {path}")
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _read_json_safe(path: Path) -> Optional[Dict[str, Any]]:
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
 def _parse_cols(raw: Optional[Iterable[str]]) -> List[str]:
@@ -82,6 +94,109 @@ def _safe_float(value: Any) -> Optional[float]:
         return result
     except Exception:
         return None
+
+
+def _load_stage05_nzv(artifacts_root: Path, run_id: str) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Path]]:
+    nzv_path = artifacts_root / run_id / "stage_05_missing" / "nzv_summaries.json"
+    payload = _read_json_safe(nzv_path)
+    if not payload:
+        return [], None, None
+    columns_payload = payload.get("columns")
+    columns = [entry for entry in columns_payload if isinstance(entry, dict)] if isinstance(columns_payload, list) else []
+    summary = payload.get("nzv_summary") if isinstance(payload.get("nzv_summary"), dict) else None
+    return columns, summary, nzv_path
+
+
+def _load_standardize_columns(artifacts_root: Path, run_id: str) -> Tuple[Dict[str, Dict[str, Any]], Optional[Path]]:
+    report_path = artifacts_root / run_id / "stage_06_standardize" / "standardize_report.json"
+    payload = _read_json_safe(report_path)
+    if not payload:
+        return {}, None
+    columns_payload = payload.get("columns")
+    if isinstance(columns_payload, dict):
+        return {str(name): dict(meta) for name, meta in columns_payload.items() if isinstance(meta, dict)}, report_path
+    return {}, report_path
+
+
+def _build_nzv_lookup(
+    artifacts_root: Path,
+    run_id: str,
+) -> Tuple[Dict[str, Dict[str, Any]], Optional[Dict[str, Any]], Optional[Path], Optional[Path]]:
+    stage05_columns, stage05_summary, stage05_path = _load_stage05_nzv(artifacts_root, run_id)
+    stage06_columns, stage06_path = _load_standardize_columns(artifacts_root, run_id)
+
+    if not stage05_columns and not stage06_columns:
+        return {}, None, None, None
+
+    stage05_lookup: Dict[str, Dict[str, Any]] = {}
+    stage05_lookup_lower: Dict[str, Dict[str, Any]] = {}
+    for entry in stage05_columns:
+        name = entry.get("name")
+        if not isinstance(name, str):
+            continue
+        stage05_lookup[name] = entry
+        stage05_lookup_lower[name.lower()] = entry
+
+    nzv_lookup: Dict[str, Dict[str, Any]] = {}
+    if stage06_columns:
+        for standardized, meta in stage06_columns.items():
+            category = str(meta.get("nzv_category") or "").lower()
+            is_nzv = bool(meta.get("is_nzv")) or category in LOW_VARIANCE_CATEGORIES
+            if not is_nzv:
+                continue
+            original = meta.get("original_name")
+            stage05_entry = None
+            if isinstance(original, str):
+                stage05_entry = stage05_lookup.get(original) or stage05_lookup_lower.get(original.lower())
+            if stage05_entry is None:
+                stage05_entry = stage05_lookup.get(standardized) or stage05_lookup_lower.get(standardized.lower())
+            record = {
+                "standardized_name": standardized,
+                "original_name": original or standardized,
+                "nzv_category": meta.get("nzv_category"),
+                "nzv_reason": meta.get("nzv_reason"),
+                "nzv_source": stage05_path.as_posix() if stage05_path else stage06_path.as_posix() if stage06_path else None,
+                "is_nzv": True,
+                "dominant_value": None,
+                "dominant_pct": None,
+                "unique_count": None,
+                "missing_pct": None,
+                "top_values": None,
+            }
+            if stage05_entry:
+                record["dominant_value"] = stage05_entry.get("dominant_value")
+                record["dominant_pct"] = stage05_entry.get("dominant_pct")
+                record["unique_count"] = stage05_entry.get("unique_count")
+                record["missing_pct"] = stage05_entry.get("missing_pct")
+                record["top_values"] = stage05_entry.get("top_values")
+            else:
+                record["dominant_value"] = meta.get("nzv_dominant_value")
+                record["dominant_pct"] = meta.get("nzv_dominant_pct")
+            nzv_lookup[standardized] = record
+    elif stage05_columns:
+        for entry in stage05_columns:
+            name = entry.get("name")
+            if not isinstance(name, str):
+                continue
+            category = str(entry.get("nzv_category") or "").lower()
+            is_nzv = category in LOW_VARIANCE_CATEGORIES or bool(entry.get("is_nzv"))
+            if not is_nzv:
+                continue
+            nzv_lookup[name] = {
+                "standardized_name": name,
+                "original_name": name,
+                "nzv_category": entry.get("nzv_category"),
+                "nzv_reason": entry.get("nzv_reason"),
+                "nzv_source": stage05_path.as_posix() if stage05_path else None,
+                "is_nzv": True,
+                "dominant_value": entry.get("dominant_value"),
+                "dominant_pct": entry.get("dominant_pct"),
+                "unique_count": entry.get("unique_count"),
+                "missing_pct": entry.get("missing_pct"),
+                "top_values": entry.get("top_values"),
+            }
+
+    return nzv_lookup, stage05_summary, stage05_path, stage06_path
 
 
 def _build_variance_analysis(df: pd.DataFrame, numeric_cols: Sequence[str], tzinfo: datetime.tzinfo) -> Optional[Dict[str, Any]]:
@@ -416,6 +531,7 @@ def _build_report(
     top_k: int,
     main_ts: Optional[str],
     logs: List[Dict[str, Any]],
+    nzv_lookup: Mapping[str, Dict[str, Any]],
 ) -> Dict[str, Any]:
     column_profiles: Dict[str, Dict[str, Any]] = {}
     n_rows = int(df.shape[0])
@@ -449,9 +565,11 @@ def _build_report(
                 "max_ts": time_profile.get("max_ts"),
                 "by_month": [],
             }
+        nzv_entry = nzv_lookup.get(col)
+        is_nzv_flag = bool(nzv_entry) or _nzv_flag(series)
         flags = {
             "is_constant": unique_count <= 1,
-            "is_nzv": _nzv_flag(series),
+            "is_nzv": is_nzv_flag,
             "has_outliers": has_outliers,
         }
         column_profiles[col] = {
@@ -464,6 +582,13 @@ def _build_report(
             "time_profile": time_profile,
             "flags": flags,
         }
+        if nzv_entry:
+            column_profiles[col]["nzv_category"] = nzv_entry.get("nzv_category")
+            column_profiles[col]["nzv_reason"] = nzv_entry.get("nzv_reason")
+            column_profiles[col]["nzv_source"] = nzv_entry.get("nzv_source")
+            column_profiles[col]["dominant_value"] = nzv_entry.get("dominant_value")
+            column_profiles[col]["dominant_pct"] = nzv_entry.get("dominant_pct")
+            column_profiles[col]["usage_hint"] = "context_only"
         logs.append({"step": "profile_column", "column": col, "dtype": dtype, "missing_pct": missing_pct})
 
     n_cols_reported = len(column_profiles)
@@ -544,6 +669,24 @@ def run(run_id: str, inputs: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, A
 
     logs.append({"step": "config", "tz": tz, "top_k": top_k})
 
+    nzv_lookup, nzv_summary_payload, stage05_path, stage06_path = _build_nzv_lookup(artifacts_root, run_id)
+    if nzv_lookup:
+        logs.append(
+            {
+                "step": "nzv_loaded",
+                "columns": len(nzv_lookup),
+                "stage05_source": stage05_path.as_posix() if stage05_path else None,
+                "stage06_source": stage06_path.as_posix() if stage06_path else None,
+            }
+        )
+    else:
+        logs.append(
+            {
+                "step": "nzv_missing",
+                "message": "nzv_summaries.json not found; proceeding with legacy focus behavior",
+            }
+        )
+
     logs.append({"step": "load_features", "path": features_path.as_posix()})
     df = pd.read_parquet(features_path)
     n_rows, n_cols = df.shape
@@ -590,6 +733,13 @@ def run(run_id: str, inputs: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, A
         focus_set = set(focus_cols)
         working_cols_ordered = [col for col in working_cols_ordered if col in focus_set]
 
+    nzv_contextual_lower: Set[str] = {name.lower() for name in nzv_lookup.keys()}
+    if nzv_contextual_lower:
+        removed = [col for col in working_cols_ordered if col.lower() in nzv_contextual_lower]
+        if removed:
+            working_cols_ordered = [col for col in working_cols_ordered if col.lower() not in nzv_contextual_lower]
+            logs.append({"step": "nzv_focus_filter", "removed": removed})
+
     logs.append({"step": "working_set", "columns": working_cols_ordered})
 
     main_ts: Optional[str] = None
@@ -603,7 +753,39 @@ def run(run_id: str, inputs: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, A
         except json.JSONDecodeError:
             logs.append({"step": "feature_spec_invalid", "path": feature_spec_path.as_posix()})
 
-    report = _build_report(run_id, df, working_cols_ordered, top_k, main_ts, logs)
+    report = _build_report(run_id, df, working_cols_ordered, top_k, main_ts, logs, nzv_lookup)
+
+    low_variance_fields: List[Dict[str, Any]] = []
+    for entry in nzv_lookup.values():
+        category = str(entry.get("nzv_category") or "").lower()
+        if category not in LOW_VARIANCE_CATEGORIES:
+            continue
+        display_name = entry.get("standardized_name") or entry.get("original_name")
+        if not display_name:
+            continue
+        low_variance_fields.append(
+            {
+                "name": display_name,
+                "original_name": entry.get("original_name"),
+                "nzv_category": entry.get("nzv_category"),
+                "nzv_reason": entry.get("nzv_reason"),
+                "dominant_value": entry.get("dominant_value"),
+                "dominant_pct": entry.get("dominant_pct"),
+                "unique_count": entry.get("unique_count"),
+                "missing_pct": entry.get("missing_pct"),
+                "top_values": entry.get("top_values"),
+                "note": "Mostly constant in this run. Treat as stable context instead of a primary KPI driver.",
+            }
+        )
+
+    if nzv_summary_payload:
+        report["summary"]["nzv_summary"] = nzv_summary_payload
+    if stage05_path:
+        report["summary"]["nzv_source"] = stage05_path.as_posix()
+    elif stage06_path:
+        report["summary"]["nzv_source"] = stage06_path.as_posix()
+    report["low_variance_fields"] = low_variance_fields
+    report["summary"]["low_variance_fields"] = len(low_variance_fields)
 
     output_dir = artifacts_root / run_id / "stage_07_5_feature_report"
     _ensure_dir(output_dir)

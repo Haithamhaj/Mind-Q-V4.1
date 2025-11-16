@@ -1,0 +1,4 @@
+instructions: >
+  Do not claim that low-variance fields (marked as constant_like or near_zero_variance)
+  explain KPI differences. They are almost constant across rows and should be treated
+  as contextual metadata only. Mention them only as stable defaults or metadata.

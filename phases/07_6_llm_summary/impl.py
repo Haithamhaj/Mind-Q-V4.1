@@ -19,6 +19,14 @@ from shared.logging import setup_logger  # type: ignore
 TOKEN_PATTERN = re.compile(r"(phone|mobile|msisdn|email|name)", re.IGNORECASE)
 CARD_MAX_CHARS = 700
 DEFAULT_PROVIDER_PLAN: Tuple[str, ...] = ("openai", "anthropic", "gemini")
+LOW_VARIANCE_CATEGORIES = {"constant_like", "near_zero_variance"}
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+CONTRACTS_ROOT = PROJECT_ROOT / "contracts"
+NZV_PROMPT_HINTS_PATH = CONTRACTS_ROOT / "nzv" / "prompt_hints.yml"
+DEFAULT_NZV_HINT = (
+    "Do not claim that low-variance fields (marked as constant_like or near_zero_variance) explain KPI differences. "
+    "They should be treated as contextual metadata only."
+)
 
 
 class RecommendationModel(BaseModel):
@@ -68,6 +76,20 @@ def _load_yaml(path: Path) -> Dict[str, Any]:
         return data if isinstance(data, dict) else {}
     except yaml.YAMLError:
         return {}
+
+
+def _load_prompt_hints(path: Path = NZV_PROMPT_HINTS_PATH) -> Tuple[str, Optional[Path]]:
+    if path.exists():
+        if path.suffix.lower() in {".yml", ".yaml"}:
+            payload = _load_yaml(path)
+            text = payload.get("instructions") if isinstance(payload, dict) else None
+            if isinstance(text, str) and text.strip():
+                return text.strip(), path
+        else:
+            raw_text = path.read_text(encoding="utf-8").strip()
+            if raw_text:
+                return raw_text, path
+    return DEFAULT_NZV_HINT, None
 
 
 def _parse_cols(raw: Optional[Iterable[str]]) -> List[str]:
@@ -178,6 +200,33 @@ def _mask_prompt_text(text: str) -> str:
     return TOKEN_PATTERN.sub("<محجوب>", text)
 
 
+def _build_low_variance_text(
+    fields: Sequence[Mapping[str, Any]],
+    n_rows: Optional[int],
+    run_id: str,
+) -> str:
+    relevant = [
+        field
+        for field in fields
+        if isinstance(field, Mapping) and str(field.get("nzv_category") or "").lower() in LOW_VARIANCE_CATEGORIES
+    ]
+    if not relevant:
+        return ""
+    lines = [f"Low-variance fields in this dataset (run_id={run_id}):"]
+    for field in relevant[:6]:
+        name = field.get("name") or field.get("standardized_name") or field.get("original_name")
+        if not name:
+            continue
+        dominant_value = field.get("dominant_value")
+        pct = field.get("dominant_pct")
+        pct_text = f"{pct:.1%}" if isinstance(pct, (int, float)) else "almost all"
+        row_note = f"n={n_rows}" if isinstance(n_rows, int) and n_rows > 0 else ""
+        detail = f"{name} is \"{dominant_value}\" in {pct_text} of rows {row_note}".strip()
+        masked_detail = _mask_prompt_text(detail)
+        lines.append(f"- {masked_detail}. Treat this as stable context, not a KPI driver.")
+    return "\n".join(lines)
+
+
 def _build_column_card(name: str, profile: Mapping[str, Any]) -> str:
     dtype = profile.get("dtype", "غير محدد")
     missing_pct = profile.get("missing_pct", 0.0)
@@ -215,6 +264,8 @@ def _build_prompt(
     allowed_columns: Sequence[str],
     report: Mapping[str, Any],
     focus_cols: Sequence[str],
+    low_variance_text: str,
+    nzv_instruction: Optional[str],
 ) -> Tuple[str, str, str, str]:
     cards: List[str] = []
     for col in allowed_columns:
@@ -225,10 +276,12 @@ def _build_prompt(
     per_column_cards = "\n---\n".join(cards)
     allowed_csv = ", ".join(allowed_columns)
     focus_note = ", ".join(focus_cols) if focus_cols else ""
-    system_prompt = (
-        "أنت مساعد تحليلي ملتزم بإرجاع JSON صالح فقط وفقاً للمخطط المعروف. "
-        "لا تضف أي شروح خارج حقل JSON."
-    )
+    system_lines = [
+        "أنت مساعد تحليلي ملتزم بإرجاع JSON صالح فقط وفقاً للمخطط المعروف. لا تضف أي شروح خارج حقل JSON.",
+    ]
+    if nzv_instruction:
+        system_lines.append(nzv_instruction)
+    system_prompt = "\n\n".join(system_lines)
     user_prompt = (
         "أنت كبير محللي البيانات في شركة لوجستيات. حوّل التقرير الإحصائي التالي إلى خلاصة تنفيذية وتوصيات عملية **باللغة العربية**.\n"
         "قيود صارمة:\n"
@@ -258,6 +311,9 @@ def _build_prompt(
     )
     if focus_note:
         user_prompt += f"(الأولوية للأعمدة: {focus_note})\n"
+    if low_variance_text:
+        user_prompt += "\nLow-variance context (treat as metadata only):\n"
+        user_prompt += low_variance_text + "\n"
     user_prompt += "\nملخص موجز لكل عمود:\n---\n"
     user_prompt += per_column_cards
     user_prompt += "\n---\n\nناتجك (JSON فقط):\n{\n  \"executive_summary\": \"...\",\n  \"recommendations\": [\n    {\"column_name\":\"...\", \"reason\":\"...\", \"evidence_key\":\"columns.<col>....\"}\n  ],\n  \"invalid_references\": []\n}"
@@ -470,10 +526,27 @@ def run(run_id: str, inputs: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, A
 
     columns_available = list(report.get("columns", {}).keys())
     allowed_columns = [col for col in columns_available if col not in exclude_cols]
+    low_variance_fields = report.get("low_variance_fields") or []
+    contextual_lower = {
+        str(field.get("name") or field.get("standardized_name") or "").lower()
+        for field in low_variance_fields
+        if isinstance(field, Mapping) and str(field.get("nzv_category") or "").lower() in LOW_VARIANCE_CATEGORIES
+    }
     if focus_cols:
         focus_set = set(focus_cols)
         allowed_columns = [col for col in allowed_columns if col in focus_set]
+    if contextual_lower:
+        filtered = [col for col in allowed_columns if col.lower() not in contextual_lower]
+        if len(filtered) != len(allowed_columns):
+            removed = [col for col in allowed_columns if col.lower() in contextual_lower]
+            logs.append({"event": "nzv_allowed_filter", "removed": removed})
+            allowed_columns = filtered
+    if not allowed_columns and columns_available:
+        allowed_columns = columns_available
+        logs.append({"event": "nzv_focus_fallback", "reason": "all_focus_columns_context_only"})
     logs.append({"event": "column_scope", "allowed": allowed_columns, "excluded": list(exclude_cols), "focus": focus_cols})
+    if low_variance_fields:
+        logs.append({"event": "nzv_low_variance_context", "count": len(low_variance_fields)})
 
     llm_cfg = cfg.get("llm") if isinstance(cfg.get("llm"), Mapping) else {}
     budget_usd = float(llm_cfg.get("budget_usd", cfg.get("budget_usd", 0.5)))
@@ -484,7 +557,26 @@ def run(run_id: str, inputs: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, A
     timeout = int(llm_cfg.get("timeout", cfg.get("timeout", 60)))
     cache_enabled = bool(llm_cfg.get("cache_enabled", True))
 
-    system_prompt, user_prompt, per_column_cards, prompt_hash = _build_prompt(allowed_columns, report, focus_cols)
+    low_variance_text = _build_low_variance_text(
+        low_variance_fields if isinstance(low_variance_fields, list) else [],
+        report.get("summary", {}).get("n_rows"),
+        run_id,
+    )
+    hint_text, hint_path = _load_prompt_hints()
+    logs.append(
+        {
+            "event": "nzv_prompt_instruction_loaded",
+            "path": hint_path.as_posix() if hint_path else "default",
+        }
+    )
+
+    system_prompt, user_prompt, per_column_cards, prompt_hash = _build_prompt(
+        allowed_columns,
+        report,
+        focus_cols,
+        low_variance_text,
+        hint_text,
+    )
     estimated_prompt_tokens = _rough_token_estimate(system_prompt) + _rough_token_estimate(user_prompt)
     estimated_completion_tokens = max_tokens
 

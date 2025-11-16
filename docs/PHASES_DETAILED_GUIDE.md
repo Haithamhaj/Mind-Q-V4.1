@@ -696,6 +696,7 @@ Operations leaders need narrative-rich diagnostics that explain which dimensions
 - **Layer 2 analytics**: Computes variance rankings, comparative summaries across categorical dimensions, and optional heatmaps driven by configuration (`layer2_metric`, `layer2_heatmap`).
 - **Focus reporting**: Honors analyst-selected focus columns, produces filtered reports, and renders Markdown plus optional PDF (via Pandoc) for sharing.
 - **Fallback keep logic**: When readiness does not emit a KEEP list (common in early EDA runs), the phase now auto-selects up to 80 high-value columns from Stage 06—respecting `exclude`/`focus` filters—and records the fallback in `logs.jsonl` so Stage 07.6 and Stage 08 still receive a usable report.
+- **Low-variance governance**: Ingests Stage 05 `nzv_summaries.json` (or the Stage 06 `standardize_report`) to drop constant/near-zero fields from the focus set, annotate column profiles with `usage_hint=context_only`, and emit a `low_variance_fields` section plus `nzv_summary` so downstream LLM/reporting layers stay aligned with the NZV contract. When the artifacts are missing, the stage logs a warning and falls back to legacy behavior.
 - **Metrics & logging**: Records execution metrics (row counts, runtime, memory) and step-by-step logs for traceability.
 
 #### Inter-Stage Relationships
@@ -744,6 +745,7 @@ Senior stakeholders require concise Arabic narratives and recommendations instea
 
 #### Operational Mechanics
 - **Prompt construction**: Builds per-column analytic “cards” from `report.json`, masks PII, and crafts system/user prompts, hashing them for provenance.
+- **NZV-aware instructions**: Loads configurable guidance from `contracts/nzv/prompt_hints.yml`, injects a low-variance paragraph (sourced from Stage 07.5 `low_variance_fields`) into the prompt, and automatically excludes context-only columns from the LLM candidate set—falling back gracefully if that empties the focus scope.
 - **LLM execution & fallback**: Calls `src.agents.llm_adapter` with configurable provider/model/temperature; when providers are unavailable, generates heuristic summaries while flagging WARN status.
 - **Heuristic enrichment**: If focus scopes remove all columns or LLM credentials are absent, the fallback layer now mines the Stage 07.5 report to highlight the top-risk columns (missingness, variance, correlation) so recommendations remain actionable instead of using placeholder text.
 - **Validation pipeline**: Uses `pydantic` models to validate summary structure (length limits, evidence keys) and collects invalid references for remediation.
