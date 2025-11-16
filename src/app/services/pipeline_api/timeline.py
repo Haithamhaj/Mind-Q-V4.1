@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
@@ -46,6 +47,29 @@ def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
         return None
 
 
+def _load_llm_metrics(metrics_path: Path) -> Optional[Dict[str, Any]]:
+    if not metrics_path.exists():
+        return None
+    try:
+        payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    tokens_in = payload.get("tokens_in")
+    tokens_out = payload.get("tokens_out")
+    cost_estimate = payload.get("cost_estimate")
+    provider = payload.get("provider")
+    model = payload.get("model")
+    if not any(value is not None for value in (tokens_in, tokens_out, cost_estimate)) and not provider:
+        return None
+    return {
+        "provider": provider or "unknown",
+        "model": model or "unknown",
+        "tokens_in": float(tokens_in or 0.0),
+        "tokens_out": float(tokens_out or 0.0),
+        "cost_estimate": float(cost_estimate or 0.0),
+    }
+
+
 def build_run_timeline(run_id: str, artifacts_root: Path) -> Dict[str, Any]:
     phases_payload: List[Dict[str, Any]] = []
     status_counts: Dict[str, int] = {}
@@ -53,6 +77,12 @@ def build_run_timeline(run_id: str, artifacts_root: Path) -> Dict[str, Any]:
     latest_finish: Optional[datetime] = None
     phases_with_errors: List[str] = []
     phases_with_warnings: List[str] = []
+    llm_overview = {
+        "phases": [],
+        "total_tokens_in": 0.0,
+        "total_tokens_out": 0.0,
+        "total_cost_estimate": 0.0,
+    }
 
     for definition in iter_phase_definitions():
         stage_dir_guess = _stage_directory_for_phase(definition.id)
@@ -83,6 +113,19 @@ def build_run_timeline(run_id: str, artifacts_root: Path) -> Dict[str, Any]:
 
         status_counts[status] = status_counts.get(status, 0) + 1
 
+        llm_metrics = _load_llm_metrics(artifacts_root / run_id / stage_dir_str / "metrics.json")
+        if llm_metrics:
+            llm_overview["phases"].append(
+                {
+                    "phase_id": definition.id,
+                    "stage_directory": stage_dir_str,
+                    **llm_metrics,
+                }
+            )
+            llm_overview["total_tokens_in"] += llm_metrics["tokens_in"]
+            llm_overview["total_tokens_out"] += llm_metrics["tokens_out"]
+            llm_overview["total_cost_estimate"] += llm_metrics["cost_estimate"]
+
         phase_entry = {
             "id": definition.id,
             "stage_directory": stage_dir_str,
@@ -90,12 +133,15 @@ def build_run_timeline(run_id: str, artifacts_root: Path) -> Dict[str, Any]:
             "meta": meta,
             "events": events,
         }
+        if llm_metrics:
+            phase_entry["llm"] = llm_metrics
         phases_payload.append(phase_entry)
 
     summary: Dict[str, Any] = {
         "status_counts": status_counts,
         "phases_with_errors": phases_with_errors,
         "phases_with_warnings": phases_with_warnings,
+        "llm_usage": llm_overview,
     }
     if earliest_start:
         summary["started_at"] = earliest_start.isoformat()

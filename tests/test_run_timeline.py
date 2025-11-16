@@ -4,9 +4,10 @@ import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List
+import importlib
 
-import backend.src.app.services.pipeline_api.app as pipeline_app_module
-import backend.src.app.services.pipeline_api.timeline as pipeline_timeline_module
+pipeline_app_module = importlib.import_module("backend.src.app.services.pipeline_api.app")
+pipeline_timeline_module = importlib.import_module("backend.src.app.services.pipeline_api.timeline")
 from shared.phase_manifest import load_phase_manifest
 
 build_run_timeline = getattr(pipeline_timeline_module, "build_run_timeline")
@@ -82,15 +83,29 @@ def test_build_run_timeline(tmp_path: Path):
             handle.write(json.dumps(record, ensure_ascii=False))
             handle.write("\n")
 
+    llm_metrics = {
+        "provider": "openai",
+        "model": "gpt-4o",
+        "tokens_in": 123,
+        "tokens_out": 456,
+        "cost_estimate": 0.78,
+    }
+    (stage_dir / "metrics.json").write_text(json.dumps(llm_metrics, ensure_ascii=False, indent=2), encoding="utf-8")
+
     timeline = build_run_timeline(run_id, artifacts_root)
     assert timeline["run_id"] == run_id
     summary = timeline["summary"]
     assert summary["status_counts"]["PASS"] >= 1
+    llm_summary = summary["llm_usage"]
+    assert llm_summary["total_tokens_in"] == 123
+    assert llm_summary["total_tokens_out"] == 456
+    assert llm_summary["phases"]
     phase_entries = [phase for phase in timeline["phases"] if phase["id"] == "03_schema"]
     assert phase_entries, "Timeline should include 03_schema entry"
     phase_entry = phase_entries[0]
     assert phase_entry["meta"]["status"] == "PASS"
     assert len(phase_entry["events"]) == 2
+    assert phase_entry["llm"]["tokens_in"] == 123
 
 
 def test_purge_run_history(tmp_path: Path):
