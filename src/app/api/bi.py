@@ -3780,6 +3780,58 @@ def _collect_knime_profile(run_path: Path, run_key: str) -> Dict[str, Any]:
     }
 
 
+def _load_advanced_bundle(stage08_dir: Path) -> Dict[str, Any]:
+    advanced_dir = stage08_dir / "advanced"
+    if not advanced_dir.exists():
+        return {}
+    bundle: Dict[str, Any] = {}
+
+    summary_payload = _safe_read_payload(advanced_dir / "summary.json")
+    if isinstance(summary_payload, Mapping):
+        bundle["summary"] = summary_payload
+
+    for name in ("cluster_summary", "anomalies", "correlation_matrix"):
+        payload = _safe_read_payload(advanced_dir / f"{name}.json")
+        if isinstance(payload, Mapping):
+            bundle[name] = payload
+
+    forecast_path = advanced_dir / "orders_forecast.parquet"
+    if forecast_path.exists():
+        try:
+            forecast_df = pd.read_parquet(forecast_path)
+            bundle["orders_forecast"] = {
+                "path": forecast_path.as_posix(),
+                "rows": len(forecast_df),
+                "preview": forecast_df.head(20).to_dict(orient="records"),
+            }
+        except Exception as exc:  # pragma: no cover - defensive
+            bundle["orders_forecast"] = {
+                "path": forecast_path.as_posix(),
+                "error": str(exc),
+            }
+    return bundle
+
+
+def _load_stage09_business_bundle(run_path: Path) -> Dict[str, Any]:
+    stage09_dir = run_path / "stage_09_business_validation"
+    if not stage09_dir.exists():
+        return {}
+    bundle: Dict[str, Any] = {}
+    gate_payload = _safe_read_payload(stage09_dir / "gate.json")
+    diagnostics_payload = _safe_read_payload(stage09_dir / "diagnostics.json")
+    validation_payload = _safe_read_payload(stage09_dir / "validation_report.json")
+    data_health_payload = _safe_read_payload(stage09_dir / "data_health.json")
+    if isinstance(gate_payload, Mapping):
+        bundle["gate"] = gate_payload
+    if isinstance(diagnostics_payload, Mapping):
+        bundle["diagnostics"] = diagnostics_payload
+    if isinstance(validation_payload, Mapping):
+        bundle["validation_report"] = validation_payload
+    if isinstance(data_health_payload, Mapping):
+        bundle["data_health"] = data_health_payload
+    return bundle
+
+
 @router.get("/knime-data")
 async def get_knime_data(
     run: str = Query("run-latest"),
@@ -3808,6 +3860,8 @@ def _compose_intelligence_response(run: str, run_path: Path) -> Dict[str, Any]:
     insights_payload = _safe_read_payload(stage08_dir / "insights_report.json")
     diagnostics_payload = _safe_read_payload(stage08_dir / "diagnostics.json")
     time_points = _load_time_points(stage08_dir / "time_stats.parquet")
+    advanced_bundle = _load_advanced_bundle(stage08_dir)
+    business_bundle = _load_stage09_business_bundle(run_path)
     return {
         "run": run,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -3815,6 +3869,8 @@ def _compose_intelligence_response(run: str, run_path: Path) -> Dict[str, Any]:
         "sankey": _build_sankey_payload(insights_payload if isinstance(insights_payload, Mapping) else None),
         "anomalies": _build_anomaly_timeline(time_points, diagnostics_payload if isinstance(diagnostics_payload, Mapping) else None),
         "predictive": _build_predictive_trends(time_points),
+        "advanced": advanced_bundle or None,
+        "business_validation": business_bundle or None,
         "knime": _collect_knime_profile(run_path, run),
     }
 
@@ -3950,6 +4006,5 @@ async def converse_layer2_assistant(request: Layer2AssistantRequest) -> Any:
         "context": context_summary,
         "used_fallback": used_fallback,
     }
-
 
 
