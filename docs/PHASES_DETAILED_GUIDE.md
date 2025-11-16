@@ -479,6 +479,7 @@ Stage 07 evaluates feature readiness by detecting leakage risks, high redundancy
 - `config["artifacts_root"]`: root directory for readiness outputs.
 - Layer 1 artifacts (`layer1_dataset.parquet`, `layer1_schema.json`) referenced via `TerminologyRepository`.
 - KPI contract (`contracts/kpis.yml`) and baseline metadata loaded from shared storage.
+- NZV policy (`contracts/nzv/policy.yml`) and optional KPI-critical manifest (`contracts/kpis/critical_columns.yml`) that govern NZV gating behavior.
 
 #### Business Objective
 Before investing compute in advanced analytics or LLM reporting, operations teams need assurance that engineered features are trustworthy. This stage delivers a gate: it flags shipment identifiers masquerading as metrics, correlated leakage with delivery outcomes, redundant features, and low-signal variables so planners can intervene before downstream regressions.
@@ -488,6 +489,7 @@ Before investing compute in advanced analytics or LLM reporting, operations team
 - **Layer 1 catalog enrichment**: Loads `layer1_dataset.parquet` and, with `TerminologyRepository`, produces `layer1_catalog.json` and preview samples with bilingual metadata and null rates.
 - **Readiness scoring pipeline**: Applies correlation analysis (Pearson/Spearman) via `ShippingCorrelationEnricher`, near-zero variance detection, PSI trend checks (warn >0.2, stop >0.3), and event leakage analysis that catches features revealing post-delivery info.
 - **KPI fallback & candidate selection**: Uses `select_kpi_candidates` combined with KPI contracts to ensure at least one reliable feature per strategic KPI, injecting high-correlation alternatives when primary KPI columns are missing.
+- **Policy-aware NZV review**: Loads Stage 05 `nzv_summaries.json` (or the Stage 06 `standardize_report`) through `nzv_policy`, honoring `max_nzv_ratio_for_pass` and `enable_readiness_adjustment`. If NZV ratio stays below the configured ceiling and no KPI-critical columns are flagged in `critical_columns.yml`, the stage auto-bypasses the legacy NZV warning and annotates the readiness report with `nzv_notes`. Otherwise, it keeps WARN/STOP status with explicit reasons (ratio overflow, critical NZV hits), surfaces `critical_nzv_columns`, and mirrors the upstream `nzv_summary` in every readiness artifact.
 - **Decision manifest**: Produces `feature_decisions.json` summarizing keep/drop/warn actions, plus `high_correlation.json`, `redundancy.json`, and `leakage_after_event.json` for targeted remediation.
 
 #### Inter-Stage Relationships
@@ -511,6 +513,7 @@ artifacts/{run_id}/stage_07_readiness/
 ├── row_meta.json                          # Volume signature
 └── manifests (schema_hash.json, etc.)     # Drift fingerprints for monitoring
 ```
+`readiness_report.json`, `diagnostics.json`, and `decision_manifest.json` now embed `nzv_summary`, `critical_nzv_columns`, and `nzv_notes` while logs clearly state when Stage 05 summaries or critical-column manifests are missing/bypassed.
 
 #### Core Libraries & Components
 - `pandas`, `numpy`, `scipy.stats` — statistical backbone for correlation, PSI, and NZV checks.

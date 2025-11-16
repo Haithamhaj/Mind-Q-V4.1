@@ -10,6 +10,7 @@ from typing import Dict, Any
 import importlib.util
 import numpy as np
 import pandas as pd
+import pytest
 
 
 def _load_phase_impl(phase_dir: str):
@@ -24,6 +25,7 @@ def _load_phase_impl(phase_dir: str):
             if spec is None or spec.loader is None:
                 continue
             module = importlib.util.module_from_spec(spec)
+            sys.modules.setdefault(spec.name, module)
             spec.loader.exec_module(module)
             return module
     raise FileNotFoundError(f"Unable to locate implementation for phase directory '{phase_dir}'")
@@ -65,6 +67,33 @@ def _build_dataset() -> pd.DataFrame:
         }
     )
     return df
+
+
+def _write_stage05_nzv(
+    artifacts_root: Path,
+    run_id: str,
+    *,
+    n_rows: int,
+    columns_payload: list[dict[str, Any]],
+    summary_payload: dict[str, Any],
+) -> None:
+    stage05_dir = artifacts_root / run_id / "stage_05_missing"
+    stage05_dir.mkdir(parents=True, exist_ok=True)
+    summary_path = stage05_dir / "summary.json"
+    summary_wrapper = {
+        "imputed_columns": [],
+        "indicator_columns": [],
+        "model_exclusions": [],
+        "nzv_summary": summary_payload,
+    }
+    summary_path.write_text(json.dumps(summary_wrapper, ensure_ascii=False, indent=2), encoding="utf-8")
+    nzv_payload = {
+        "run_id": run_id,
+        "n_rows": n_rows,
+        "columns": columns_payload,
+        "nzv_summary": summary_payload,
+    }
+    (stage05_dir / "nzv_summaries.json").write_text(json.dumps(nzv_payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def test_phase06_and_readiness_artifacts(tmp_path: Path) -> None:
@@ -111,6 +140,84 @@ def test_phase06_and_readiness_artifacts(tmp_path: Path) -> None:
     assert key_stats["nzv_count"] >= 1
     assert key_stats["psi_columns_evaluated"] >= 1
     assert report["gate"]["status"] in {"WARN", "STOP"}
+
+
+def test_standardize_report_includes_nzv_metadata(tmp_path: Path) -> None:
+    run_id = "nzvstd"
+    artifacts_root = tmp_path / "artifacts"
+    raw_path = tmp_path / "raw.parquet"
+    df = pd.DataFrame(
+        {
+            "STATUS FLAG": ["ON_TIME"] * 24 + ["DELAYED"],
+            "variable_field": list(range(25)),
+        }
+    )
+    df.to_parquet(raw_path, index=False)
+
+    _write_baseline(artifacts_root, run_id, len(df), len(df.columns))
+
+    stage05_dir = artifacts_root / run_id / "stage_05_missing"
+    stage05_dir.mkdir(parents=True, exist_ok=True)
+    nzv_payload = {
+        "run_id": run_id,
+        "n_rows": len(df),
+        "columns": [
+            {
+                "name": "STATUS FLAG",
+                "n_valid": len(df),
+                "missing_pct": 0.0,
+                "unique_count": 2,
+                "dominant_value": "ON_TIME",
+                "dominant_pct": 24 / 25,
+                "top_values": [{"value": "ON_TIME", "pct": 24 / 25}, {"value": "DELAYED", "pct": 1 / 25}],
+                "nzv_category": "near_zero_variance",
+                "is_nzv": True,
+                "nzv_reason": "dominant_pct>=0.95,max_unique<=5",
+            },
+            {
+                "name": "variable_field",
+                "n_valid": len(df),
+                "missing_pct": 0.0,
+                "unique_count": len(df),
+                "dominant_value": 0,
+                "dominant_pct": 1 / len(df),
+                "top_values": [],
+                "nzv_category": "normal",
+                "is_nzv": False,
+                "nzv_reason": "no_threshold_matched",
+            },
+        ],
+        "nzv_summary": {
+            "n_nzv_columns": 1,
+            "n_constant_like": 0,
+            "n_high_imbalance": 0,
+            "n_total_columns": 2,
+            "nzv_ratio": 0.5,
+        },
+    }
+    (stage05_dir / "nzv_summaries.json").write_text(json.dumps(nzv_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    cfg = {"artifacts_root": artifacts_root.as_posix()}
+    standardize.run(run_id, {"raw": raw_path.as_posix()}, cfg)  # type: ignore[arg-type]
+
+    report_path = artifacts_root / run_id / "stage_06_standardize" / "standardize_report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["nzv_summary"] == nzv_payload["nzv_summary"]
+    assert report["nzv_summaries_path"].endswith("nzv_summaries.json")
+    columns_meta = report["columns"]
+    assert "STATUS_FLAG" in columns_meta
+    status_meta = columns_meta["STATUS_FLAG"]
+    assert status_meta["original_name"] == "STATUS FLAG"
+    assert status_meta["is_nzv"] is True
+    assert status_meta["usage_hint"] == "context_only"
+    assert status_meta["nzv_category"] == "near_zero_variance"
+    assert status_meta["nzv_dominant_value"] == "ON_TIME"
+    assert status_meta["dtype_before"]
+    assert status_meta["dtype_after"]
+
+    normal_meta = columns_meta["variable_field"]
+    assert not normal_meta.get("is_nzv")
+    assert "usage_hint" not in normal_meta
 
 
 def test_decider_feature_counts(tmp_path: Path) -> None:
@@ -192,3 +299,131 @@ def test_correlation_sampling_handles_large_numeric(tmp_path: Path) -> None:
     corr_payload = json.loads((artifacts_root / run_id / "stage_07_readiness" / "correlations.json").read_text(encoding="utf-8"))
     assert isinstance(corr_payload, list)
     assert len(corr_payload) <= 50
+
+
+def test_readiness_nzv_adjustment_pass(tmp_path: Path) -> None:
+    run_id = "nzvpass"
+    artifacts_root = tmp_path / "artifacts"
+    raw_path = tmp_path / "raw.parquet"
+    n = 80
+    rng = np.random.default_rng(314)
+    df = pd.DataFrame(
+        {
+            "META_FIELD": ["STATIC"] * n,
+            "metric_one": rng.normal(size=n),
+            "metric_two": rng.normal(size=n),
+            "main_ts": pd.date_range("2025-02-01", periods=n, freq="H"),
+        }
+    )
+    df.to_parquet(raw_path, index=False)
+    _write_baseline(artifacts_root, run_id, len(df), len(df.columns))
+
+    summary_payload = {
+        "n_nzv_columns": 1,
+        "n_constant_like": 1,
+        "n_high_imbalance": 0,
+        "n_total_columns": len(df.columns),
+        "nzv_ratio": 1 / len(df.columns),
+    }
+    columns_payload = [
+        {
+            "name": "META_FIELD",
+            "n_valid": len(df),
+            "missing_pct": 0.0,
+            "unique_count": 1,
+            "dominant_value": "STATIC",
+            "dominant_pct": 1.0,
+            "top_values": [{"value": "STATIC", "pct": 1.0}],
+            "nzv_category": "near_zero_variance",
+            "is_nzv": True,
+            "nzv_reason": "dominant_pct>=0.95,max_unique<=5",
+        }
+    ]
+    _write_stage05_nzv(artifacts_root, run_id, n_rows=len(df), columns_payload=columns_payload, summary_payload=summary_payload)
+
+    cfg = {"artifacts_root": artifacts_root.as_posix()}
+    std_result = standardize.run(run_id, {"raw": raw_path.as_posix()}, cfg)  # type: ignore[arg-type]
+    outputs = std_result["outputs"]
+    feature_dir = artifacts_root / run_id / "stage_06_feature_eng"
+    (feature_dir / "feature_spec.json").write_text(json.dumps({"main_ts": "main_ts"}, ensure_ascii=False, indent=2), encoding="utf-8")
+    feat_result = feature_eng.run(  # type: ignore[arg-type]
+        run_id,
+        {"raw": outputs["features_curated"], "features_pre": outputs["features_pre"]},
+        cfg,
+    )
+    readiness.run(run_id, {"raw": feat_result["outputs"]["features"]}, cfg)  # type: ignore[arg-type]
+
+    readiness_dir = artifacts_root / run_id / "stage_07_readiness"
+    report = json.loads((readiness_dir / "readiness_report.json").read_text(encoding="utf-8"))
+    assert report["gate"]["status"] == "PASS"
+    assert report["nzv_summary"]["n_nzv_columns"] == 1
+    assert report["critical_nzv_columns"] == []
+    assert report.get("nzv_notes")
+    diagnostics_payload = json.loads((readiness_dir / "diagnostics.json").read_text(encoding="utf-8"))
+    assert diagnostics_payload["summary"]["nzv_ratio"] == pytest.approx(summary_payload["nzv_ratio"])
+
+
+def test_readiness_warn_with_critical_nzv(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    run_id = "nzvcritical"
+    artifacts_root = tmp_path / "artifacts"
+    raw_path = tmp_path / "raw.parquet"
+    n = 60
+    rng = np.random.default_rng(90210)
+    df = pd.DataFrame(
+        {
+            "COD_AMOUNT": [100.0] * n,
+            "metric_one": rng.normal(size=n),
+            "metric_two": rng.normal(size=n),
+            "main_ts": pd.date_range("2025-03-01", periods=n, freq="H"),
+        }
+    )
+    df.to_parquet(raw_path, index=False)
+    _write_baseline(artifacts_root, run_id, len(df), len(df.columns))
+
+    summary_payload = {
+        "n_nzv_columns": 1,
+        "n_constant_like": 1,
+        "n_high_imbalance": 0,
+        "n_total_columns": len(df.columns),
+        "nzv_ratio": 1 / len(df.columns),
+    }
+    columns_payload = [
+        {
+            "name": "COD_AMOUNT",
+            "n_valid": len(df),
+            "missing_pct": 0.0,
+            "unique_count": 1,
+            "dominant_value": 100.0,
+            "dominant_pct": 1.0,
+            "top_values": [{"value": 100.0, "pct": 1.0}],
+            "nzv_category": "near_zero_variance",
+            "is_nzv": True,
+            "nzv_reason": "dominant_pct>=0.95,max_unique<=5",
+        }
+    ]
+    _write_stage05_nzv(artifacts_root, run_id, n_rows=len(df), columns_payload=columns_payload, summary_payload=summary_payload)
+
+    critical_file = tmp_path / "critical.yaml"
+    critical_file.write_text(json.dumps({"critical_columns": ["COD_AMOUNT"]}, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(readiness, "CRITICAL_COLUMNS_PATH", critical_file)
+
+    cfg = {"artifacts_root": artifacts_root.as_posix()}
+    std_result = standardize.run(run_id, {"raw": raw_path.as_posix()}, cfg)  # type: ignore[arg-type]
+    outputs = std_result["outputs"]
+    feature_dir = artifacts_root / run_id / "stage_06_feature_eng"
+    (feature_dir / "feature_spec.json").write_text(json.dumps({"main_ts": "main_ts"}, ensure_ascii=False, indent=2), encoding="utf-8")
+    feat_result = feature_eng.run(  # type: ignore[arg-type]
+        run_id,
+        {"raw": outputs["features_curated"], "features_pre": outputs["features_pre"]},
+        cfg,
+    )
+    readiness.run(run_id, {"raw": feat_result["outputs"]["features"]}, cfg)  # type: ignore[arg-type]
+
+    readiness_dir = artifacts_root / run_id / "stage_07_readiness"
+    report = json.loads((readiness_dir / "readiness_report.json").read_text(encoding="utf-8"))
+    assert report["gate"]["status"] == "WARN"
+    assert "critical_nzv_columns" in report["gate"]["reasons"]
+    assert report["critical_nzv_columns"] == ["COD_AMOUNT"]
+    assert any("critical" in note.lower() for note in report.get("nzv_notes", []))
+    diagnostics_payload = json.loads((readiness_dir / "diagnostics.json").read_text(encoding="utf-8"))
+    assert diagnostics_payload["summary"]["critical_nzv_columns"] == ["COD_AMOUNT"]

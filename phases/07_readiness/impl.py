@@ -18,6 +18,7 @@ try:
 except Exception as exc:  # pragma: no cover
     raise RuntimeError("pandas is required for phase 07 readiness") from exc
 
+from backend.src.app.services import nzv_policy
 from shared import baseline as baseline_utils  # type: ignore
 from shared.terminology_loader import TerminologyRepository  # type: ignore
 from shared.kpi_selector import select_kpi_candidates  # type: ignore
@@ -37,6 +38,7 @@ DEFAULT_KPI_NAMES: Tuple[str, ...] = ("cod_amount", "sla_achieved", "rto_rate", 
 LOW_SIGNAL_CORR_THRESHOLD = 0.15
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 KPI_CONTRACT_PATH = BACKEND_ROOT / "contracts" / "kpis.yml"
+CRITICAL_COLUMNS_PATH = BACKEND_ROOT / "contracts" / "kpis" / "critical_columns.yml"
 ID_PATTERN = re.compile(r"(?:^|_)(?:id|guid|uuid|hash|md5|sha(?:1|256|512)?)$", re.IGNORECASE)
 ID_STRICT_NAMES: Set[str] = {
     "id",
@@ -74,6 +76,146 @@ def is_id_like(name: str) -> bool:
 
 def _ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
+
+
+def _load_json(path: Path) -> Any:
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+
+
+def _normalize_string_list(payload: Any) -> List[str]:
+    if payload is None:
+        return []
+    if isinstance(payload, str):
+        return [payload]
+    if isinstance(payload, Mapping):
+        results: List[str] = []
+        for value in payload.values():
+            results.extend(_normalize_string_list(value))
+        return results
+    if isinstance(payload, Iterable) and not isinstance(payload, (bytes, bytearray)):
+        results: List[str] = []
+        for item in payload:
+            results.extend(_normalize_string_list(item))
+        return results
+    return [str(payload)]
+
+
+def _load_critical_columns(path: Optional[Path] = None) -> Tuple[List[str], Optional[Path]]:
+    target_path = path or CRITICAL_COLUMNS_PATH
+    if not target_path.exists():
+        return [], None
+    try:
+        payload = yaml.safe_load(target_path.read_text(encoding="utf-8"))
+    except yaml.YAMLError:
+        return [], target_path
+
+    if isinstance(payload, Mapping):
+        candidates = payload.get("critical_columns") or payload.get("columns") or payload.get("fields") or payload
+    else:
+        candidates = payload
+
+    columns = [entry.strip() for entry in _normalize_string_list(candidates) if isinstance(entry, str) and entry.strip()]
+    return columns, target_path
+
+
+def _extract_nzv_columns_from_report(report_payload: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    result: List[Dict[str, Any]] = []
+    columns_payload = report_payload.get("columns")
+    if isinstance(columns_payload, Mapping):
+        for standardized, meta in columns_payload.items():
+            if not isinstance(meta, Mapping):
+                continue
+            entry = dict(meta)
+            entry.setdefault("standardized_name", standardized)
+            entry.setdefault("name", standardized)
+            result.append(entry)
+    elif isinstance(columns_payload, list):
+        result.extend([entry for entry in columns_payload if isinstance(entry, Mapping)])
+    return result
+
+
+def _load_nzv_context(
+    artifacts_root: Path,
+    run_id: str,
+) -> Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]], Optional[Path]]:
+    stage05_dir = artifacts_root / run_id / "stage_05_missing"
+    summary_path = stage05_dir / "summary.json"
+    details_path = stage05_dir / "nzv_summaries.json"
+
+    summary_payload = _load_json(summary_path)
+    if isinstance(summary_payload, Mapping) and "nzv_summary" in summary_payload:
+        nested_summary = summary_payload.get("nzv_summary")
+        summary_payload = nested_summary if isinstance(nested_summary, Mapping) else None
+    elif not isinstance(summary_payload, Mapping):
+        summary_payload = None
+
+    details_payload = _load_json(details_path)
+    columns: List[Dict[str, Any]] = []
+    if isinstance(details_payload, Mapping):
+        raw_columns = details_payload.get("columns")
+    else:
+        raw_columns = details_payload
+    if isinstance(raw_columns, list):
+        columns = [dict(entry) for entry in raw_columns if isinstance(entry, Mapping)]
+
+    if summary_payload or columns:
+        return summary_payload, columns, (details_path if columns else summary_path if summary_payload else None)
+
+    stage06_report_path = artifacts_root / run_id / "stage_06_standardize" / "standardize_report.json"
+    report_payload = _load_json(stage06_report_path)
+    if isinstance(report_payload, Mapping):
+        summary = report_payload.get("nzv_summary")
+        if not isinstance(summary, Mapping):
+            summary = None
+        report_columns = _extract_nzv_columns_from_report(report_payload)
+        if summary or report_columns:
+            return summary, report_columns, stage06_report_path
+
+    return None, [], None
+
+
+def _is_nzv_entry(entry: Mapping[str, Any]) -> bool:
+    category = (entry.get("nzv_category") or "").strip().lower()
+    if category in {"constant_like", "near_zero_variance"}:
+        return True
+    return bool(entry.get("is_nzv"))
+
+
+def _nzv_name_variants(entry: Mapping[str, Any]) -> Set[str]:
+    names: Set[str] = set()
+    for key in ("name", "standardized_name", "original_name"):
+        value = entry.get(key)
+        if isinstance(value, str) and value:
+            names.add(value)
+    return names
+
+
+def _build_nzv_details_from_columns(columns: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    details: List[Dict[str, Any]] = []
+    for entry in columns:
+        if not _is_nzv_entry(entry):
+            continue
+        names = _nzv_name_variants(entry)
+        feature_name = next(iter(names)) if names else entry.get("name")
+        if not feature_name:
+            continue
+        details.append(
+            {
+                "feature": str(feature_name),
+                "nzv_category": entry.get("nzv_category"),
+                "nzv_reason": entry.get("nzv_reason") or entry.get("reason"),
+                "dominant_value": entry.get("dominant_value"),
+                "dominant_pct": entry.get("dominant_pct"),
+                "unique_count": entry.get("unique_count"),
+                "is_nzv": bool(entry.get("is_nzv", True)),
+            }
+        )
+    return details
 
 
 def _infer_semantic_role(series: "pd.Series") -> str:
@@ -1070,11 +1212,27 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
     n_cols = int(len(df.columns))
     columns = [str(col) for col in df.columns]
 
+    policy = nzv_policy.load_policy()
+    nzv_summary_payload, nzv_columns_payload, nzv_source_path = _load_nzv_context(artifacts_root, run_id)
+    critical_columns, critical_path = _load_critical_columns()
+
     baseline = baseline_utils.load(artifacts_root, run_id)
     expected_rows = int(baseline.get("n_rows", 0)) if baseline else None
     baseline_utils.enforce_row_guard(expected=expected_rows, actual=n_rows, phase="07", out_dir=out_dir)
 
     logs: List[Dict[str, Any]] = [{"rule": "dimensions", "n_rows": n_rows, "n_cols": n_cols}]
+    logs.append(
+        {
+            "rule": "nzv_summary_source",
+            "path": nzv_source_path.as_posix() if nzv_source_path else None,
+            "summary_loaded": bool(nzv_summary_payload),
+            "columns_loaded": bool(nzv_columns_payload),
+        }
+    )
+    if critical_path is None:
+        logs.append({"rule": "critical_columns_missing", "path": CRITICAL_COLUMNS_PATH.as_posix()})
+    else:
+        logs.append({"rule": "critical_columns_loaded", "path": critical_path.as_posix(), "count": len(critical_columns)})
 
     if n_cols == 0:
         payload = {
@@ -1096,9 +1254,52 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
     missing_ratio = float(missing_cells) / float(total_cells) if total_cells else 0.0
     schema_hash = _schema_hash(columns)
 
-    nzv_details = _near_zero_variance(df)
-    nzv_count = len(nzv_details)
-    nzv_ratio = nzv_count / n_cols if n_cols else 0.0
+    use_nzv_entries = any(_is_nzv_entry(entry) for entry in nzv_columns_payload)
+    if use_nzv_entries:
+        nzv_details = _build_nzv_details_from_columns(nzv_columns_payload)
+    else:
+        nzv_details = _near_zero_variance(df)
+        nzv_columns_payload = []
+
+    if not isinstance(nzv_summary_payload, Mapping):
+        nzv_summary_payload = None
+
+    if nzv_summary_payload is None:
+        n_constant_like = sum(1 for item in nzv_details if str(item.get("nzv_category")).lower() == "constant_like")
+        nzv_summary_payload = {
+            "n_nzv_columns": len(nzv_details),
+            "n_constant_like": n_constant_like,
+            "n_high_imbalance": 0,
+            "n_total_columns": n_cols,
+            "nzv_ratio": float(len(nzv_details)) / float(n_cols) if n_cols else 0.0,
+        }
+
+    nzv_count = int(nzv_summary_payload.get("n_nzv_columns", len(nzv_details)))
+    total_cols_for_ratio = int(nzv_summary_payload.get("n_total_columns") or n_cols)
+    if total_cols_for_ratio:
+        nzv_ratio = float(nzv_summary_payload.get("nzv_ratio", nzv_count / total_cols_for_ratio))
+    else:
+        nzv_ratio = 0.0
+
+    nzv_flagged_names: Set[str] = set()
+    if nzv_columns_payload:
+        for entry in nzv_columns_payload:
+            if not isinstance(entry, Mapping):
+                continue
+            if not _is_nzv_entry(entry):
+                continue
+            for variant in _nzv_name_variants(entry):
+                nzv_flagged_names.add(variant.lower())
+    else:
+        for detail in nzv_details:
+            feature_name = detail.get("feature")
+            if isinstance(feature_name, str):
+                nzv_flagged_names.add(feature_name.lower())
+
+    critical_hits = sorted(
+        {col for col in critical_columns if isinstance(col, str) and col.strip().lower() in nzv_flagged_names}
+    )
+    logs.append({"rule": "critical_nzv_hits", "columns": critical_hits})
 
     kpi_synonyms = _load_kpi_synonyms()
     terminology_repo = TerminologyRepository(artifacts_root, run_id)
@@ -1172,6 +1373,7 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         "nzv_count": nzv_count,
         "high_corr_pairs": corr_count,
         "psi_columns_evaluated": psi_evaluated,
+        "nzv_summary": nzv_summary_payload,
     }
 
     gate_status = "PASS"
@@ -1189,6 +1391,47 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
     if missing_ratio > 0.30:
         warn_reasons.append("missing_cells_high")
 
+    readiness_notes: List[str] = []
+    if policy.enable_readiness_adjustment:
+        ratio_value = nzv_ratio
+        if ratio_value < policy.max_nzv_ratio_for_pass and not critical_hits:
+            if "nzv_ratio_high" in warn_reasons:
+                warn_reasons = [reason for reason in warn_reasons if reason != "nzv_ratio_high"]
+                message = (
+                    "Many low-variance metadata fields detected, but no KPI-critical fields are NZV; treated as contextual metadata only."
+                )
+                readiness_notes.append(message)
+                logs.append(
+                    {
+                        "rule": "nzv_adjustment",
+                        "status": "bypassed",
+                        "ratio": ratio_value,
+                        "max_ratio": policy.max_nzv_ratio_for_pass,
+                    }
+                )
+        else:
+            detail_parts: List[str] = []
+            if ratio_value >= policy.max_nzv_ratio_for_pass:
+                detail_parts.append(
+                    f"nzv_ratio {ratio_value:.2f} >= max_nzv_ratio_for_pass {policy.max_nzv_ratio_for_pass:.2f}"
+                )
+            if critical_hits:
+                detail_parts.append(f"critical NZV columns: {', '.join(critical_hits)}")
+                if "critical_nzv_columns" not in warn_reasons:
+                    warn_reasons.append("critical_nzv_columns")
+            if detail_parts:
+                note = "; ".join(detail_parts)
+                readiness_notes.append(note)
+                logs.append(
+                    {
+                        "rule": "nzv_adjustment",
+                        "status": "blocked",
+                        "ratio": ratio_value,
+                        "max_ratio": policy.max_nzv_ratio_for_pass,
+                        "critical_hits": critical_hits,
+                    }
+                )
+
     if stop_reasons:
         gate_status = "STOP"
         gate_reasons = stop_reasons
@@ -1205,7 +1448,13 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         "schema_hash": schema_hash,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source": raw_path.as_posix(),
+        "nzv_summary": nzv_summary_payload,
+        "critical_nzv_columns": critical_hits,
     }
+    if nzv_source_path:
+        readiness_report["nzv_source"] = nzv_source_path.as_posix()
+    if readiness_notes:
+        readiness_report["nzv_notes"] = readiness_notes
     report_path = out_dir / "readiness_report.json"
     report_path.write_text(json.dumps(readiness_report, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -1298,7 +1547,10 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         "gate_status": gate_status,
         "reasons": gate_reasons,
         "entries": decision_entries,
+        "critical_nzv_columns": critical_hits,
     }
+    if readiness_notes:
+        decision_manifest["nzv_notes"] = readiness_notes
     decision_manifest_path = out_dir / "decision_manifest.json"
     decision_manifest_path.write_text(json.dumps(decision_manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -1322,8 +1574,10 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
             "psi_evaluated": psi_evaluated,
             "psi_warn_count": len(psi_warn_features),
             "psi_stop_count": len(psi_stop_features),
+            "critical_nzv_columns": critical_hits,
         },
         "decision_entries_count": len(decision_entries),
+        "nzv_summary": nzv_summary_payload,
     }
     diagnostics_path = out_dir / "diagnostics.json"
     diagnostics_path.write_text(json.dumps(diagnostics, ensure_ascii=False, indent=2), encoding="utf-8")

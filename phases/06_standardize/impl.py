@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Set, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple
 import re
 
 try:
@@ -98,6 +98,15 @@ def _ensure_dir(path: Path) -> None:
 
 def _load_dataframe(raw_path: Path) -> pd.DataFrame:
     return pd.read_parquet(raw_path)
+
+
+def _load_json(path: Path) -> Any:
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
 
 
 def _load_exclusions(payload: Any) -> Set[str]:
@@ -236,12 +245,40 @@ def _coerce_numeric_columns(df: "pd.DataFrame", config: Any) -> Tuple["pd.DataFr
     return df_out, logs
 
 
+def _load_nzv_metadata(
+    artifacts_root: Path,
+    run_id: str,
+) -> Tuple[Optional[Dict[str, Any]], Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]], Path]:
+    """Load Stage 05 NZV payload and build lookups keyed by name and lowered name."""
+    nzv_path = artifacts_root / run_id / "stage_05_missing" / "nzv_summaries.json"
+    payload = _load_json(nzv_path)
+    if not isinstance(payload, Mapping):
+        return None, {}, {}, nzv_path
+
+    columns = payload.get("columns")
+    if not isinstance(columns, list):
+        return dict(payload), {}, {}, nzv_path
+
+    direct: Dict[str, Dict[str, Any]] = {}
+    lowered: Dict[str, Dict[str, Any]] = {}
+    for entry in columns:
+        if not isinstance(entry, Mapping):
+            continue
+        name = entry.get("name")
+        if not isinstance(name, str):
+            continue
+        direct[name] = dict(entry)
+        lowered[name.lower()] = dict(entry)
+    return dict(payload), direct, lowered, nzv_path
+
+
 def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
     artifacts_root = Path((config or {}).get("artifacts_root", "artifacts"))
     out_dir = artifacts_root / run_id / "stage_06_standardize"
     _ensure_dir(out_dir)
     feature_dir = artifacts_root / run_id / "stage_06_feature_eng"
     _ensure_dir(feature_dir)
+    nzv_payload, nzv_lookup, nzv_lookup_lower, nzv_path = _load_nzv_metadata(artifacts_root, run_id)
 
     raw_uri = (inputs or {}).get("raw") or (inputs or {}).get("raw_uri")
     if not isinstance(raw_uri, str):
@@ -253,6 +290,7 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
     df_pre = _load_dataframe(raw_path)
     rename_map: Dict[str, str] = {}
     seen: Set[str] = set()
+    column_provenance: Dict[str, str] = {}
     for column in list(df_pre.columns):
         canon = _canonical_name(column)
         base = canon
@@ -263,6 +301,7 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         if canon != column:
             rename_map[str(column)] = canon
         seen.add(canon)
+        column_provenance[canon] = str(column)
     if rename_map:
         df_pre = df_pre.rename(columns=rename_map)
     renamed_columns = {orig: new for orig, new in rename_map.items() if orig != new}
@@ -279,8 +318,10 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
     if created_series is not None and "created_at" not in df_pre.columns:
         df_pre = df_pre.copy()
         df_pre["created_at"] = created_series
+        column_provenance.setdefault("created_at", "created_at")
 
     n_cols_in = int(len(df_pre.columns))
+    dtype_before_map = {col: str(df_pre[col].dtype) for col in df_pre.columns}
 
     baseline = baseline_utils.load(artifacts_root, run_id)
     expected_rows = int(baseline.get("n_rows", 0)) if baseline else None
@@ -313,9 +354,15 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
     ]
     ignored_keys = [requested_exclusions_map.get(key, key) for key in ignored_keys_raw]
 
-    # Stage 05 outputs are authoritative; do not drop columns automatically here
+    pending_logs: List[Dict[str, Any]] = []
     if filtered_exclusions:
-        logs.append({"event": "exclusions_requested_ignored", "columns": filtered_exclusions, "reason": "stage05_authoritative_dataset"})
+        pending_logs.append(
+            {
+                "event": "exclusions_requested_ignored",
+                "columns": filtered_exclusions,
+                "reason": "stage05_authoritative_dataset",
+            }
+        )
     df_post = df_pre.copy()
 
     if created_series is not None and "created_at" not in df_post.columns:
@@ -327,12 +374,18 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         {"event": "exclusions_requested", "count": len(requested_keys)},
         {"event": "exclusions_applied", "columns": filtered_exclusions},
     ]
+    logs.extend(pending_logs)
     if renamed_columns:
         logs.append({"event": "column_rename", "count": len(renamed_columns), "mapping": renamed_columns})
     if protected_hits:
         logs.append({"event": "exclusions_protected", "columns": protected_hits})
     if ignored_keys:
         logs.append({"event": "exclusions_ignored", "columns": ignored_keys})
+    if nzv_payload is None:
+        logs.append({"event": "nzv_summary_missing", "path": nzv_path.as_posix()})
+    else:
+        summary_snapshot = nzv_payload.get("nzv_summary") if isinstance(nzv_payload, Mapping) else None
+        logs.append({"event": "nzv_summary_loaded", "path": nzv_path.as_posix(), "summary": summary_snapshot})
 
     df_post, normalization_result = normalize_values(df_post, run_id, artifacts_root, out_dir, config or {})
     normalization_logs = normalization_result.get("logs", [])
@@ -366,6 +419,9 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
     df_pre.to_parquet(features_pre_path, index=False)
     df_post.to_parquet(curated_path, index=False)
 
+    for column in df_post.columns:
+        column_provenance.setdefault(column, column)
+
     meta = {
         "phase": "06",
         "n_rows": n_rows,
@@ -379,6 +435,38 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         "features_curated": curated_path.as_posix(),
         "column_renames": renamed_columns,
     }
+    columns_meta: Dict[str, Dict[str, Any]] = {}
+    dtype_after_map = {col: str(df_post[col].dtype) for col in df_post.columns}
+    nzv_summary_block = None
+    if isinstance(nzv_payload, Mapping):
+        nzv_summary_block = nzv_payload.get("nzv_summary")
+        if nzv_summary_block:
+            meta["nzv_summary"] = nzv_summary_block
+            meta["nzv_summaries_path"] = nzv_path.as_posix()
+
+    for column in df_post.columns:
+        provenance_name = column_provenance.get(column, column)
+        entry: Dict[str, Any] = {
+            "original_name": provenance_name,
+            "standardized_name": column,
+            "dtype_before": dtype_before_map.get(column),
+            "dtype_after": dtype_after_map.get(column),
+        }
+        nzv_entry = None
+        if nzv_lookup:
+            nzv_entry = nzv_lookup.get(provenance_name) or nzv_lookup_lower.get(provenance_name.lower())
+        if nzv_entry:
+            entry["is_nzv"] = bool(nzv_entry.get("is_nzv"))
+            entry["nzv_category"] = nzv_entry.get("nzv_category")
+            entry["nzv_reason"] = nzv_entry.get("nzv_reason") or nzv_entry.get("reason")
+            entry["nzv_dominant_value"] = nzv_entry.get("dominant_value")
+            entry["nzv_dominant_pct"] = nzv_entry.get("dominant_pct")
+            if entry.get("is_nzv"):
+                entry["usage_hint"] = "context_only"
+        columns_meta[column] = entry
+    if columns_meta:
+        meta["columns"] = columns_meta
+
     if normalization_mapping_files:
         meta["value_normalization"] = {
             "mapping_files": normalization_mapping_files,
@@ -420,5 +508,3 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         "metrics": {"n_rows": n_rows, "n_cols": n_cols_out, "n_cols_in": n_cols_in},
         "logs_uri": (out_dir / "logs.jsonl").as_posix(),
     }
-
-

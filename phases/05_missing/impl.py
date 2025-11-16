@@ -12,6 +12,7 @@ import pandas as pd
 import yaml
 from zoneinfo import ZoneInfo
 
+from backend.src.app.services import nzv_policy
 from shared import baseline as baseline_utils  # type: ignore
 from shared import validate  # type: ignore
 
@@ -67,6 +68,110 @@ def _load_missing_summary_map(artifacts_root: Path, run_id: str) -> Tuple[Dict[s
             mapping[column] = entry
             lowered[column.lower()] = entry
     return mapping, lowered
+
+
+def _json_safe_value(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, (str, bool, int, float)):
+        return value
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="ignore")
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat()
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, pd.Timedelta):
+        return str(value)
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, np.timedelta64):
+        return str(pd.to_timedelta(value))
+    return str(value)
+
+
+def _build_nzv_column_stats(series: pd.Series, n_rows: int) -> Dict[str, Any]:
+    name = str(series.name)
+    n_valid = int(series.notna().sum())
+    missing_pct = float(series.isna().sum()) / n_rows if n_rows else 0.0
+    unique_count = int(series.nunique(dropna=True)) if n_valid else 0
+
+    top_values: List[Dict[str, Any]] = []
+    dominant_value: Any = None
+    dominant_pct = 0.0
+    if n_rows and n_valid:
+        non_null = series.dropna()
+        try:
+            counts = non_null.value_counts(dropna=False).head(10)
+        except TypeError:
+            counts = non_null.astype(str).value_counts(dropna=False).head(10)
+        for value, count in counts.items():
+            pct = float(count) / float(n_rows) if n_rows else 0.0
+            safe_value = _json_safe_value(value)
+            top_values.append({"value": safe_value, "pct": pct})
+            if dominant_value is None:
+                dominant_value = safe_value
+                dominant_pct = pct
+
+    return {
+        "name": name,
+        "n_rows": n_rows,
+        "n_valid": n_valid,
+        "missing_pct": missing_pct,
+        "unique_count": unique_count,
+        "dominant_value": dominant_value,
+        "dominant_pct": dominant_pct,
+        "top_values": top_values,
+    }
+
+
+def _generate_nzv_payload(df: pd.DataFrame, run_id: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    policy = nzv_policy.load_policy()
+    n_rows = int(len(df))
+    columns_payload: List[Dict[str, Any]] = []
+    n_constant_like = 0
+    n_high_imbalance = 0
+    n_nzv_columns = 0
+
+    for column in df.columns:
+        series = df[column]
+        stats = _build_nzv_column_stats(series, n_rows)
+        classification = nzv_policy.classify_column(stats, policy=policy)
+        record = {
+            "name": stats["name"],
+            "n_valid": stats["n_valid"],
+            "missing_pct": stats["missing_pct"],
+            "unique_count": stats["unique_count"],
+            "dominant_value": stats["dominant_value"],
+            "dominant_pct": stats["dominant_pct"],
+            "top_values": stats["top_values"],
+            "nzv_category": classification["nzv_category"],
+            "is_nzv": bool(classification["is_nzv"]),
+            "nzv_reason": classification["reason"],
+        }
+        columns_payload.append(record)
+        if record["nzv_category"] == "constant_like":
+            n_constant_like += 1
+        if record["nzv_category"] == "high_imbalance":
+            n_high_imbalance += 1
+        if record["is_nzv"]:
+            n_nzv_columns += 1
+
+    n_total_columns = len(columns_payload)
+    nzv_summary = {
+        "n_nzv_columns": n_nzv_columns,
+        "n_constant_like": n_constant_like,
+        "n_high_imbalance": n_high_imbalance,
+        "n_total_columns": n_total_columns,
+        "nzv_ratio": (float(n_nzv_columns) / float(n_total_columns)) if n_total_columns else 0.0,
+    }
+    payload = {
+        "run_id": run_id,
+        "n_rows": n_rows,
+        "columns": columns_payload,
+        "nzv_summary": nzv_summary,
+    }
+    return payload, nzv_summary
 
 
 def _compose_cleaning_summary(
@@ -1056,6 +1161,9 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
     _save_json(plan_path, plan)
 
     df_imputed: pd.DataFrame = apply_result["frame"]
+    nzv_payload, nzv_summary = _generate_nzv_payload(df_imputed, run_id)
+    nzv_summary_path = out_dir / "nzv_summaries.json"
+    _save_json(nzv_summary_path, nzv_payload)
 
     row_guard_status = "ok"
     gating_reasons: List[str] = []
@@ -1162,6 +1270,7 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
             "columns": geo_missing_stats,
         },
         "column_decisions": column_decisions,
+        "nzv_summary": nzv_summary,
     }
     metrics_path = out_dir / "metrics.json"
     _save_json(metrics_path, metrics_payload)
@@ -1180,6 +1289,7 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         "imputed_columns": apply_result["imputed_columns"],
         "indicator_columns": apply_result["indicator_columns"],
         "model_exclusions": plan.get("model_exclusions") or apply_result["model_exclusions"],
+        "nzv_summary": nzv_summary,
     }
     _save_json(out_dir / "summary.json", summary)
     imputation_report_path = out_dir / "imputation_report.json"
@@ -1198,6 +1308,8 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         "psi": psi_info,
         "cleaning_summary": cleaning_summary_path.as_posix(),
         "plan": plan_path.as_posix(),
+        "nzv_summary": nzv_summary,
+        "nzv_summaries": nzv_summary_path.as_posix(),
     }
     _save_json(imputation_report_path, imputation_report)
 
@@ -1210,6 +1322,7 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         "imputed": legacy_path.as_posix(),
         "imputation_report": imputation_report_path.as_posix(),
         "psi_summary": psi_summary_path.as_posix(),
+        "nzv_summaries": nzv_summary_path.as_posix(),
     }
 
     result: Dict[str, Any] = {
