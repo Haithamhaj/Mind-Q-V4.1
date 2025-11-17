@@ -432,6 +432,7 @@ def _build_plan(df: pd.DataFrame, policy: Dict[str, Any], *, strategy_override: 
     for column in df.columns:
         series = df[column]
         missing_pct = _missing_pct(series)
+        non_null_count = int(series.notna().sum())
         dtype = _infer_kind(series, column)
         indicator_name = f"{_normalize(column)}{INDICATOR_SUFFIX}"
         reasons: List[str] = []
@@ -451,7 +452,7 @@ def _build_plan(df: pd.DataFrame, policy: Dict[str, Any], *, strategy_override: 
             entry["geo_strategy"] = geo_strategy
             reasons.append("geo allow_high_missing")
 
-        if missing_pct >= high_missing_threshold and not allow_high_missing:
+        if missing_pct >= high_missing_threshold and (not allow_high_missing or non_null_count == 0):
             entry["action"] = "drop_for_model_only"
             reasons.append(f"missing_pct={missing_pct:.3f} >= {high_missing_threshold:.2f}")
             if indicator_needed:
@@ -853,6 +854,8 @@ def _apply_plan(
             if feature not in model_exclusions_seen:
                 model_exclusions_plan.append(feature)
                 model_exclusions_seen.add(feature)
+            # Drop the column entirely so downstream stages never see high-missing fields.
+            frame.drop(columns=[feature], inplace=True, errors="ignore")
             decision_entry.update(
                 {
                     "status": "drop_for_model_only",

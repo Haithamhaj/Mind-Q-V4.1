@@ -1,0 +1,136 @@
+{
+  "run_id": "geo02",
+  "n_rows": 2,
+  "columns": [
+    {
+      "name": "City",
+      "n_valid": 2,
+      "missing_pct": 0.0,
+      "unique_count": 1,
+      "dominant_value": "Riyadh",
+      "dominant_pct": 1.0,
+      "top_values": [
+        {
+          "value": "Riyadh",
+          "pct": 1.0
+        }
+      ],
+      "nzv_category": "normal",
+      "is_nzv": false,
+      "nzv_reason": "insufficient_rows<50"
+    },
+    {
+      "name": "Carrier",
+      "n_valid": 2,
+      "missing_pct": 0.0,
+      "unique_count": 1,
+      "dominant_value": "C1",
+      "dominant_pct": 1.0,
+      "top_values": [
+        {
+          "value": "C1",
+          "pct": 1.0
+        }
+      ],
+      "nzv_category": "normal",
+      "is_nzv": false,
+      "nzv_reason": "insufficient_rows<50"
+    },
+    {
+      "name": "ServiceType",
+      "n_valid": 2,
+      "missing_pct": 0.0,
+      "unique_count": 1,
+      "dominant_value": "A",
+      "dominant_pct": 1.0,
+      "top_values": [
+        {
+          "value": "A",
+          "pct": 1.0
+        }
+      ],
+      "nzv_category": "normal",
+      "is_nzv": false,
+      "nzv_reason": "insufficient_rows<50"
+    },
+    {
+      "name": "LATITUDE",
+      "n_valid": 2,
+      "missing_pct": 0.0,
+      "unique_count": 1,
+      "dominant_value": 0.0,
+      "dominant_pct": 1.0,
+      "top_values": [
+        {
+          "value": 0.0,
+          "pct": 1.0
+        }
+      ],
+      "nzv_category": "normal",
+      "is_nzv": false,
+      "nzv_reason": "insufficient_rows<50"
+    },
+    {
+      "name": "LONGITUDE",
+      "n_valid": 2,
+      "missing_pct": 0.0,
+      "unique_count": 1,
+      "dominant_value": 46.5,
+      "dominant_pct": 1.0,
+      "top_values": [
+        {
+          "value": 46.5,
+          "pct": 1.0
+        }
+      ],
+      "nzv_category": "normal",
+      "is_nzv": false,
+      "nzv_reason": "insufficient_rows<50"
+    },
+    {
+      "name": "latitude__is_missing",
+      "n_valid": 2,
+      "missing_pct": 0.0,
+      "unique_count": 1,
+      "dominant_value": 1,
+      "dominant_pct": 1.0,
+      "top_values": [
+        {
+          "value": 1,
+          "pct": 1.0
+        }
+      ],
+      "nzv_category": "normal",
+      "is_nzv": false,
+      "nzv_reason": "insufficient_rows<50"
+    },
+    {
+      "name": "longitude__is_missing",
+      "n_valid": 2,
+      "missing_pct": 0.0,
+      "unique_count": 2,
+      "dominant_value": 1,
+      "dominant_pct": 0.5,
+      "top_values": [
+        {
+          "value": 1,
+          "pct": 0.5
+        },
+        {
+          "value": 0,
+          "pct": 0.5
+        }
+      ],
+      "nzv_category": "normal",
+      "is_nzv": false,
+      "nzv_reason": "insufficient_rows<50"
+    }
+  ],
+  "nzv_summary": {
+    "n_nzv_columns": 0,
+    "n_constant_like": 0,
+    "n_high_imbalance": 0,
+    "n_total_columns": 7,
+    "nzv_ratio": 0.0
+  }
+}

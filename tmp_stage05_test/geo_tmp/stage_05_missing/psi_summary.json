@@ -1,0 +1,10 @@
+{
+  "evaluated": [],
+  "warn": [],
+  "stop": [],
+  "missing": [
+    "COD_AMOUNT",
+    "WEIGHT",
+    "DELIVERY_DAYS"
+  ]
+}

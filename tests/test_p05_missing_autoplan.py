@@ -151,7 +151,7 @@ def test_geo_indicator_only(tmp_path: Path) -> None:
     )
     res = _run_phase(tmp_path, "geo01", df)
     out_df = pd.read_parquet(res["outputs"]["raw"])
-    assert out_df["LATITUDE"].isna().sum() == 2
+    assert "LATITUDE" not in out_df.columns  # dropped because no non-null values
     assert "latitude__is_missing" in out_df.columns
     assert "longitude__is_missing" in out_df.columns
 
@@ -186,10 +186,12 @@ def test_high_missing_exclude(tmp_path: Path) -> None:
             "RareFeature": [None] * 97 + ["value", "value", "value"],
         }
     )
-    _run_phase(tmp_path, "exclude01", df)
+    res = _run_phase(tmp_path, "exclude01", df)
     plan = json.loads((tmp_path / "exclude01" / "stage_05_missing" / "imputation_plan.json").read_text(encoding="utf-8"))
     rare_entry = next(item for item in plan["policies"] if item["feature"] == "RareFeature")
     assert rare_entry["action"] == "drop_for_model_only"
+    out_df = pd.read_parquet(res["outputs"]["raw"])
+    assert "RareFeature" not in out_df.columns
 
 
 def test_gates_psi_stop(tmp_path: Path) -> None:

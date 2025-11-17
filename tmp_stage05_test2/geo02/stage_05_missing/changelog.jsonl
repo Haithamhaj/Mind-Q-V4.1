@@ -1,0 +1,5 @@
+{"feature": "City", "action": "impute", "dtype": "categorical", "strategy": "mode_with_unknown", "filled": 0, "missing_before": 0, "indicator": null}
+{"feature": "Carrier", "action": "impute", "dtype": "categorical", "strategy": "mode_with_unknown", "filled": 0, "missing_before": 0, "indicator": null}
+{"feature": "ServiceType", "action": "impute", "dtype": "categorical", "strategy": "mode_with_unknown", "filled": 0, "missing_before": 0, "indicator": null}
+{"feature": "LATITUDE", "action": "impute", "dtype": "numeric", "strategy": "median", "filled": 2, "missing_before": 2, "indicator": "latitude__is_missing"}
+{"feature": "LONGITUDE", "action": "impute", "dtype": "numeric", "strategy": "median", "filled": 1, "missing_before": 1, "indicator": "longitude__is_missing"}

@@ -1,0 +1,104 @@
+{
+  "generated_by": "auto",
+  "generated_at": "2025-11-16T15:37:20.948404+00:00",
+  "strategy": "hybrid",
+  "policies": [
+    {
+      "feature": "City",
+      "dtype": "categorical",
+      "params": {
+        "missing_pct": 0.0,
+        "group_valid_min_rows": 500,
+        "group_used": "fallback_small_group"
+      },
+      "action": "impute",
+      "strategy": "groupwise_mode",
+      "group_keys": [
+        "City",
+        "Carrier",
+        "ServiceType"
+      ],
+      "unknown_token": "Unknown",
+      "why": "groupwise_mode|fallback_small_group"
+    },
+    {
+      "feature": "Carrier",
+      "dtype": "categorical",
+      "params": {
+        "missing_pct": 0.0,
+        "group_valid_min_rows": 500,
+        "group_used": "fallback_small_group"
+      },
+      "action": "impute",
+      "strategy": "groupwise_mode",
+      "group_keys": [
+        "City",
+        "Carrier",
+        "ServiceType"
+      ],
+      "unknown_token": "Unknown",
+      "why": "groupwise_mode|fallback_small_group"
+    },
+    {
+      "feature": "ServiceType",
+      "dtype": "categorical",
+      "params": {
+        "missing_pct": 0.0,
+        "group_valid_min_rows": 500,
+        "group_used": "fallback_small_group"
+      },
+      "action": "impute",
+      "strategy": "groupwise_mode",
+      "group_keys": [
+        "City",
+        "Carrier",
+        "ServiceType"
+      ],
+      "unknown_token": "Unknown",
+      "why": "groupwise_mode|fallback_small_group"
+    },
+    {
+      "feature": "LATITUDE",
+      "dtype": "numeric",
+      "params": {
+        "missing_pct": 1.0,
+        "group_used": "fallback_no_keys",
+        "group_valid_min_rows": 500
+      },
+      "geo_strategy": "impute",
+      "action": "impute",
+      "strategy": "groupwise_then_median",
+      "indicator": "latitude__is_missing",
+      "why": "geo allow_high_missing; geo impute|fallback_no_keys"
+    },
+    {
+      "feature": "LONGITUDE",
+      "dtype": "numeric",
+      "params": {
+        "missing_pct": 0.5,
+        "group_used": "fallback_no_keys",
+        "group_valid_min_rows": 500
+      },
+      "geo_strategy": "impute",
+      "action": "impute",
+      "strategy": "groupwise_then_median",
+      "indicator": "longitude__is_missing",
+      "why": "geo allow_high_missing; geo impute|fallback_no_keys"
+    }
+  ],
+  "gates": {
+    "stop_if_rowcount_changes": true,
+    "psi_warn": 0.2,
+    "psi_stop": 0.3,
+    "psi_keys": [
+      "COD_AMOUNT",
+      "WEIGHT",
+      "DELIVERY_DAYS"
+    ]
+  },
+  "model_exclusions": [],
+  "policy_version": null,
+  "numeric_group_valid_min_rows": 500,
+  "time_aware_timezone": "Asia/Riyadh",
+  "policy_path": "/Users/haitham/development/Mind-Q-V4.1-port/contracts/impute/policy.yml"
+}

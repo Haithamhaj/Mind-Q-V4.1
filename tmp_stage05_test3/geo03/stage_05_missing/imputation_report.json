@@ -1,0 +1,142 @@
+{
+  "run_id": "geo03",
+  "generated_at": "2025-11-16T15:39:55.834213+00:00",
+  "plan_source": "auto",
+  "strategy_effective": "hybrid",
+  "row_guard_status": "ok",
+  "gating_reasons": [
+    "geo_missing_warn[LATITUDE(100.0%), LONGITUDE(50.0%)]",
+    "geo_missing_stop_bypassed"
+  ],
+  "rows_imputed_total": 1,
+  "processed_columns": 5,
+  "summary": {
+    "imputed_columns": [
+      "LONGITUDE"
+    ],
+    "indicator_columns": [
+      "latitude__is_missing",
+      "longitude__is_missing"
+    ],
+    "model_exclusions": [
+      "LATITUDE"
+    ],
+    "nzv_summary": {
+      "n_nzv_columns": 0,
+      "n_constant_like": 0,
+      "n_high_imbalance": 0,
+      "n_total_columns": 6,
+      "nzv_ratio": 0.0
+    }
+  },
+  "column_decisions": [
+    {
+      "feature": "City",
+      "dtype": "categorical",
+      "action": "impute",
+      "indicator": null,
+      "missing_pct": 0.0,
+      "reason": "groupwise_mode",
+      "model_exclusion": false,
+      "geo_strategy": null,
+      "status": "impute",
+      "strategy": "mode_with_unknown",
+      "filled": 0,
+      "group_used": "fallback_small_group",
+      "indicator_created": false
+    },
+    {
+      "feature": "Carrier",
+      "dtype": "categorical",
+      "action": "impute",
+      "indicator": null,
+      "missing_pct": 0.0,
+      "reason": "groupwise_mode",
+      "model_exclusion": false,
+      "geo_strategy": null,
+      "status": "impute",
+      "strategy": "mode_with_unknown",
+      "filled": 0,
+      "group_used": "fallback_small_group",
+      "indicator_created": false
+    },
+    {
+      "feature": "ServiceType",
+      "dtype": "categorical",
+      "action": "impute",
+      "indicator": null,
+      "missing_pct": 0.0,
+      "reason": "groupwise_mode",
+      "model_exclusion": false,
+      "geo_strategy": null,
+      "status": "impute",
+      "strategy": "mode_with_unknown",
+      "filled": 0,
+      "group_used": "fallback_small_group",
+      "indicator_created": false
+    },
+    {
+      "feature": "LATITUDE",
+      "dtype": "categorical",
+      "action": "drop_for_model_only",
+      "indicator": "latitude__is_missing",
+      "missing_pct": 1.0,
+      "reason": "geo allow_high_missing; missing_pct=1.000 >= 0.95",
+      "model_exclusion": true,
+      "geo_strategy": "impute",
+      "status": "drop_for_model_only",
+      "strategy": null,
+      "filled": 0,
+      "indicator_created": true
+    },
+    {
+      "feature": "LONGITUDE",
+      "dtype": "numeric",
+      "action": "impute",
+      "indicator": "longitude__is_missing",
+      "missing_pct": 0.5,
+      "reason": "geo allow_high_missing; geo impute",
+      "model_exclusion": false,
+      "geo_strategy": "impute",
+      "status": "impute",
+      "strategy": "median",
+      "filled": 1,
+      "group_used": "fallback_no_keys",
+      "indicator_created": true
+    }
+  ],
+  "geo_missing": {
+    "warn_threshold": 0.3,
+    "stop_threshold": 0.5,
+    "columns": [
+      {
+        "feature": "LATITUDE",
+        "missing_pct": 1.0
+      },
+      {
+        "feature": "LONGITUDE",
+        "missing_pct": 0.5
+      }
+    ]
+  },
+  "psi": {
+    "evaluated": [],
+    "warn": [],
+    "stop": [],
+    "missing": [
+      "COD_AMOUNT",
+      "WEIGHT",
+      "DELIVERY_DAYS"
+    ]
+  },
+  "cleaning_summary": "/Users/haitham/development/Mind-Q-V4.1-port/tmp_stage05_test3/geo03/stage_05_missing/cleaning_summary.json",
+  "plan": "/Users/haitham/development/Mind-Q-V4.1-port/tmp_stage05_test3/geo03/stage_05_missing/imputation_plan.json",
+  "nzv_summary": {
+    "n_nzv_columns": 0,
+    "n_constant_like": 0,
+    "n_high_imbalance": 0,
+    "n_total_columns": 6,
+    "nzv_ratio": 0.0
+  },
+  "nzv_summaries": "/Users/haitham/development/Mind-Q-V4.1-port/tmp_stage05_test3/geo03/stage_05_missing/nzv_summaries.json"
+}

@@ -1,0 +1,18 @@
+{
+  "imputed_columns": [
+    "LATITUDE",
+    "LONGITUDE"
+  ],
+  "indicator_columns": [
+    "latitude__is_missing",
+    "longitude__is_missing"
+  ],
+  "model_exclusions": [],
+  "nzv_summary": {
+    "n_nzv_columns": 0,
+    "n_constant_like": 0,
+    "n_high_imbalance": 0,
+    "n_total_columns": 7,
+    "nzv_ratio": 0.0
+  }
+}

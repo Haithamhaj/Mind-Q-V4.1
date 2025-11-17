@@ -1,0 +1,12 @@
+{"event": "groupwise_fallback", "feature": "City", "severity": "WARN", "reason": "fallback_small_group", "threshold": 500}
+{"event": "impute", "feature": "City", "dtype": "categorical", "strategy": "mode_with_unknown", "filled": 0, "indicator": null}
+{"event": "groupwise_fallback", "feature": "Carrier", "severity": "WARN", "reason": "fallback_small_group", "threshold": 500}
+{"event": "impute", "feature": "Carrier", "dtype": "categorical", "strategy": "mode_with_unknown", "filled": 0, "indicator": null}
+{"event": "groupwise_fallback", "feature": "ServiceType", "severity": "WARN", "reason": "fallback_small_group", "threshold": 500}
+{"event": "impute", "feature": "ServiceType", "dtype": "categorical", "strategy": "mode_with_unknown", "filled": 0, "indicator": null}
+{"event": "mark_model_exclusion", "feature": "LATITUDE", "indicator": "latitude__is_missing"}
+{"event": "groupwise_fallback", "feature": "LONGITUDE", "severity": "WARN", "reason": "fallback_no_keys", "threshold": 500}
+{"event": "impute", "feature": "LONGITUDE", "dtype": "numeric", "strategy": "median", "filled": 1, "indicator": "longitude__is_missing"}
+{"event": "psi_key_missing", "feature": "COD_AMOUNT", "severity": "WARN"}
+{"event": "psi_key_missing", "feature": "WEIGHT", "severity": "WARN"}
+{"event": "psi_key_missing", "feature": "DELIVERY_DAYS", "severity": "WARN"}
