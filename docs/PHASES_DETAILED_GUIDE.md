@@ -40,6 +40,20 @@ Feel free to reuse this structure when documenting enhancements or reviewing oth
 #### Stage Definition
 Stage 01 ingests heterogeneous logistics source files (CSV, Parquet, Excel exports) and normalizes them into a unified operational dataset. It also curates SLA documents so they can be reasoned about in later phases.
 
+#### Implementation Status
+- Status: Implemented
+- Evidence: `phases/01_ingestion/impl.py`, `backend/src/app/services/pipeline_api/app.py#L173`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- STOP when any source file falls below `min_file_size_bytes` or the combined frame has fewer rows than `min_rows` (`phases/01_ingestion/impl.py` guards write `shape_mismatch.json` and exit early).
+- STOP when `sla_utils.process_sla_file` raises fatal errors for every SLA artifact; a partial manifest is still produced for transparency.
+- WARN is not emitted explicitly; ingestion either passes or halts while persisting `logs.jsonl`, `shape_mismatch.json`, and `source_meta.json` for review.
+
+#### Tests & Observability
+- Tests: `tests/test_01_ingestion.py` (artifact creation, schema hash), `tests/test_row_guards.py` (baseline enforcement).
+- Observability primitives include `missing_summary.json`, `row_meta.json`, and structured `logs.jsonl`; SLA processing emits `sla_manifest.json` plus source fingerprints for auditing.
+
 #### Inputs
 - `inputs["data_files"]` / `inputs["files"]`: list of raw CSV/Parquet/Excel paths to ingest.
 - `inputs["sla_files"]` (optional): SLA documents (PDF, DOCX, XLSX) to normalize and index.
@@ -93,6 +107,20 @@ artifacts/{run_id}/stage_01_ingestion/
 #### Stage Definition
 Stage 02 validates the ingested dataset against logistics-specific quality gates, cataloguing issues, enforcing row-count baselines, and signaling schema drift before downstream enrichment or modeling begins.
 
+#### Implementation Status
+- Status: Implemented
+- Evidence: `phases/02_quality/impl.py`, `shared/baseline.py`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- STOP whenever Stage 02 cannot read the input parquet, the resulting dataframe has zero rows, or the observed row count no longer matches the baseline rows tracked in `baselines.json`.
+- WARN for high missingness, invalid/future timestamps, high cardinality, and schema hash changes; these WARN signals are persisted to `issues.parquet`/`quality_overview.json` but do not automatically halt the pipeline.
+- Quality logic distinguishes STOP vs WARN in `logs.jsonl`, enabling downstream monitors to escalate only the fatal conditions raised in `quality_report.json`.
+
+#### Tests & Observability
+- Tests: `tests/test_phase02_quality.py` (quality report generation and STOP cases), `tests/test_row_guards.py` (row guard integrations shared with other stages).
+- Observability surfaces include `quality_report.json`, `quality_overview.json`, `issues.parquet`, `shape_guard.json`, and streaming `logs.jsonl`.
+
 #### Inputs
 - `inputs["raw"]` / `inputs["raw_uri"]`: path to Stage 01 `raw.parquet`.
 - `config["artifacts_root"]`: root directory for quality artifacts.
@@ -141,6 +169,20 @@ artifacts/{run_id}/stage_02_quality/
 
 #### Stage Definition
 Stage 03 extracts a canonical schema for the logistics dataset, aligns it with historical baselines, and produces semantic terminology artifacts that map raw operational headers to business-friendly vocabulary.
+
+#### Implementation Status
+- Status: Implemented
+- Evidence: `phases/03_schema/impl.py`, `phases/03_schema/terminology.py`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- Row-count parity is enforced through `shared.baseline.enforce_row_guard`; mismatches escalate to STOP before schema artifacts are persisted.
+- Terminology sampling gracefully degrades (skipping LLM calls) when the dataset is empty or config disables sampling—no WARN abstraction is emitted beyond logs.
+- All normalization decisions are captured in `semantic/normalized/normalization_report.json`, giving manual reviewers the ability to treat unexpected skips as soft WARNs even though the stage completes.
+
+#### Tests & Observability
+- Tests: `tests/test_phase03_schema.py` exercises terminology selection, alias generation, and baseline guards.
+- Observability assets include `schema_v1.json`, `row_meta.json`, `semantic/normalization_report.json`, LLM logs, and `logs.jsonl`.
 
 #### Inputs
 - `inputs["raw"]` / `inputs["raw_uri"]`: Stage 01 `raw.parquet`.
@@ -199,6 +241,20 @@ artifacts/{run_id}/stage_03_schema/
 > _Execution note: Stage 03.5 is not part of the default `cli.runner flow` or `/flow` API run; trigger `/v1/runs/{run}/phases/03/textops` or an equivalent manual call when text analytics are required._
 Stage 03.5 transforms shipment-level free text into machine-ready signals: lightweight sentiment scores, density metrics, SVD vectors, language diagnostics, and optional RAG/LLM assets derived from logistics knowledge bases.
 
+#### Implementation Status
+- Status: Implemented
+- Evidence: `backend/src/app/services/stage_03_5_textops/impl.py`, `backend/src/app/services/stage_03_5_textops/features.py`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- STOP when unreadable documents exceed `cfg.thresholds.stop_unreadable_docs_pct` or when no candidate text columns exist (an exception is raised before artifacts are emitted).
+- WARN whenever language conflicts, sparse coverage, or low SVD explained variance cross configured WARN thresholds; these warnings are recorded inside `quality_findings.json`/`textops_report.json`.
+- Credentials checks degrade features gracefully (embedding/LLM tasks disabled with WARN entries) rather than halting the run.
+
+#### Tests & Observability
+- Tests: `tests/test_phase_03_5_unit.py`, `tests/test_phase_03_5_integration.py`.
+- Observability via `textops_report.json`, `quality_findings.json`, `logs/run.log`, LLM trace files, and sentiment/vector parquet outputs that downstream dashboards can poll.
+
 #### Inputs
 - `inputs["shipments"]` (glob/path) or `cfg.inputs.shipments_path`: Stage 06/curated feature parquet(s) containing text columns.
 - `inputs["domain_dict"]`, `inputs["text_catalog"]`, `inputs["kpi_map"]` (optional): dictionaries and KPI maps to enrich normalization.
@@ -256,6 +312,19 @@ artifacts/{run_id}/stage_03_5_textops/
 #### Stage Definition
 Stage 04 performs lightweight statistical profiling on the curated logistics dataset, producing column summaries, top-value distributions, and semantic enrichments that guide downstream feature engineering and anomaly monitoring.
 
+#### Implementation Status
+- Status: Implemented
+- Evidence: `phases/04_profile/impl.py`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- Row stability uses `shared.validate.assert_row_stability` to assert Stage 04 does not alter counts; violations raise immediately.
+- No explicit WARN/STOP statuses are emitted—profiling artifacts are written even if Excel exports fail, with fallbacks logged.
+
+#### Tests & Observability
+- Tests: None found. (TODO – create basic tests for this stage.)
+- Observability: `profile.json`, `summary.parquet`, `distribution.xlsx` (or JSON fallback), terminology-enriched files under `semantic/`, and `row_meta.json`.
+
 #### Inputs
 - `inputs["raw"]` / `inputs["raw_uri"]`: Stage 06 curated parquet or Stage 01 raw dataset.
 - `config["artifacts_root"]`: location to write profiling artifacts.
@@ -307,6 +376,20 @@ artifacts/{run_id}/stage_04_profile/
 
 #### Stage Definition
 Stage 05 orchestrates hybrid imputation for logistics features, generating curated `clean_imputed.parquet`, indicator columns, PSI drift diagnostics, and a transparent imputation plan that downstream models can trust.
+
+#### Implementation Status
+- Status: Implemented
+- Evidence: `phases/05_missing/impl.py`, `backend/contracts/impute/policy_relaxed.yml`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- STOP is triggered when row-count baselines are violated, PSI exceeds `psi_stop_threshold`, or geo-missing ratios cross `geo_stop_threshold`; gating reasons are persisted in `metrics.json`/`imputation_report.json`.
+- WARN occurs for PSI warn-band breaches and geo-missing warnings, enabling downstream consumers to review `gating_reasons` without halting the flow.
+- Additional STOP cases include numeric group-by strategies lacking enough rows and Stage 05 detecting critical geo features missing beyond allowed bypass lists.
+
+#### Tests & Observability
+- Tests: `tests/test_phase05_missing.py`, `tests/test_p05_missing_autoplan.py`.
+- Observability surfaces: `metrics.json`, `imputation_report.json`, `psi_summary.json`, `cleaning_summary.json`, `nzv_summaries.json`, `changelog.jsonl`, and `logs.jsonl`.
 
 #### Inputs
 - `inputs["raw"]` / `inputs["raw_uri"]`: Stage 04/Stage 06 pre-curated dataset (typically `stage_06_standardize/clean.parquet`).
@@ -367,6 +450,20 @@ artifacts/{run_id}/stage_05_missing/
 #### Stage Definition
 Stage 06 Standardization ingests the authoritative Stage 05 dataset and standardizes column names, value formats, and numeric types while honoring protected logistics fields and preserving curated outputs for subsequent phases.
 
+#### Implementation Status
+- Status: Implemented
+- Evidence: `phases/06_standardize/impl.py`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- Row guard invokes `baseline_utils.enforce_row_guard` using Stage 05/01 baselines; mismatches raise before standardization artifacts are committed.
+- Protected column governance denies exclusion requests for KPIs such as COD, SLA, and RTO fields, logging ignored requests for manual review.
+- No explicit WARN surfaces—the stage always returns `status: PASS`, relying on downstream readiness gates when NZV ratios or exclusions turn problematic.
+
+#### Tests & Observability
+- Tests: `tests/test_phase06_readiness.py` (validates standardize outputs consumed by readiness), `tests/test_alias_resolution.py` (ensures rename/exclusion metadata).
+- Observability includes `standardize_report.json`, `exclusions_applied.json`, `row_meta.json`, `features.pre.parquet`, `features.curated.parquet`, and `logs.jsonl`.
+
 #### Inputs
 - `inputs["raw"]` / `inputs["raw_uri"]`: Stage 05 `clean_imputed.parquet` (or equivalent curated file).
 - `inputs["exclusions"]` / `inputs["exclusions_json"]` (optional): column exclusion requests or JSON descriptors.
@@ -419,6 +516,19 @@ artifacts/{run_id}/stage_06_standardize/
 
 #### Stage Definition
 Stage 06 Feature Engineering transforms the curated dataset into a stable feature layer, preserving row counts, honoring exclusions, and emitting a Layer 1 semantic dataset with bilingual metadata ready for modeling and BI.
+
+#### Implementation Status
+- Status: Implemented
+- Evidence: `phases/06_feature_eng/impl.py`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- Row guard uses `baseline_utils.enforce_row_guard` (phase tag `06F`) to block runs when counts deviate from Stage 05/06A expectations.
+- Exclusion conflicts, missing Layer 1 dependencies, or diff mismatches are logged but do not emit WARN/STOP statuses; escalations rely on downstream readiness.
+
+#### Tests & Observability
+- Tests: `tests/test_phase06_readiness.py`, `tests/test_p07_5_report.py`, `tests/test_p07_6_summary.py`, `tests/test_stage07_knime_bridge.py`.
+- Observability outputs include `features.parquet`, `features.curated.parquet`, `feature_manifest.json`, `layer1_schema.json`, `layer1_dataset.parquet`, `layer1_sample.json`, `feature_spec.json`, and `logs.jsonl`.
 
 #### Inputs
 - `inputs["raw"]` / `inputs["raw_uri"]` / `inputs["features_curated"]`: Stage 06 standardize curated parquet.
@@ -474,9 +584,23 @@ artifacts/{run_id}/stage_06_feature_eng/
 #### Stage Definition
 Stage 07 evaluates feature readiness by detecting leakage risks, high redundancy, near-zero variance columns, KPI relationships, and semantic coverage to decide which features proceed to analytics and modeling phases.
 
+#### Implementation Status
+- Status: Implemented
+- Evidence: `phases/07_readiness/impl.py`, `contracts/kpis/critical_columns.yml`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- STOP when PSI exceeds `PSI_STOP_THRESHOLD`, when leakage heuristics find ID-like columns tied to outcome timestamps, when no features survive gating (`gate_status: STOP`), or when row guards fail.
+- WARN when PSI falls between warn/stop thresholds, when geo/NZV ratios exceed warn bands, or when critical KPI coverage is insufficient; WARN details sit inside `diagnostics.json` and `gate_status`.
+- Network/correlation artifacts still write even for WARN/STOP runs, allowing operators to diagnose gating reasons using `gate_reasons`.
+
+#### Tests & Observability
+- Tests: `tests/test_phase06_readiness.py` (full integration: standardize + feature eng + readiness).
+- Observability outputs: `readiness_report.json`, `diagnostics.json`, `decision_manifest.json`, `correlations.json`, `correlations_kpi.json`, `redundancy.json`, `network.json`, `logs.jsonl`, and `row_meta.json`.
+
 #### Inputs
-- `inputs["features"]` / `inputs["raw"]`: Stage 06 feature parquet.
-- `inputs["correlations"]`, `inputs["redundancy"]`, `inputs["insights"]` (optional): prior correlation assets and insights.
+- `inputs["raw"]`: Stage 06 feature parquet (currently the only key the implementation reads; all other inputs are ignored).
+- `inputs["features"]`, `inputs["correlations"]`, `inputs["redundancy"]`, `inputs["insights"]` (optional): reserved for future extension and not consumed yet.
 - `config["artifacts_root"]`: root directory for readiness outputs.
 - Layer 1 artifacts (`layer1_dataset.parquet`, `layer1_schema.json`) referenced via `TerminologyRepository`.
 - KPI contract (`contracts/kpis.yml`) and baseline metadata loaded from shared storage.
@@ -492,6 +616,8 @@ Before investing compute in advanced analytics or LLM reporting, operations team
 - **KPI fallback & candidate selection**: Uses `select_kpi_candidates` combined with KPI contracts to ensure at least one reliable feature per strategic KPI, injecting high-correlation alternatives when primary KPI columns are missing.
 - **Policy-aware NZV review**: Loads Stage 05 `nzv_summaries.json` (or the Stage 06 `standardize_report`) through `nzv_policy`, honoring `max_nzv_ratio_for_pass` and `enable_readiness_adjustment`. If NZV ratio stays below the configured ceiling and no KPI-critical columns are flagged in `critical_columns.yml`, the stage auto-bypasses the legacy NZV warning and annotates the readiness report with `nzv_notes`. Otherwise, it keeps WARN/STOP status with explicit reasons (ratio overflow, critical NZV hits), surfaces `critical_nzv_columns`, and mirrors the upstream `nzv_summary` in every readiness artifact.
 - **Decision manifest**: Produces `feature_decisions.json` summarizing keep/drop/warn actions, plus `high_correlation.json`, `redundancy.json`, and `leakage_after_event.json` for targeted remediation.
+
+Correlation mirroring and `network.json` generation happen inside Stage 07 near the end of execution. After building readiness diagnostics, the stage writes copies of `correlations*.json`, `redundancy.json`, and a correlation graph into `artifacts/{run_id}/stage_07_correlations/` so downstream components can rely on a consistent directory without running an extra phase.
 
 #### Inter-Stage Relationships
 - **Upstream dependencies**: Consumes Stage 06 feature outputs, Layer 1 schema, and Stage 05 PSI metrics to evaluate consistency.
@@ -532,8 +658,23 @@ artifacts/{run_id}/stage_07_readiness/
 ### Stage 07 Analytics (manual utility)
 
 #### Stage Definition
-> _Execution note: This Python analytics engine is not invoked from `cli.runner flow` or the `/flow` API; call `backend/src/app/services/stage_07_analytics/impl.py` (or wire it into your own orchestration) whenever the KNIME alternative is needed._
+> _Execution note: Stage 07 Analytics is registered in `PHASE_MODULES["07_analytics"]` and is triggered whenever the CLI/API request sets `run_stage07_analytics=true` (e.g., `cli.runner --run-stage07-analytics`)._
 Stage 07 Analytics is the Python-native alternative to KNIME workflows. It executes a full analytics suite—data quality rules, clustering, anomaly detection, correlation, and time-series forecasting—packaging outputs in `phase_07_analytics/` for downstream insight stages.
+
+#### Implementation Status
+- Status: Implemented
+- Evidence: `backend/src/app/services/stage_07_analytics/impl.py`, `cli/runner.py#L243-L386`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- Each analytics engine handles its own try/except block; failures are recorded inside the `results` dictionary and `analytics_summary.json` but do not STOP the pipeline—the stage always returns `status: SUCCESS`.
+- WARN-equivalent states appear as `"status": "failed"` or `"status": "skipped"` per engine inside `profile/analytics_summary.json`, letting downstream consumers detect partial coverage.
+
+#### Tests & Observability
+- Tests: `tests/test_stage07_analytics.py` (ensures engines execute and produce summary payloads).
+- Observability artifacts: `phase_07_analytics/profile/analytics_summary.json`, engine-specific folders under `outputs/`, `data.parquet`, and verbose console + log output captured in orchestrator logs.
+
+Verification Note: Updated execution guidance to reflect that `PHASE_MODULES` maps `07_analytics` to `backend.src.app.services.stage_07_analytics.impl`, so the stage is available through the standard pipeline when the relevant flag is enabled (`backend/src/app/services/pipeline_api/app.py:40-73`, `cli/runner.py:243-446`).
 
 #### Inputs
 - `inputs["features"]`: Stage 06 feature parquet to analyze.
@@ -586,27 +727,37 @@ artifacts/{run_id}/phase_07_analytics/
 
 ---
 
-### Stage 07 Correlations Bridge
+### Stage 07: Correlation Mirroring (within Readiness)
 
 #### Stage Definition
-The Stage 07 Correlations bridge consolidates readiness correlation artifacts into `stage_07_correlations/`, providing a stable location for correlation, redundancy, and network graph outputs consumed by later stages (Stage 08, BI).
+There is no standalone `stage_07_correlations` phase. Instead, Stage 07 Readiness writes a mirrored set of correlation artifacts into `artifacts/{run_id}/stage_07_correlations/` as part of its normal teardown so downstream consumers always find a consistent directory.
+
+#### Implementation Status
+- Status: Covered inside Stage 07 Readiness
+- Evidence: `phases/07_readiness/impl.py#L1585-L1635`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- Mirroring inherits the readiness gate status; no separate STOP/WARN logic runs. If readiness exits early, the mirrored artifacts may be incomplete and should be inspected alongside `readiness_report.json`.
+
+#### Tests & Observability
+- Tests: `tests/test_phase06_readiness.py` verifies the presence of readiness outputs that power the mirroring step.
+- Observability outputs: `artifacts/{run_id}/stage_07_correlations/{correlations.json, correlations_kpi.json, correlations_datetime.json, redundancy.json, network.json}` plus readiness logs.
 
 #### Inputs
-- Stage 07 readiness artifacts (`correlations.json`, `correlations_kpi.json`, `redundancy.json`, `correlations_datetime.json`, `network.json` if present).
-- `config["artifacts_root"]`: root directory for mirroring correlation assets.
-- Optional Stage 07.7 business correlation highlights to augment the network.
+- Internal Stage 07 readiness outputs (`correlations*.json`, `redundancy.json`, correlation history).
+- `config["artifacts_root"]`: shared artifacts root inherited from readiness configuration.
 
 #### Business Objective
-Downstream modules—and reviewers who expect legacy directory structures—rely on correlation files in a consistent location. This bridge ensures readiness results are mirrored with the correct naming conventions and enriched network graphs.
+Downstream modules—and reviewers who expect legacy directory structures—rely on correlation files in a consistent location. Inline mirroring ensures those assets exist even though the pipeline does not schedule a separate phase.
 
 #### Operational Mechanics
-- **Artifact mirroring**: Copies `correlations.json`, `correlations_kpi.json`, `redundancy.json`, and `correlations_datetime.json` from Stage 07 readiness.
-- **Network generation**: Builds or updates `network.json`, encoding top correlations as nodes and edges (used by dashboards and BI marts).
-- **Synchronization hooks**: Utility scripts (`run_phase07.py`, pipeline API) call the bridge so Stage 08 can always find correlation assets, even if readiness regenerated them.
+- **Artifact mirroring**: Copies the correlation and redundancy artifacts produced during readiness into `stage_07_correlations/`.
+- **Network generation**: Builds or updates `network.json`, encoding top correlations as nodes and edges (used by dashboards and BI marts). Stage 07.7 can later overwrite or enhance this network if needed.
 
 #### Inter-Stage Relationships
-- **Upstream dependencies**: Requires Stage 07 readiness outputs; Stage 07.7 Business Correlations can augment the network.
-- **Downstream consumers**: Stage 08 Insights, Phase 10 BI, and KNIME Bridge read from this directory; pipelines rely on it when packaging correlation artifacts.
+- **Upstream dependencies**: Stage 07 Readiness (the mirroring source).
+- **Downstream consumers**: Stage 08 Insights, Phase 10 BI, and KNIME Bridge read from `stage_07_correlations` when packaging correlation artifacts.
 
 #### Outputs & Reports
 ```
@@ -637,12 +788,26 @@ artifacts/{run_id}/stage_07_correlations/
 > _Execution note: Forecast templates are produced only when you run the Stage 07 timeseries module directly; the default CLI/API flow does not execute this stage._
 Stage 07 Timeseries generates templated forecasts for key operational segments, producing reusable JSON payloads consumed by analytics, BI, or external orchestrations.
 
+#### Implementation Status
+- Status: Implemented
+- Evidence: `backend/src/app/services/stage_07_timeseries/impl.py`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- `status: PASS` is returned when `forecast_templates.json` contains at least one forecasted segment/time series.
+- `status: WARN` is reserved for the edge case where zero forecasts are emitted (e.g., dataset empty or entirely filtered out); adapter failures still log warnings but keep the status at PASS as long as baseline forecasts exist.
+- Missing required columns or frames raise immediately, ensuring downstream phases do not receive empty templates without a clear exception.
+
+#### Tests & Observability
+- Tests: `tests/adapters/test_timeseries_statsforecast.py`.
+- Observability: `forecast_templates.json` captures the payload plus summary metadata, and `logs.jsonl` records adapter warnings and method selection. (Reserved files such as `timeseries_forecast.json` or `metrics.json` are future enhancements and are not emitted today.)
+
 #### Inputs
 - `inputs["timeseries_path"]` / `inputs["data_path"]` / `inputs["frame_path"]`: parquet or CSV with `segment`, `timestamp`, and `value` columns.
 - In-memory alternatives (`inputs["timeseries"]`, `inputs["data"]`, or `inputs["frame"]`) accepted as Pandas DataFrame/iterable.
 - `inputs["segment_column"]`, `inputs["timestamp_column"]`, `inputs["value_column"]`, `inputs["frequency"]`, `inputs["horizon"]` (optional overrides).
 - `config["artifacts_root"]`: directory for templates/logs.
-- Environment flag `USE_EXT_FORECAST_TEMPLATES` enabling StatsForecast adapter.
+- Execution toggles: invoke the CLI with `--run-stage07-timeseries` to run this phase; setting `USE_EXT_FORECAST_TEMPLATES=true` enables the StatsForecast adapter (baseline forecasts run regardless).
 
 #### Business Objective
 Logistics planners require quick baseline forecasts for shipment volumes, COD amounts, or hub workloads. This stage offers a standardized forecast template (baseline or StatsForecast-driven) without blocking on heavy modeling.
@@ -659,11 +824,13 @@ Logistics planners require quick baseline forecasts for shipment volumes, COD am
 - **Downstream consumers**: Stage 08, BI, and external scheduling tools use the forecast templates to seed dashboards or scenario planners.
 
 #### Outputs & Reports
+Primary artifacts generated by the current implementation:
 ```
 artifacts/{run_id}/stage_07_timeseries/
 ├── forecast_templates.json                   # Segmented future horizon predictions
 └── logs.jsonl                                # Method selection and adapter warnings
 ```
+Reserved/future artifacts: `timeseries_forecast.json`, `metrics.json` (not yet written; keep placeholders in downstream tooling if needed).
 
 #### Core Libraries & Components
 - `pandas` — ingestion, cleaning, frequency inference, and JSON serialization.
@@ -681,6 +848,19 @@ artifacts/{run_id}/stage_07_timeseries/
 
 #### Stage Definition
 Stage 07.5 generates a statistical feature report, combining variance analytics, comparative dimension cuts, and heatmap summaries under strict PII masking to deliver analyst-ready diagnostics.
+
+#### Implementation Status
+- Status: Implemented
+- Evidence: `phases/07_5_feature_report/impl.py`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- WARN state is returned when zero columns qualify for reporting or when more than 50% of cells are missing; otherwise Stage 07.5 reports PASS after generating artifacts.
+- Optional PDF creation failures only log `pdf_failed` while keeping JSON/Markdown outputs intact—no STOP logic is triggered.
+
+#### Tests & Observability
+- Tests: `tests/test_p07_5_report.py`.
+- Observability: `report.json`, `report.md`, optional `report.pdf`, `metrics.json`, `logs.jsonl`, plus NZV/context references derived from Stage 05/06 artifacts.
 
 #### Inputs
 - `inputs["features"]`: Stage 06 feature parquet (passed via readiness/analytics context).
@@ -734,6 +914,19 @@ artifacts/{run_id}/stage_07_5_feature_report/
 #### Stage Definition
 Stage 07.6 converts the statistical feature report into an Arabic executive summary with actionable recommendations using configurable LLM providers, with heuristic fallbacks when credentials are absent. The phase now supports multi-provider cascades (OpenAI → Anthropic → Gemini by default), response caching keyed by prompt hash, and exposes the full `fallback_chain` plus `cache_hit` flags in `metrics.json` for downstream awareness.
 
+#### Implementation Status
+- Status: Implemented
+- Evidence: `phases/07_6_llm_summary/impl.py`, `contracts/nzv/prompt_hints.yml`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- The stage returns `status: PASS` when a provider-generated summary validates, and `status: WARN` when it falls back to heuristic mode (i.e., `provider == "heuristic"`).
+- Exceptions are raised for missing `report.json`, invalid prompt payloads, or repeated validation failures (e.g., recommendations exceeding limits), preventing half-baked outputs.
+
+#### Tests & Observability
+- Tests: `tests/test_p07_6_summary.py`.
+- Observability: `summary.json`, `executive_summary.md`, `recommendations.json`, `metrics.json`, `provenance.json`, `prompts.json`, and structured `logs.jsonl` (including fallback chains and cache markers).
+
 #### Inputs
 - `inputs["report"]`: Stage 07.5 `report.json`.
 - `inputs["kpis"]` (optional): KPI YAML file to prioritize focus.
@@ -786,6 +979,20 @@ artifacts/{run_id}/stage_07_6_llm_summary/
 #### Stage Definition
 Stage 07.7 mines the curated feature set for statistically significant business correlations (numeric-numeric, numeric-categorical, categorical-categorical) aligned with logistics KPIs, producing highlight tables and network visualizations.
 
+#### Implementation Status
+- Status: Implemented
+- Evidence: `phases/07_7_business_correlations/impl.py`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- Returns `status: PASS` for any dataset with rows, even if the resulting correlation lists are sparse or empty after filtering.
+- Returns `status: EMPTY` only when the input dataset has zero rows before sampling begins; STOP is not used.
+- Sampling thresholds (e.g., `MIN_PAIR_N`, `MAX_SAMPLE_ROWS`) log warnings when criteria are unmet, but the stage still emits partial summaries for transparency.
+
+#### Tests & Observability
+- Tests: `tests/test_pipeline_optional_phases.py`, `tests/test_run_timeline.py` (verifies optional phase plumbing and artifact presence).
+- Observability: `business_correlations.json`, `summary.json`, optional `network.json`, and metrics (sample sizes, highlight counts) captured in the return payload.
+
 #### Inputs
 - `inputs["features"]` / `inputs["features_curated"]`: Stage 06 feature dataset.
 - `config["artifacts_root"]`: directory for business correlation outputs.
@@ -799,7 +1006,7 @@ Commercial and operations teams need to understand which feature interactions dr
 - **Sampling & filtering**: Samples large datasets, excludes ID-like or mostly-missing columns, and partitions features into numeric/categorical buckets.
 - **Correlation computation**: Calculates Pearson, eta-squared, and Cramér’s V metrics with minimum sample thresholds, using `ShippingCorrelationEnricher` to append domain semantics.
 - **History tracking**: Updates correlation history to flag new or recurring relationships, allowing trend analysis over time.
-- **Network synthesis**: Generates correlation tables, summaries, and (when Stage 07 network assets are absent) builds a fallback network graph for visualization.
+- **Network synthesis**: Generates correlation tables, summaries, and builds a fallback `network.json` when Stage 07 Readiness has not produced one yet, writing it into `artifacts/{run_id}/stage_07_correlations/` for downstream reuse.
 
 #### Inter-Stage Relationships
 - **Upstream dependencies**: Consumes Stage 06B features and Stage 07 KPI synonym definitions; complements Stage 07 readiness findings.
@@ -833,6 +1040,19 @@ artifacts/{run_id}/stage_07_7_business_correlations/
 
 #### Stage Definition
 Stage 07 KNIME Bridge packages readiness outputs, feature datasets, and semantic catalogs into a KNIME-ready workspace (`phase_07_knime/`) and optionally executes a KNIME workflow, enabling hybrid Python–KNIME analytics.
+
+#### Implementation Status
+- Status: Implemented
+- Evidence: `src/app/services/stage_07_bi_prep_python/impl.py`, `backend/src/app/services/stage_07_knime_bridge/impl.py`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- Mode resolution (`auto` vs. `skip`) governs whether the bridge copies artifacts; missing required outputs (data, layer2 candidate, bridge summary) or analytics errors set the returned status to WARN.
+- The bridge never STOPs the pipeline; instead, errors in optional analytics execution are logged (`python_analytics_error`) while still packaging whatever artifacts succeeded.
+
+#### Tests & Observability
+- Tests: `tests/test_stage07_knime_bridge.py`, `tests/test_pipeline_optional_phases.py`, `tests/test_run_timeline.py`.
+- Observability deliverables: `phase_07_knime/run_meta.json`, `phase_07_knime/profile/*`, mirrored `stage_07_knime_bridge/profile/*`, and `bridge_summary.json` capturing git SHA, gate info, and mode.
 
 #### Inputs
 - `inputs["features"]`: Stage 06 feature parquet.
@@ -896,6 +1116,20 @@ artifacts/{run_id}/stage_07_knime_bridge/profile/
 #### Stage Definition
 Stage 08 applies governed statistical analysis to generate actionable business insights, combining feature readiness outputs, correlation artifacts, TextOps sentiment, and KPI policies into ranked "official" and "exploratory" recommendations.
 
+#### Implementation Status
+- Status: Implemented
+- Evidence: `src/app/services/stage_08_insights/impl.py`, `src/app/services/stage_08_insights/settings.py`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- `_gate_status` evaluates data-health signals, geo coverage, readiness gates, and policy compliance to emit PASS/WARN/STOP via `gate.json`.
+- STOP cases include failing data-health checks (critical missing columns, future timestamps), readiness STOP propagation, or insufficient sample coverage; WARN captures degraded coverage or upstream WARN signals.
+- Gate decisions, along with readiness/TextOps/LLM statuses, are replicated in `diagnostics.json` and the run result, informing Stage 09.
+
+#### Tests & Observability
+- Tests: `tests/test_phase08_insights.py`, `tests/test_p09_utils.py`.
+- Observability: `insights_report.json`, `insights_candidates.json`, `gate.json`, `diagnostics.json`, `data_health.json`, `story_ops.json`, `advanced/*`, and structured `logs.jsonl`.
+
 - **Readiness + analytics aware**: the engine now consumes Stage 07 readiness diagnostics and the Python analytics DQ/forecast summaries. WARN/STOP signals automatically downgrade Stage 08 gate status, inject readiness action cards into `story_ops.json`, and expose `readiness`, `analytics`, `textops`, and `llm_summary` sections inside `diagnostics.json`.
 - **Advanced analytics bundle**: every run writes an `advanced/` bundle alongside the traditional `layer2_*` exports. When KNIME/Python analytics outputs exist, Stage 08 copies `cluster_summary.json`, `anomalies.json`, `correlation_matrix.json`, and `orders_forecast.parquet` into the bundle; otherwise it synthesizes lightweight fallbacks from Stage 06 features and documents the provenance inside `advanced/summary.json`. The returned `result["outputs"]` map now surfaces `cluster_summary`, `anomalies`, `orders_forecast`, and `advanced_summary` paths for Phase 10 and the BI APIs.
 - **NZV propagation**: gate, diagnostics, and insights payloads all embed a shared `nzv_impact` block that lists low-variance columns removed (or protected) plus any high-imbalance features. This mirrors Stage 05/06 metadata so readiness, Stage 07.5/07.6, and Stage 08 consumers reason about the same context-only fields.
@@ -957,6 +1191,19 @@ artifacts/{run_id}/stage_08_insights/
 
 #### Stage Definition
 Stage 09 Business Validation reconciles operational KPIs, SLA contracts, and Stage 08 insights into governed fact tables, action plans, and BI feeds. It ensures business stakeholders receive trusted numbers alongside explicit data-health diagnostics.
+
+#### Implementation Status
+- Status: Implemented
+- Evidence: `phases/09_business_validation/impl.py`, `phases/09_business_validation/models.py`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- `_gate_status` aggregates SLA breaches, coverage shortfalls, and Stage 08 gate signals to emit PASS/WARN/STOP; STOP halts BI publishing and records reasons in `gate.json`.
+- Row guards (via Stage 06 baselines) and KPI readiness checks cause STOP when essential facts are missing; WARN surfaces for degraded coverage or advisory-only insights.
+
+#### Tests & Observability
+- Tests: `tests/test_p09_basic.py`, `tests/test_p09_gate_logic.py`, `tests/test_p09_tiles.py`, `tests/test_p09_outputs_schema.py`, `tests/test_p09_segment_insights.py`.
+- Observability: `bi_feed.parquet`, `validation_report.json`, `gate.json`, `data_health.json`, `ops_actions.json`, `segment_insights.parquet`, `logs.jsonl`, and KPI catalogs hashed via `models.stable_hash`.
 
 #### Inputs
 - `inputs["clean"]`: Stage 06 standardized dataset (defaults to `stage_06_standardize/clean.parquet`).
@@ -1025,6 +1272,19 @@ artifacts/{run_id}/stage_09_business_validation/
 #### Stage Definition
 Stage 09.5 performs exploratory causal inference on business metrics, estimating treatment effects and generating advisory root-cause hints under explicit assumptions. It runs only when enabled via feature flags and configured problem definitions.
 
+#### Implementation Status
+- Status: Implemented
+- Evidence: `src/app/services/stage_09_5_causal_inference/impl.py`, `src/app/services/stage_09_5_causal_inference/config_loader.py`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- Advisory status toggles between `SUPPORTED` and `UNSUPPORTED` depending on overlap checks, estimator success, and refuters; failures are logged but do not STOP the main pipeline.
+- Preconditions (required columns, treatment variance) raise exceptions early to prevent misleading advisory output.
+
+#### Tests & Observability
+- Tests: `tests/test_stage_09_5_causal.py`, `tests/adapters/test_causal_dowhy.py`.
+- Observability artifacts: `causal_summary.json`, `root_cause_hints.json`, `causal_config.yaml`, estimator/refuter JSON files, and structured `logs.jsonl`.
+
 #### Inputs
 - Stage 09 `bi_feed.parquet` (required).
 - Causal config files (`config/causal/*.yml`) specifying treatment, outcome, covariates, and assumptions.
@@ -1074,6 +1334,19 @@ artifacts/{run_id}/stage_09_5_causal/
 
 #### Stage Definition
 Stage 10 packages governed data artifacts—semantic definitions, marts, datasets, and insight feeds—so BI platforms and downstream consumers can ingest trusted logistics metrics without additional transformation.
+
+#### Implementation Status
+- Status: Implemented
+- Evidence: `phases/phase10_bi/impl.py`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- Stage 10 reports `status: READY` after building datasets; it inherits Stage 09 gate context and does not introduce new STOP/WARN logic beyond raising on missing inputs.
+- Column policy filters ensure restricted columns are excluded from exports, logging suppressed fields for governance.
+
+#### Tests & Observability
+- Tests: `tests/test_phase10_bi.py`, `tests/test_p09_utils.py` (shared fixtures verifying Stage 10 consumes Stage 09 outputs).
+- Observability outputs: `marts/*.parquet`, `semantic/metrics.yaml`, `dimensions.json`, `insights.json`, `datasets/orders.parquet`, `meta.json`, `metrics.json`, `logs.jsonl`.
 
 #### Inputs
 - `inputs["bi_feed"]`: Stage 09 `bi_feed.parquet`.
