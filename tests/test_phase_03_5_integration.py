@@ -31,6 +31,10 @@ def test_phase_03_5_integration(tmp_path: Path) -> None:
                 "Great service" if idx % 2 == 0 else "سيء جدا",
                 "شكرا لكم" if idx % 3 == 0 else "التأخير سيء",
                 base_time + timedelta(minutes=idx),
+                "Riyadh _ District _ Street",
+                "+966555000000",
+                "Jeddah _ District _ Street",
+                "+966555111111",
             )
         )
     shipments_frame = pl.DataFrame(
@@ -40,6 +44,10 @@ def test_phase_03_5_integration(tmp_path: Path) -> None:
             "item_desc": pl.Utf8,
             "customer_note": pl.Utf8,
             "created_at": pl.Datetime(time_zone="Asia/Riyadh"),
+            "SENDER ADDRESS": pl.Utf8,
+            "SENDER PHONE": pl.Utf8,
+            "RECEIVER ADDRESS": pl.Utf8,
+            "RECEIVER PHONE": pl.Utf8,
         },
         orient="row",
     )
@@ -97,19 +105,25 @@ def test_phase_03_5_integration(tmp_path: Path) -> None:
     vectors_path = phase_dir / "svd_components.parquet"
     profile_path = phase_dir / "text_profile.json"
     ready_flag = phase_dir / "_READY.OK"
+    structured_path = phase_dir / "structured_fields.parquet"
 
     assert sentiment_path.exists()
     assert vectors_path.exists()
     assert profile_path.exists()
     assert ready_flag.exists()
+    assert structured_path.exists()
 
     sentiment_df = pl.read_parquet(sentiment_path.as_posix())
     vectors_df = pl.read_parquet(vectors_path.as_posix())
+    structured_df = pl.read_parquet(structured_path.as_posix())
 
     assert sentiment_df.height == 10_000
     assert vectors_df.height == 10_000
     assert "AWB_NO" in sentiment_df.columns
     assert "AWB_NO" in vectors_df.columns
+    assert "AWB_NO" in structured_df.columns
+    assert "sender_phone_structured" in structured_df.columns
+    assert "receiver_phone_structured" in structured_df.columns
 
     joined = sentiment_df.join(vectors_df, on="AWB_NO", how="inner")
     assert joined.height == sentiment_df.height

@@ -1,0 +1,14 @@
+{
+  "events": [
+    {
+      "type": "ingestion_latency",
+      "run_id": "debug_stream",
+      "rows": 4375,
+      "minutes_per_1m": 1.558744601872084
+    }
+  ],
+  "extra": {
+    "stage": "stage_01_ingestion",
+    "status": "PASS"
+  }
+}

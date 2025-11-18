@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import re
+from collections import defaultdict
 from datetime import datetime, timezone
 from itertools import combinations
 from pathlib import Path
@@ -399,16 +400,45 @@ def _load_kpi_synonyms() -> Dict[str, List[str]]:
 
 
 def _derive_keep_features(decision_entries: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> List[str]:
-    excluded: Set[str] = set()
-    for entry in decision_entries:
-        features = entry.get("features")
-        if isinstance(features, list):
-            excluded.update(str(item) for item in features if isinstance(item, str))
-        for key in ("stop_features", "warn_features"):
-            vals = entry.get(key)
-            if isinstance(vals, list):
-                excluded.update(str(item) for item in vals if isinstance(item, str))
-    return [col for col in columns if col not in excluded]
+    # Features are only flagged for review; automated dropping is avoided to keep the dataset intact.
+    return list(columns)
+
+
+def _build_feature_flags(
+    corr_pairs: Sequence[Mapping[str, Any]],
+    psi_warn: Sequence[str],
+    psi_stop: Sequence[str],
+) -> List[Dict[str, Any]]:
+    flags: List[Dict[str, Any]] = []
+    confounded: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for pair in corr_pairs:
+        f1 = pair.get("f1")
+        f2 = pair.get("f2")
+        r_value = pair.get("r")
+        if isinstance(f1, str) and isinstance(f2, str):
+            confounded[f1].append({"paired_with": f2, "r": r_value})
+            confounded[f2].append({"paired_with": f1, "r": r_value})
+    for feature, details in confounded.items():
+        flags.append(
+            {
+                "feature": feature,
+                "flag": "confounded_risk",
+                "pairs": len(details),
+                "details": details[:5],
+            }
+        )
+
+    unstable_seen: Set[str] = set()
+    for feature in psi_stop:
+        if not isinstance(feature, str):
+            continue
+        unstable_seen.add(feature)
+        flags.append({"feature": feature, "flag": "unstable_feature", "severity": "STOP", "source": "psi"})
+    for feature in psi_warn:
+        if not isinstance(feature, str) or feature in unstable_seen:
+            continue
+        flags.append({"feature": feature, "flag": "unstable_feature", "severity": "WARN", "source": "psi"})
+    return flags
 
 
 def _kpi_fallback(
@@ -1510,6 +1540,10 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
     }
     (out_dir / "redundancy.json").write_text(json.dumps(redundancy_payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    feature_flags = _build_feature_flags(corr_flagged, psi_warn_features, psi_stop_features)
+    feature_flags_path = out_dir / "feature_flags.json"
+    feature_flags_path.write_text(json.dumps(feature_flags, ensure_ascii=False, indent=2), encoding="utf-8")
+
     (out_dir / "correlations.json").write_text(json.dumps(corr_top, ensure_ascii=False, indent=2), encoding="utf-8")
     (out_dir / "correlations_datetime.json").write_text(
         json.dumps(corr_time_top, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -1533,6 +1567,7 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
                 "warn": len(psi_warn_features),
                 "stop": len(psi_stop_features),
             },
+            {"rule": "feature_flags", "count": len(feature_flags)},
             {"rule": "gate", "status": gate_status, "reasons": gate_reasons},
         ]
     )
@@ -1644,6 +1679,7 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         "decision_manifest": decision_manifest_path.as_posix(),
         "diagnostics": diagnostics_path.as_posix(),
         "network": network_path.as_posix(),
+        "feature_flags": feature_flags_path.as_posix(),
     }
     if layer1_catalog_paths:
         outputs.update(layer1_catalog_paths)

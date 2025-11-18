@@ -234,6 +234,11 @@ def test_stage_07_6_fallback_outputs(tmp_path: Path) -> None:
     assert any("llm_plan" in line for line in lines)
     assert any("nzv_prompt_instruction_loaded" in line for line in lines)
 
+    health_path = artifacts_root / "system_health.json"
+    assert health_path.exists()
+    health_payload = json.loads(health_path.read_text(encoding="utf-8"))
+    assert any(event.get("type") == "llm_cost" for event in health_payload.get("events", []))
+
 
 def test_stage_07_6_handles_empty_focus_scope(tmp_path: Path) -> None:
     run_id = "focusfallback"

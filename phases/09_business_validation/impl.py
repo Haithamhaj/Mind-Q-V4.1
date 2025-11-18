@@ -3,16 +3,20 @@ from __future__ import annotations
 import json
 import time
 import math
+import pickle
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 import duckdb  # type: ignore
 import polars as pl  # type: ignore
+import yaml  # type: ignore
 from zoneinfo import ZoneInfo
 
 from shared import sla as sla_utils  # type: ignore
+from backend.src.app.services.system_health import SystemHealth  # type: ignore
 
 from . import io, models
 
@@ -38,6 +42,91 @@ OPS_ALIAS_CANDIDATES: Dict[str, List[str]] = {
 }
 
 OPS_METRIC_KEYS = {"sla_pct", "rto_pct", "lead_time_p50", "lead_time_p90"}
+MODEL_CATALOG_DEFAULT = PROJECT_ROOT / "contracts" / "models" / "models_catalog.yml"
+
+
+@dataclass
+class ModelCatalogEntry:
+    key: str
+    target: str
+    features: Optional[List[str]]
+    model: Any
+
+
+def _load_model_from_catalog(model_key: str, catalog_path: Optional[Path] = None) -> Optional[ModelCatalogEntry]:
+    path = catalog_path or MODEL_CATALOG_DEFAULT
+    try:
+        catalog_data = yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else None
+    except Exception:
+        return None
+    if not isinstance(catalog_data, Mapping):
+        return None
+    models_section = catalog_data.get("models")
+    if not isinstance(models_section, Mapping):
+        return None
+    entry_raw = models_section.get(model_key)
+    if not isinstance(entry_raw, Mapping):
+        return None
+    model_path_raw = entry_raw.get("path")
+    target = entry_raw.get("target")
+    if not isinstance(model_path_raw, str) or not isinstance(target, str):
+        return None
+    resolved_path = Path(model_path_raw).expanduser()
+    if not resolved_path.is_absolute():
+        resolved_path = (PROJECT_ROOT / resolved_path).resolve()
+    if not resolved_path.exists():
+        return None
+    try:
+        with resolved_path.open("rb") as handle:
+            model = pickle.load(handle)
+    except Exception:
+        return None
+    features_value = entry_raw.get("features")
+    features_list = [str(name) for name in features_value] if isinstance(features_value, (list, tuple)) else None
+    return ModelCatalogEntry(key=model_key, target=target, features=features_list, model=model)
+
+
+def _predict_scores(entry: ModelCatalogEntry, frame: pl.DataFrame) -> Optional[List[float]]:
+    try:
+        import pandas as pd  # type: ignore
+    except Exception:
+        return None
+
+    if entry.features:
+        missing = [col for col in entry.features if col not in frame.columns]
+        if missing:
+            return None
+        feature_frame = frame.select(entry.features)
+    else:
+        numeric_cols = [
+            col
+            for col, dtype in zip(frame.columns, frame.dtypes)
+            if dtype in {pl.Float64, pl.Float32, pl.Int64, pl.Int32, pl.UInt64, pl.UInt32}
+        ]
+        if not numeric_cols:
+            return None
+        feature_frame = frame.select(numeric_cols)
+
+    try:
+        pandas_df = feature_frame.to_pandas()  # type: ignore[attr-defined]
+    except Exception:
+        return None
+
+    model = entry.model
+    predictions: Optional[List[float]] = None
+    if hasattr(model, "predict_proba"):
+        try:
+            proba = model.predict_proba(pandas_df)
+            predictions = [float(row[-1]) for row in proba]
+        except Exception:
+            predictions = None
+    if predictions is None and hasattr(model, "predict"):
+        try:
+            raw = model.predict(pandas_df)
+            predictions = [float(value) for value in raw]
+        except Exception:
+            predictions = None
+    return predictions
 
 SLA_LIMIT_HOURS = 48.0
 RTO_PATTERN = "RTO|RETURN"
@@ -1269,6 +1358,9 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     start = time.time()
     config = dict(config or {})
     artifacts_root = Path(config.get("artifacts_root", "artifacts")).expanduser().resolve()
+    health = SystemHealth(artifacts_root=artifacts_root)
+    models_catalog_override = config.get("models_catalog")
+    catalog_path = Path(str(models_catalog_override)).expanduser() if models_catalog_override else None
     out_dir = artifacts_root / run_id / OUT_STAGE
     out_dir.mkdir(parents=True, exist_ok=True)
     nzv_lookup, nzv_summary_payload, stage05_path, stage06_path, stage05_columns, stage06_columns = _build_nzv_metadata(
@@ -1347,6 +1439,48 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     entity_ids = _entity_series(clean_df)
     clean_df = clean_df.with_columns(entity_ids.alias("entity_id"))
     clean_df = clean_df.with_columns(_extract_ts(clean_df))
+    model_predictions_path: Optional[Path] = None
+    model_logs: List[Dict[str, Any]] = []
+    model_warning: Optional[str] = None
+    model_entry = _load_model_from_catalog("sla_breach", catalog_path)
+    if model_entry:
+        scores = _predict_scores(model_entry, clean_df)
+        if scores:
+            score_col = f"{model_entry.key}_score"
+            clean_df = clean_df.with_columns(pl.Series(score_col, scores))
+            prediction_payload = {
+                "run_id": run_id,
+                "model": model_entry.key,
+                "target": model_entry.target,
+                "score_column": score_col,
+                "n_rows": len(scores),
+                "generated_at": datetime.now(TZ).isoformat(),
+            }
+            model_predictions_path = out_dir / f"{model_entry.key}_predictions.json"
+            io.write_json_sorted(prediction_payload, model_predictions_path)
+            model_logs.append({"event": "model_prediction", "model": model_entry.key, "score_column": score_col})
+        else:
+            model_warning = "sla_breach model could not produce predictions; skipping ML scores"
+            model_logs.append(
+                {
+                    "event": "model_prediction_skipped",
+                    "model": model_entry.key,
+                    "reason": "no_scores",
+                    "level": "WARN",
+                    "message": model_warning,
+                }
+            )
+    else:
+        model_warning = "sla_breach model not available, skipping ML scores"
+        model_logs.append(
+            {
+                "event": "model_prediction_skipped",
+                "model": "sla_breach",
+                "reason": "missing_catalog_entry",
+                "level": "WARN",
+                "message": model_warning,
+            }
+        )
     present_columns = set(clean_df.columns)
     suppressed_columns = sorted(
         name
@@ -1480,6 +1614,8 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     if sla_bundle.manifest_path is None and not sla_bundle.entries:
         warnings.append("sla_manifest_missing")
     warnings.extend(f"sla_note::{note}" for note in sla_bundle.notes)
+    if model_warning:
+        warnings.append(model_warning)
 
     gate_status, gate_reasons = _gate_status(
         kpi_deltas,
@@ -1611,7 +1747,7 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
             "event": "phase_end",
             "duration_sec": round(time.time() - start, 4),
         },
-    ]
+    ] + model_logs
     io.write_jsonl(logs, out_dir / "logs.jsonl")
 
     io.write_json_sorted(
@@ -1650,6 +1786,14 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
         "gate": (out_dir / "gate.json").as_posix(),
         "diagnostics": (out_dir / "diagnostics.json").as_posix(),
     }
+    if model_predictions_path:
+        outputs["model_predictions"] = model_predictions_path.as_posix()
+
+    duration = time.time() - start
+    bi_rows = int(bi_feed_df.shape[0])
+    denom = max(bi_rows / 1_000_000.0, 1e-6)
+    health.log_ingestion_latency(run_id, bi_rows, (duration / 60.0) / denom)
+    health.emit_report(extra={"stage": OUT_STAGE, "status": gate_status})
 
     return {
         "run_id": run_id,

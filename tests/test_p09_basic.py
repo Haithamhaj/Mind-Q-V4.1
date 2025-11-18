@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 import json
+import pickle
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
+import yaml
 
 pl = pytest.importorskip("polars")  # type: ignore
 
 from tests.p09_utils import load_impl, write_stage_artifacts
+
+
+class CatalogDummyModel:
+    def predict_proba(self, X):
+        return [[0.0, 0.7] for _ in range(len(X))]
 
 
 def test_p09_basic(tmp_path: Path) -> None:
@@ -57,6 +64,10 @@ def test_p09_basic(tmp_path: Path) -> None:
     assert "cod_rate" in targets
     assert (out_dir / "gate.json").exists()
     assert (out_dir / "diagnostics.json").exists()
+    health_path = artifacts_root / "system_health.json"
+    assert health_path.exists()
+    health_payload = json.loads(health_path.read_text(encoding="utf-8"))
+    assert any(event.get("type") == "ingestion_latency" for event in health_payload.get("events", []))
 
 
 def test_p09_warn_on_low_signal(tmp_path: Path) -> None:
@@ -154,3 +165,63 @@ def test_p09_reports_nzv_impact(tmp_path: Path) -> None:
     assert gate_payload.get("nzv_impact", {}).get("low_variance_ignored_columns")
     diagnostics_payload = json.loads((out_dir / "diagnostics.json").read_text(encoding="utf-8"))
     assert diagnostics_payload.get("nzv_impact", {}).get("high_imbalance_included_columns")
+
+
+def test_p09_inference_uses_model_catalog(tmp_path: Path) -> None:
+    run_id = "run_model"
+    artifacts_root = write_stage_artifacts(tmp_path, run_id, n_rows=4)
+    model_path = tmp_path / "dummy_model.pkl"
+
+    with model_path.open("wb") as handle:
+        pickle.dump(CatalogDummyModel(), handle)
+
+    catalog_path = tmp_path / "models_catalog.yml"
+    catalog_payload = {
+        "models": {
+            "sla_breach": {
+                "version": "vtest",
+                "path": model_path.as_posix(),
+                "target": "will_breach_sla_4h",
+                "features": ["COD_AMOUNT"],
+            }
+        }
+    }
+    catalog_path.write_text(yaml.safe_dump(catalog_payload), encoding="utf-8")
+
+    impl = load_impl()
+    result = impl.run(
+        run_id,
+        {},
+        {"artifacts_root": artifacts_root.as_posix(), "models_catalog": catalog_path.as_posix()},
+    )
+    out_dir = artifacts_root / run_id / "stage_09_business_validation"
+    predictions_path = out_dir / "sla_breach_predictions.json"
+    assert predictions_path.exists()
+    predictions_payload = json.loads(predictions_path.read_text(encoding="utf-8"))
+    assert predictions_payload["model"] == "sla_breach"
+    feed_path = out_dir / "bi_feed.parquet"
+    feed_df = pl.read_parquet(feed_path.as_posix())
+    assert "sla_breach_score" in feed_df.columns
+    assert "model_predictions" in result["outputs"]
+
+
+def test_p09_missing_model_catalog_warns_and_skips_scores(tmp_path: Path) -> None:
+    run_id = "run_model_missing"
+    artifacts_root = write_stage_artifacts(tmp_path, run_id, n_rows=3)
+    catalog_path = tmp_path / "missing_catalog.yml"
+    impl = load_impl()
+    result = impl.run(
+        run_id,
+        {},
+        {"artifacts_root": artifacts_root.as_posix(), "models_catalog": catalog_path.as_posix()},
+    )
+    assert result["status"] == "PASS"
+    out_dir = artifacts_root / run_id / "stage_09_business_validation"
+    feed_path = out_dir / "bi_feed.parquet"
+    feed_df = pl.read_parquet(feed_path.as_posix())
+    assert "sla_breach_score" not in feed_df.columns
+    predictions_path = out_dir / "sla_breach_predictions.json"
+    assert not predictions_path.exists()
+    validation = json.loads((out_dir / "validation_report.json").read_text(encoding="utf-8"))
+    reasons = validation.get("gate", {}).get("reasons", [])
+    assert any("sla_breach model not available" in reason for reason in reasons)

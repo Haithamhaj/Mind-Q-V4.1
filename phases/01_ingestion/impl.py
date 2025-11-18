@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import os
 import re
+import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Set
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Set
 
 try:  # pragma: no cover - optional
     import polars as pl  # type: ignore
@@ -14,6 +16,7 @@ except Exception:  # pragma: no cover
     pl = None  # type: ignore
 
 from shared import sla as sla_utils  # type: ignore
+from backend.src.app.services.system_health import SystemHealth  # type: ignore
 
 # Fallback pandas import is deferred until needed
 
@@ -28,6 +31,9 @@ IDENTIFIER_PATTERN = re.compile(
     re.IGNORECASE,
 )
 SCIENTIFIC_TOKEN = re.compile(r"^[+-]?\d+(?:\.\d+)?[eE][+-]?\d+$")
+STREAMING_ENV_FLAG = "MINDQ_ENABLE_STREAMING_INGESTION"
+STREAMING_SUFFIXES = {".csv", ".tsv", ".txt"}
+PHASE_ID = "01_ingestion"
 
 
 def _ensure_dir(path: Path) -> None:
@@ -63,6 +69,85 @@ def _schema_hash(columns: List[str]) -> str:
 
 def _detect_phone_columns(columns: List[str]) -> PhoneColumns:
     return [col for col in columns if PHONE_PATTERN.search(col)]
+
+
+def _streaming_enabled() -> bool:
+    value = os.getenv(STREAMING_ENV_FLAG)
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _streaming_schema(path: Path, separator: str = ",") -> Optional[Dict[str, Any]]:
+    if pl is None:
+        return None
+    try:
+        with path.open("r", encoding="utf-8", errors="ignore") as handle:
+            reader = csv.reader(handle, delimiter=separator)
+            header = next(reader, None)
+    except Exception:
+        return None
+    if not header:
+        return None
+    schema = {}
+    for name in header:
+        if not name:
+            continue
+        schema[name] = pl.Utf8  # type: ignore[attr-defined]
+    return schema
+
+
+def _ingest_streaming(files: Sequence[Path], target_path: Path) -> Tuple[Optional[Path], Optional[str]]:
+    if pl is None:
+        return None, None
+    sources = [path for path in files if path.suffix.lower() in STREAMING_SUFFIXES]
+    if not sources:
+        return None, None
+    lazy_frames = []
+    error_detail: Optional[str] = None
+    for path in sources:
+        try:
+            separator = "\t" if path.suffix.lower() == ".tsv" else ","
+            schema_overrides = _streaming_schema(path, separator=separator)
+            options: Dict[str, Any] = {}
+            if path.suffix.lower() == ".tsv":
+                options["separator"] = "\t"
+            if schema_overrides:
+                options["schema_overrides"] = schema_overrides
+            lazy_frames.append(pl.scan_csv(path.as_posix(), **options))  # type: ignore[call-arg]
+        except Exception as exc:
+            error_detail = f"{path.name}:{exc}"
+            lazy_frames = []
+            break
+    if not lazy_frames:
+        return None, error_detail
+    try:
+        lazy = lazy_frames[0] if len(lazy_frames) == 1 else pl.concat(lazy_frames)  # type: ignore[arg-type]
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        lazy.sink_parquet(target_path.as_posix())  # type: ignore[attr-defined]
+    except Exception as exc:
+        return None, f"sink_error:{exc}"
+    return target_path, None
+
+
+def _log_record(run_id: str, level: str, message: str, event: str = "streaming_ingestion") -> Dict[str, Any]:
+    return {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "phase": PHASE_ID,
+        "run_id": run_id,
+        "event": event,
+        "level": level,
+        "message": message,
+    }
+
+
+def _write_logs(records: List[Dict[str, Any]], path: Path) -> None:
+    if not records:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for record in records:
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def _coerce_phone_columns(df: Any, columns: PhoneColumns) -> Any:
@@ -473,12 +558,15 @@ def _columns(df: Any) -> List[str]:
 
 
 def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> StageOutputs:  # type: ignore[override]
+    start_ts = time.perf_counter()
     stage_id = "stage_01_ingestion"
     cfg_any: Dict[str, Any] = config or {}
     ingest_cfg: Dict[str, Any] = cfg_any.get("ingestion") or {}
     artifacts_root = Path(cfg_any.get("artifacts_root", "artifacts"))
+    health = SystemHealth(artifacts_root=artifacts_root)
     out_dir = artifacts_root / run_id / stage_id
     _ensure_dir(out_dir)
+    logs: List[Dict[str, Any]] = []
 
     data_files_any = inputs.get("data_files")
     files_any = data_files_any if data_files_any is not None else inputs.get("files")
@@ -531,7 +619,7 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> StageOut
             (out_dir / "shape_mismatch.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
             (out_dir / "source_meta.json").write_text(json.dumps({"files": source_meta}, ensure_ascii=False, indent=2), encoding="utf-8")
             (out_dir / "row_meta.json").write_text(json.dumps({"phase": "01", "n_rows": 0, "source": candidate.as_posix()}, ensure_ascii=False, indent=2), encoding="utf-8")
-            return {
+            result = {
                 "run_id": run_id,
                 "status": "STOP",
                 "outputs": {},
@@ -539,7 +627,22 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> StageOut
                 "logs_uri": str(out_dir / "logs.jsonl"),
                 "stops": ["input_file_too_small"],
             }
+            _write_logs(logs, out_dir / "logs.jsonl")
+            return result
         resolved_files.append(candidate)
+
+    streaming_path: Optional[Path] = None
+    if resolved_files and _streaming_enabled():
+        streaming_path, streaming_error = _ingest_streaming(resolved_files, out_dir / "raw_streaming.parquet")
+        if streaming_error:
+            logs.append(
+                _log_record(
+                    run_id,
+                    "WARN",
+                    f"streaming ingestion failed, falling back to legacy eager path: {streaming_error}",
+                )
+            )
+            streaming_path = None
 
     if sla_files_any:
         sla_storage_dir = out_dir / "sla_raw"
@@ -626,7 +729,12 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> StageOut
         (out_dir / "shape_mismatch.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         (out_dir / "source_meta.json").write_text(json.dumps({"files": source_meta}, ensure_ascii=False, indent=2), encoding="utf-8")
         (out_dir / "row_meta.json").write_text(json.dumps({"phase": "01", "n_rows": n_rows, "source": resolved_files[0].as_posix()}, ensure_ascii=False, indent=2), encoding="utf-8")
-        return {
+        elapsed = time.perf_counter() - start_ts
+        minutes = elapsed / 60.0
+        denom = max(n_rows / 1_000_000.0, 1e-6)
+        health.log_ingestion_latency(run_id, n_rows, minutes / denom)
+        health.emit_report(extra={"stage": stage_id, "status": "STOP"})
+        result = {
             "run_id": run_id,
             "status": "STOP",
             "outputs": {},
@@ -634,6 +742,8 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> StageOut
             "logs_uri": str(out_dir / "logs.jsonl"),
             "stops": ["too_few_rows"],
         }
+        _write_logs(logs, out_dir / "logs.jsonl")
+        return result
 
     columns = _columns(combined)
     phone_columns = _detect_phone_columns(columns)
@@ -692,6 +802,8 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> StageOut
         meta_payload["sla_terms"] = sum(len(entry.get("terms", [])) for entry in sla_manifest_entries)
         if sla_manifest_path is not None:
             meta_payload["sla_manifest"] = sla_manifest_path.as_posix()
+    if streaming_path is not None:
+        meta_payload["raw_streaming"] = streaming_path.as_posix()
     (out_dir / "meta_ingestion.json").write_text(json.dumps(meta_payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     report_payload = {
@@ -707,6 +819,7 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> StageOut
         missing_terms = sum(1 for entry in sla_manifest_entries if not entry.get("terms"))
         if missing_terms:
             report_payload["issues"].append(f"sla_terms_missing::{missing_terms}")
+    report_payload["duration_s"] = time.perf_counter() - start_ts
     (out_dir / "ingestion_report.json").write_text(json.dumps(report_payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     (out_dir / "row_meta.json").write_text(
@@ -746,14 +859,24 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> StageOut
         outputs["sla_manifest"] = sla_manifest_path.as_posix()
     if sla_bundle_path is not None:
         outputs["sla_bundle"] = sla_bundle_path.as_posix()
+    if streaming_path is not None:
+        outputs["raw_streaming"] = streaming_path.as_posix()
 
-    return {
+    elapsed = time.perf_counter() - start_ts
+    minutes = elapsed / 60.0
+    denom = max(n_rows / 1_000_000.0, 1e-6)
+    health.log_ingestion_latency(run_id, n_rows, minutes / denom)
+    health.emit_report(extra={"stage": stage_id, "status": "PASS"})
+
+    result = {
         "run_id": run_id,
         "status": "PASS",
         "outputs": outputs,
         "metrics": {"n_rows": n_rows, "n_cols": n_cols},
         "logs_uri": (out_dir / "logs.jsonl").as_posix(),
     }
+    _write_logs(logs, out_dir / "logs.jsonl")
+    return result
 
 
 __all__ = ["run"]

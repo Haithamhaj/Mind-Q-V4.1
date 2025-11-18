@@ -1,0 +1,943 @@
+[
+  {
+    "column": "AWB_NO",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 4375,
+    "sample_values": [
+      "1179890252",
+      "2077601921",
+      "2094116876"
+    ]
+  },
+  {
+    "column": "PICKUP_DATE",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 1,
+    "sample_values": [
+      "0000-00-00",
+      "0000-00-00",
+      "0000-00-00"
+    ]
+  },
+  {
+    "column": "PICKUP_TIME",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 1,
+    "sample_values": [
+      "0:00:00",
+      "0:00:00",
+      "0:00:00"
+    ]
+  },
+  {
+    "column": "ENTRY_DATE",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 14,
+    "sample_values": [
+      "10/12/2025",
+      "10/9/2025",
+      "10/9/2025"
+    ]
+  },
+  {
+    "column": "entry_TIME",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 1,
+    "sample_values": [
+      "0:00:00",
+      "0:00:00",
+      "0:00:00"
+    ]
+  },
+  {
+    "column": "Account_NO",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 5,
+    "sample_values": [
+      "168889000000.0",
+      "168889000000.0",
+      "168889000000.0"
+    ]
+  },
+  {
+    "column": "REFRENCE No",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 4363,
+    "sample_values": [
+      "1179890252",
+      "2077601921",
+      "2094116876"
+    ]
+  },
+  {
+    "column": "SHIPPER REF No",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 3150,
+    "missing": 1225,
+    "missing_pct": 0.28,
+    "blank": 0,
+    "unique": 3148,
+    "sample_values": [
+      "0004-256",
+      "0004-249",
+      "0004-252"
+    ]
+  },
+  {
+    "column": "D ATTEMPT",
+    "dtype": "int64",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 15,
+    "sample_values": [
+      "0",
+      "0",
+      "0"
+    ]
+  },
+  {
+    "column": "D ATTEMPT Date",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 2366,
+    "missing": 2009,
+    "missing_pct": 0.4592,
+    "blank": 0,
+    "unique": 1554,
+    "sample_values": [
+      "10/11/2025 11:39",
+      "10/15/2025 9:11",
+      "10/14/2025 9:26"
+    ]
+  },
+  {
+    "column": "CALL ATTEMPT",
+    "dtype": "int64",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 1,
+    "sample_values": [
+      "0",
+      "0",
+      "0"
+    ]
+  },
+  {
+    "column": "ORIGIN",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 3,
+    "sample_values": [
+      "Riyadh",
+      "Riyadh",
+      "Riyadh"
+    ]
+  },
+  {
+    "column": "ORIGIN_HUB",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 1,
+    "sample_values": [
+      "Saudi Arabia",
+      "Saudi Arabia",
+      "Saudi Arabia"
+    ]
+  },
+  {
+    "column": "DESTINATION",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 259,
+    "sample_values": [
+      "Riyadh",
+      "Riyadh",
+      "JEDDAH"
+    ]
+  },
+  {
+    "column": "DESTINATION_HUB",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 10,
+    "sample_values": [
+      "Saudi Arabia",
+      "Saudi Arabia",
+      "Saudi Arabia"
+    ]
+  },
+  {
+    "column": "SENDER NAME",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 361,
+    "sample_values": [
+      "abunayefhoney",
+      "abunayefhoney",
+      "abunayefhoney"
+    ]
+  },
+  {
+    "column": "SENDER ADDRESS",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 251,
+    "sample_values": [
+      "الرياض _ حي المشاعل _ شارع الدفرة _ مستودع رقم 1",
+      "الرياض _ حي المشاعل _ شارع الدفرة _ مستودع رقم 1",
+      "الرياض _ حي المشاعل _ شارع الدفرة _ مستودع رقم 1"
+    ]
+  },
+  {
+    "column": "SENDER PHONE",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 279,
+    "sample_values": [
+      "966920000000.0",
+      "966920000000.0",
+      "966920000000.0"
+    ]
+  },
+  {
+    "column": "RECEIVER PHONE",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 1042,
+    "sample_values": [
+      "555143218.0",
+      "556440229.0",
+      "556440229.0"
+    ]
+  },
+  {
+    "column": "RECEIVER NAME",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 3742,
+    "sample_values": [
+      "مؤسسة كتلة العضلات الغذائية",
+      "شركة النهدي الطبية",
+      "شركة النهدي الطبية"
+    ]
+  },
+  {
+    "column": "RECEIVER MODE",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 2,
+    "sample_values": [
+      "CC",
+      "CC",
+      "CC"
+    ]
+  },
+  {
+    "column": "Receive_Inbound",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 1,
+    "sample_values": [
+      "0000-00-00 00:00:00",
+      "0000-00-00 00:00:00",
+      "0000-00-00 00:00:00"
+    ]
+  },
+  {
+    "column": "STATUS",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 11,
+    "sample_values": [
+      "Booked-Pickup Scheduled",
+      "Booked-Pickup Scheduled",
+      "Booked-Pickup Scheduled"
+    ]
+  },
+  {
+    "column": "COD_AMOUNT",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 54,
+    "sample_values": [
+      "0.0",
+      "0.0",
+      "0.0"
+    ]
+  },
+  {
+    "column": "PAY INVOICE STATUS",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 1,
+    "sample_values": [
+      "NO",
+      "NO",
+      "NO"
+    ]
+  },
+  {
+    "column": "SUB_STATUS",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "ON HOLD",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 1,
+    "sample_values": [
+      "NO",
+      "NO",
+      "NO"
+    ]
+  },
+  {
+    "column": "ON HOLD DATE",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 1,
+    "sample_values": [
+      "0000-00-00 00:00:00",
+      "0000-00-00 00:00:00",
+      "0000-00-00 00:00:00"
+    ]
+  },
+  {
+    "column": "ON HOLD REASON",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "SHELVE No",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "SCHEDULE DATE",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 345,
+    "missing": 4030,
+    "missing_pct": 0.9211428571428572,
+    "blank": 0,
+    "unique": 1,
+    "sample_values": [
+      "0000-00-00 00:00:00",
+      "0000-00-00 00:00:00",
+      "0000-00-00 00:00:00"
+    ]
+  },
+  {
+    "column": "ON TIME SLOT",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "AREA STREET",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 2732,
+    "missing": 1643,
+    "missing_pct": 0.3755428571428571,
+    "blank": 0,
+    "unique": 1599,
+    "sample_values": [
+      "مروج الامير",
+      "الامواج",
+      "المروج"
+    ]
+  },
+  {
+    "column": "ON AREA",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "LATITUDE",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 522,
+    "missing": 3853,
+    "missing_pct": 0.8806857142857143,
+    "blank": 0,
+    "unique": 464,
+    "sample_values": [
+      "25.39225499",
+      "26.36807585",
+      "18.31744243"
+    ]
+  },
+  {
+    "column": "LONGITUDE",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 522,
+    "missing": 3853,
+    "missing_pct": 0.8806857142857143,
+    "blank": 0,
+    "unique": 464,
+    "sample_values": [
+      "49.7197988",
+      "50.1030098",
+      "42.62717043"
+    ]
+  },
+  {
+    "column": "DELIVER DATE",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 2959,
+    "missing": 1416,
+    "missing_pct": 0.32365714285714287,
+    "blank": 0,
+    "unique": 1130,
+    "sample_values": [
+      "10/12/2025 6:47",
+      "10/14/2025 10:24",
+      "10/15/2025 6:58"
+    ]
+  },
+  {
+    "column": "ON PIECES",
+    "dtype": "int64",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 5,
+    "sample_values": [
+      "1",
+      "1",
+      "1"
+    ]
+  },
+  {
+    "column": "ON WEIGHT",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 87,
+    "sample_values": [
+      "0.0",
+      "0.0",
+      "0.0"
+    ]
+  },
+  {
+    "column": "DESCRIPTION",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 3048,
+    "missing": 1327,
+    "missing_pct": 0.3033142857142857,
+    "blank": 0,
+    "unique": 959,
+    "sample_values": [
+      "خلطة السعادة (الاصلية) - نص كيلو/ Qty:10,عسل السدر الجبلي 250جرام/ Qty:3,فول سوداني بالعسل 250 جرام/ Qty:6,العسل البري بالمكسرات 500 جرام/ Qty:4",
+      "خلطة السعادة (الاصلية) - نص كيلو/ Qty:360",
+      "خلطة السعادة (الاصلية) - نص كيلو/ Qty:360"
+    ]
+  },
+  {
+    "column": "FORWARD COMPANY",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 3993,
+    "missing": 382,
+    "missing_pct": 0.08731428571428572,
+    "blank": 0,
+    "unique": 10,
+    "sample_values": [
+      "SMSA v2",
+      "SMSA v2",
+      "SMSA v2"
+    ]
+  },
+  {
+    "column": "DRIVER CODE",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "DRIVER NAME",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "3PLSTATUS",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 269,
+    "missing": 4106,
+    "missing_pct": 0.9385142857142857,
+    "blank": 0,
+    "unique": 5,
+    "sample_values": [
+      "Out for Delivery - جاري التوصيل",
+      "In Transit - في المرحلة الانتقالية",
+      "In Transit - في المرحلة الانتقالية"
+    ]
+  },
+  {
+    "column": "Sub_Category_Details",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "Sub_Category_Comment",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "3PL Last Status",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 2658,
+    "missing": 1717,
+    "missing_pct": 0.39245714285714284,
+    "blank": 0,
+    "unique": 851,
+    "sample_values": [
+      "Delivered",
+      "Delivered",
+      "Out for Delivery"
+    ]
+  },
+  {
+    "column": "FORWARD AWB No",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 3993,
+    "missing": 382,
+    "missing_pct": 0.08731428571428572,
+    "blank": 0,
+    "unique": 2459,
+    "sample_values": [
+      "2.91521E+11",
+      "2.91521E+11",
+      "2.91522E+11"
+    ]
+  },
+  {
+    "column": "Transaction Number",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "Payable Status",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 1,
+    "sample_values": [
+      "NO",
+      "NO",
+      "NO"
+    ]
+  },
+  {
+    "column": "Recievable Status",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 1,
+    "sample_values": [
+      "NO",
+      "NO",
+      "NO"
+    ]
+  },
+  {
+    "column": "LAST UPDATE CITY",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 1,
+    "missing": 4374,
+    "missing_pct": 0.9997714285714285,
+    "blank": 0,
+    "unique": 1,
+    "sample_values": [
+      "Al Wasqah"
+    ]
+  },
+  {
+    "column": "Recievable Invoice No",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "Area Name",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "Esnad Fowarded AWB",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "Volumetric Weight",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 97,
+    "sample_values": [
+      "0.0",
+      "0.0",
+      "0.0"
+    ]
+  },
+  {
+    "column": "Diamention",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 9,
+    "missing": 4366,
+    "missing_pct": 0.9979428571428571,
+    "blank": 0,
+    "unique": 9,
+    "sample_values": [
+      "34*24*14",
+      "34*25*15",
+      "15*34*28"
+    ]
+  },
+  {
+    "column": "ROUTE_CODE",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "Super ID",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 4,
+    "sample_values": [
+      "1772",
+      "1772",
+      "1772"
+    ]
+  },
+  {
+    "column": "System_Name",
+    "dtype": "string",
+    "row_count": 4375,
+    "non_null": 4375,
+    "missing": 0,
+    "missing_pct": 0.0,
+    "blank": 0,
+    "unique": 4,
+    "sample_values": [
+      "محمد عزت",
+      "محمد عزت",
+      "محمد عزت"
+    ]
+  },
+  {
+    "column": "Unnamed: 60",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "Unnamed: 61",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "Unnamed: 62",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "Unnamed: 63",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "Unnamed: 64",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "Unnamed: 65",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "Unnamed: 66",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "Unnamed: 67",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  },
+  {
+    "column": "Unnamed: 68",
+    "dtype": "float64",
+    "row_count": 4375,
+    "non_null": 0,
+    "missing": 4375,
+    "missing_pct": 1.0,
+    "blank": 0,
+    "unique": 0,
+    "sample_values": []
+  }
+]

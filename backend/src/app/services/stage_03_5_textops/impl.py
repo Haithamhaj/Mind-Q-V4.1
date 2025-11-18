@@ -4,6 +4,7 @@ import json
 import math
 import os
 import random
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
@@ -46,6 +47,13 @@ WARN = "WARN"
 PASS = "PASS"
 
 FLAG_TRUE_VALUES = {"1", "true", "yes", "on", "t", "y"}
+ADDRESS_SPLIT_RE = re.compile(r"[,\n;|]+|\s+_\s+|\s+-\s+|\s+/\s+")
+SENDER_ADDRESS_KEYS: Tuple[str, ...] = ("sender address", "shipper address", "pickup address", "origin address")
+RECEIVER_ADDRESS_KEYS: Tuple[str, ...] = ("receiver address", "delivery address", "consignee address", "destination address")
+SENDER_PHONE_KEYS: Tuple[str, ...] = ("sender phone", "shipper phone", "pickup phone", "sender contact")
+RECEIVER_PHONE_KEYS: Tuple[str, ...] = ("receiver phone", "delivery phone", "consignee phone", "receiver contact")
+CITY_SENDER_KEYS: Tuple[str, ...] = ("origin", "sender city", "origin city")
+CITY_RECEIVER_KEYS: Tuple[str, ...] = ("destination", "receiver city", "delivery city")
 
 
 def _is_flag_enabled(name: str) -> bool:
@@ -113,6 +121,79 @@ def _ensure_frame(data: Any, schema: Dict[str, Any]) -> pl.DataFrame:
     if isinstance(data, dict):
         return pl.DataFrame([data], schema=schema)
     return pl.DataFrame(schema=schema)
+
+
+def _match_column(columns: Sequence[str], keywords: Sequence[str]) -> Optional[str]:
+    lowered = {col.lower(): col for col in columns}
+    for lowered_name, original in lowered.items():
+        normalized = lowered_name.replace("_", " ")
+        for keyword in keywords:
+            if keyword in lowered_name or keyword in normalized:
+                return original
+    return None
+
+
+def _address_components(value: Any) -> List[str]:
+    if value is None:
+        return []
+    text = str(value).strip()
+    if not text:
+        return []
+    parts = ADDRESS_SPLIT_RE.split(text)
+    return [part.strip() for part in parts if part and part.strip()]
+
+
+def _sanitize_phone(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    digits = re.sub(r"\D", "", text)
+    if not digits:
+        return None
+    if text.startswith("+"):
+        return f"+{digits}"
+    return digits
+
+
+def _build_structured_fields(frame: pl.DataFrame, join_key: str) -> Optional[pl.DataFrame]:
+    sender_addr_col = _match_column(frame.columns, SENDER_ADDRESS_KEYS)
+    receiver_addr_col = _match_column(frame.columns, RECEIVER_ADDRESS_KEYS)
+    sender_phone_col = _match_column(frame.columns, SENDER_PHONE_KEYS)
+    receiver_phone_col = _match_column(frame.columns, RECEIVER_PHONE_KEYS)
+    sender_city_col = _match_column(frame.columns, CITY_SENDER_KEYS)
+    receiver_city_col = _match_column(frame.columns, CITY_RECEIVER_KEYS)
+
+    structured_cols: Dict[str, pl.Series] = {join_key: frame[join_key]}
+    has_structured = False
+
+    if sender_addr_col:
+        structured_cols["sender_address_components"] = frame[sender_addr_col].map_elements(
+            lambda value: json.dumps(_address_components(value), ensure_ascii=False)
+        )
+        has_structured = True
+    if receiver_addr_col:
+        structured_cols["receiver_address_components"] = frame[receiver_addr_col].map_elements(
+            lambda value: json.dumps(_address_components(value), ensure_ascii=False)
+        )
+        has_structured = True
+    if sender_phone_col:
+        structured_cols["sender_phone_structured"] = frame[sender_phone_col].map_elements(_sanitize_phone)
+        has_structured = True
+    if receiver_phone_col:
+        structured_cols["receiver_phone_structured"] = frame[receiver_phone_col].map_elements(_sanitize_phone)
+        has_structured = True
+    if sender_city_col:
+        structured_cols["sender_city_hint"] = frame[sender_city_col]
+        has_structured = True
+    if receiver_city_col:
+        structured_cols["receiver_city_hint"] = frame[receiver_city_col]
+        has_structured = True
+
+    if not has_structured:
+        return None
+    return pl.DataFrame(structured_cols)
 
 
 def _apply_env_entries(entries: Mapping[str, Any]) -> None:
@@ -592,6 +673,19 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Mapping[str, Any]) -> Di
     if "created_at" in shipments_df.columns:
         timestamps = _prepare_timestamps(shipments_df["created_at"], cfg.timezone)
 
+    structured_fields_path: Optional[Path] = None
+    structured_frame = _build_structured_fields(shipments_df, join_key)
+    if structured_frame is not None and structured_frame.height > 0:
+        structured_fields_path = out_dir / "structured_fields.parquet"
+        structured_frame.write_parquet(structured_fields_path.as_posix())
+        append_log(
+            logs,
+            "structured_fields_generated",
+            columns=[col for col in structured_frame.columns if col != join_key],
+        )
+    else:
+        append_log(logs, "structured_fields_skipped", reason="no_candidate_columns")
+
     sentiment_payload: Dict[str, Any] = {
         join_key: shipments_df[join_key],
         "sentiment_score": sentiments,
@@ -822,6 +916,8 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Mapping[str, Any]) -> Di
     ]
     if doc_fields_path:
         artefacts.append({"path": doc_fields_path.as_posix(), "sha256": sha256_file(doc_fields_path)})
+    if structured_fields_path:
+        artefacts.append({"path": structured_fields_path.as_posix(), "sha256": sha256_file(structured_fields_path)})
 
     outputs: Dict[str, str] = {
         "sentiment_features": sentiment_path.as_posix(),
@@ -835,6 +931,8 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Mapping[str, Any]) -> Di
     }
     if doc_fields_path:
         outputs["document_field_predictions"] = doc_fields_path.as_posix()
+    if structured_fields_path:
+        outputs["structured_fields"] = structured_fields_path.as_posix()
 
     for key, path in rag_paths.items():
         if path.exists():
@@ -902,4 +1000,3 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Mapping[str, Any]) -> Di
 
 
 __all__ = ["run"]
-

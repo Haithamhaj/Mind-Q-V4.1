@@ -1,0 +1,6 @@
+models:
+  sla_breach:
+    version: v1
+    path: artifacts/models/model_sla_xgb_v1.pkl
+    target: will_breach_sla_4h
+    updated_at: "2025-11-02T10:15:00Z"

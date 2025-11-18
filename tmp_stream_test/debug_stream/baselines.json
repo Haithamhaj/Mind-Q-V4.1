@@ -1,0 +1,18 @@
+{
+  "run_id": "debug_stream",
+  "created_at": "2025-11-18T15:25:53.911294+00:00",
+  "n_rows": 4375,
+  "n_cols": 69,
+  "schema_hash": "10d0d53c4683a6502b8bf6b478ea6cd65609818742f0e71d36fc9a7072984461",
+  "phone_columns_coerced": [
+    "SENDER PHONE",
+    "RECEIVER PHONE"
+  ],
+  "source_fingerprint": [
+    {
+      "path": "/Users/haitham/development/Mind-Q-V4.1-port/data/basic.csv",
+      "size": 2311725,
+      "mtime": "2025-11-12T20:34:05.568815"
+    }
+  ]
+}

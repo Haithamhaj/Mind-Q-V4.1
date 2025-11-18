@@ -1,0 +1,12 @@
+{
+  "files": [
+    {
+      "abs_path": "/Users/haitham/development/Mind-Q-V4.1-port/data/basic.csv",
+      "filesize_bytes": 2311725,
+      "modified": "2025-11-12T20:34:05.568815",
+      "reader": "pandas_csv",
+      "sheet": null,
+      "reader_error": "could not parse `277.15` as dtype `i64` at column 'COD_AMOUNT' (column number 24)\n\nThe current offset in the file is 7251 bytes.\n\nYou might want to try:\n- increasing `infer_schema_length` (e.g. `infer_schema_length=10000`),\n- specifying correct dtype with the `schema_overrides` argument\n- setting `ignore_errors` to `True`,\n- adding `277.15` to the `null_values` list.\n\nOriginal error: ```invalid primitive value found during CSV parsing```"
+    }
+  ]
+}

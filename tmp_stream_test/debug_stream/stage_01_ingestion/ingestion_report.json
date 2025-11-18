@@ -1,0 +1,8 @@
+{
+  "run_id": "debug_stream",
+  "status": "PASS",
+  "n_rows": 4375,
+  "n_cols": 69,
+  "duration_s": 0.40892783299204893,
+  "issues": []
+}

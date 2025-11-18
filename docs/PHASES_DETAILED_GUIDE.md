@@ -38,7 +38,7 @@ Feel free to reuse this structure when documenting enhancements or reviewing oth
 ### Stage 01: Ingestion
 
 #### Stage Definition
-Stage 01 ingests heterogeneous logistics source files (CSV, Parquet, Excel exports) and normalizes them into a unified operational dataset. It also curates SLA documents so they can be reasoned about in later phases.
+Stage 01 ingests heterogeneous logistics source files (CSV, Parquet, Excel exports) and normalizes them into a unified operational dataset. It also curates SLA documents so they can be reasoned about in later phases. When `MINDQ_ENABLE_STREAMING_INGESTION=1`, the phase attempts a Polars streaming pipeline (`scan_csv(...).sink_parquet()`) to emit `raw_streaming.parquet`; any streaming failure logs a WARN and falls back to the eager loader so ingestion remains robust.
 
 #### Implementation Status
 - Status: Implemented
@@ -52,7 +52,7 @@ Stage 01 ingests heterogeneous logistics source files (CSV, Parquet, Excel expor
 
 #### Tests & Observability
 - Tests: `tests/test_01_ingestion.py` (artifact creation, schema hash), `tests/test_row_guards.py` (baseline enforcement).
-- Observability primitives include `missing_summary.json`, `row_meta.json`, and structured `logs.jsonl`; SLA processing emits `sla_manifest.json` plus source fingerprints for auditing.
+- Observability primitives include `missing_summary.json`, `row_meta.json`, `raw_streaming.parquet` (when streaming is enabled), and structured `logs.jsonl`; SLA processing emits `sla_manifest.json` plus source fingerprints for auditing.
 
 #### Inputs
 - `inputs["data_files"]` / `inputs["files"]`: list of raw CSV/Parquet/Excel paths to ingest.
@@ -70,6 +70,7 @@ The goal is to guarantee that every downstream analytical or ML phase starts fro
 - **Missingness profiling**: A detailed `missing_summary.json` quantifies nulls, blanks, and uniqueness per column, giving immediate visibility into data hygiene and signals for Stage 05 imputation strategies.
 - **SLA processing**: Optional SLA documents are parsed through `shared.sla.process_sla_file`, extracting clauses, targets, and penalties into a machine-readable manifest that later phases can reason over when judging delivery performance.
 - **Persistence with schema fingerprinting**: The combined frame is written to `raw.parquet`, alongside a SHA-256 schema hash and source fingerprints so that regressions or schema shifts can be flagged automatically in monitoring.
+- **System health logging**: After ingestion completes (or halts), Mind-Q logs ingestion latency and throughput via the shared `SystemHealth` module, emitting `artifacts/system_health.json` for downstream monitoring dashboards.
 
 #### Inter-Stage Relationships
 - **Upstream dependencies**: Stage 01 operates directly on raw logistics exports or API dumps; it has no pipeline prerequisites aside from access to the source files and optional SLA contracts.
@@ -239,7 +240,7 @@ artifacts/{run_id}/stage_03_schema/
 
 #### Stage Definition
 > _Execution note: Stage 03.5 is not part of the default `cli.runner flow` or `/flow` API run; trigger `/v1/runs/{run}/phases/03/textops` or an equivalent manual call when text analytics are required._
-Stage 03.5 transforms shipment-level free text into machine-ready signals: lightweight sentiment scores, density metrics, SVD vectors, language diagnostics, and optional RAG/LLM assets derived from logistics knowledge bases.
+Stage 03.5 transforms shipment-level free text into machine-ready signals: lightweight sentiment scores, density metrics, SVD vectors, language diagnostics, and optional RAG/LLM assets derived from logistics knowledge bases. It now also emits structured sender/receiver fields (address components, normalized phones) so downstream phases can reuse TextOps parsing instead of reprocessing raw text.
 
 #### Implementation Status
 - Status: Implemented
@@ -267,7 +268,7 @@ Many fulfillment delays, customer escalations, and SLA breaches are hidden in na
 
 #### Operational Mechanics
 - **Runtime bootstrap**: Loads `config/textops.yaml`, resolves artifact roots, seeds RNGs, and hydrates credentials from `.env`/`MINDQ_LLM_CREDENTIALS_FILE` while avoiding overrides of pre-set environment variables.
-- **Text sourcing & normalization**: Reads Stage 01 shipments parquet with Polars, auto-detects join keys, and selects candidate text columns from Stage 03 catalogs (then defaults to `item_desc`, `customer_note`). Uses bilingual normalization plus PII masking to produce clean concatenated text per shipment.
+- **Text sourcing & normalization**: Reads Stage 01 shipments parquet with Polars, auto-detects join keys, and selects candidate text columns from Stage 03 catalogs (then defaults to `item_desc`, `customer_note`). Uses bilingual normalization plus PII masking to produce clean concatenated text per shipment, while heuristically parsing sender/receiver addresses and phones into `structured_fields.parquet` so later phases can consume structured hints.
 - **Feature engineering**: Invokes `make_density_features`, `sentiment_lite`, and `vectors_hash_svd` to compute sentiment heuristics, token/character lengths, emoji flags, and hashing-vectorizer + SVD embeddings (with adaptive component reductions to stay within memory budgets).
 - **Quality scoring**: Measures coverage, unreadable share, language conflicts, and explained variance; emits WARN/STOP statuses when thresholds in the config are breached, with details recorded in `quality_findings.json`.
 - **Knowledge assets**: Optionally builds a RAG bundle (segments, embedding map/index) and runs LLM tasks (SLA rule extraction, SOP summarization, company profiles) when credentials exist and `cfg.rag.enabled`/`cfg.llm.enabled` are true. Provider choice (`openai`, `anthropic`, etc.) and model IDs come from the config, enabling teams to trade off Arabic fluency, latency, or cost per token.
@@ -281,6 +282,7 @@ Many fulfillment delays, customer escalations, and SLA breaches are hidden in na
 ```
 artifacts/{run_id}/stage_03_5_textops/
 ├── sentiment_features.parquet        # Sentiment + density metrics keyed by shipment
+├── structured_fields.parquet         # Address components, normalized phones, city hints keyed by AWB/shipment
 ├── svd_components.parquet            # Hashing-vectorizer + SVD embeddings
 ├── tfidf_info.json                   # Vectorization settings and explained variance
 ├── text_profile.json                 # Narrative summary, language stats, top terms
@@ -342,7 +344,7 @@ Operating teams need rapid insight into fulfillment data health—missingness, v
 - **Resilient export logic**: Attempts multiple Excel engines (`openpyxl`, `xlsxwriter`) before falling back to JSON, ensuring shareable deliverables even in minimal runtime environments.
 
 #### Inter-Stage Relationships
-- **Upstream dependencies**: Requires Stage 01 raw parquet for sampling and Stage 03 semantic artifacts for terminology enrichment.
+- **Upstream dependencies**: Requires Stage 01 raw parquet for sampling, Stage 03.5 `structured_fields.parquet` when available, and Stage 03 semantic artifacts for terminology enrichment.
 - **Downstream consumers**: Stage 05 Missing references null/uniqueness signals for imputation prioritization; Stage 07 readiness modules use distributions to calibrate guard thresholds; analytics stakeholders ingest the Excel and parquet outputs for exploratory reviews.
 
 #### Outputs & Reports
@@ -448,7 +450,7 @@ artifacts/{run_id}/stage_05_missing/
 ### Stage 06 Standardization
 
 #### Stage Definition
-Stage 06 Standardization ingests the authoritative Stage 05 dataset and standardizes column names, value formats, and numeric types while honoring protected logistics fields and preserving curated outputs for subsequent phases.
+Stage 06 Standardization ingests the authoritative Stage 05 dataset and standardizes column names, value formats, and numeric types while honoring protected logistics fields and preserving curated outputs for subsequent phases. When Stage 03.5 structured fields exist, Stage 06 consumes them to normalize sender/receiver phones to E.164 and to validate addresses via SANS-ready booleans, recording usage in `logs.jsonl`.
 
 #### Implementation Status
 - Status: Implemented
@@ -489,7 +491,7 @@ Logistics partners rely on consistent column naming and value semantics across r
 #### Outputs & Reports
 ```
 artifacts/{run_id}/stage_06_standardize/
-├── clean.parquet                         # Standardized dataset (authoritative for Stage 06)
+├── clean.parquet                         # Standardized dataset (authoritative for Stage 06, now enriched with TextOps phone/address hints when available)
 ├── features.pre.parquet                  # Pre-standardization snapshot
 ├── ../stage_06_feature_eng/features.curated.parquet  # Mirrored curated dataset
 ├── standardize_report.json               # Column rename/exclusion summary, normalization metadata, NZV summary, per-column NZV annotations
@@ -632,7 +634,8 @@ artifacts/{run_id}/stage_07_readiness/
 ├── redundancy.json                        # High-correlation groups and NZV findings
 ├── leakage_after_event.json               # Potential leakage features with event coverage
 ├── leakage_scan.json                      # ID-like and outcome leakage diagnostics
-├── stability.json                         # Row-count and schema stability logs
+├── stability.json
+├── feature_flags.json              # Risk hints (confounded_risk, unstable_feature) per column                         # Row-count and schema stability logs
 ├── diagnostics.json                       # Summary metrics (missingness, PSI, gate status)
 ├── kpi_candidates.json                    # Selected KPI feature set (fallback if needed)
 ├── layer1_catalog.json / layer1_preview.json  # Semantic catalog refreshed with null stats
@@ -944,6 +947,7 @@ Senior stakeholders require concise Arabic narratives and recommendations instea
 - **Heuristic enrichment**: If focus scopes remove all columns or LLM credentials are absent, the fallback layer now mines the Stage 07.5 report to highlight the top-risk columns (missingness, variance, correlation) so recommendations remain actionable instead of using placeholder text.
 - **Validation pipeline**: Uses `pydantic` models to validate summary structure (length limits, evidence keys) and collects invalid references for remediation.
 - **Cost estimation & telemetry**: Estimates token costs based on provider rate sheets, writing metrics and provenance to support budget controls.
+- **System health logging**: Each run records LLM spend and cache hit rates through `SystemHealth`, keeping a passive history of token budgets in `artifacts/system_health.json`.
 
 #### Inter-Stage Relationships
 - **Upstream dependencies**: Requires Stage 07.5 `report.json` and optional KPI YAML configuration; leverages readiness KPI signals to prioritize columns.
@@ -1164,6 +1168,7 @@ artifacts/{run_id}/stage_08_insights/
 ├── insights_report.json                # Official insights with confidence & coverage
 ├── insights_candidates.json (optional) # Exploratory signals when enabled
 ├── diagnostics.json                    # Metrics, anomaly details, disabled feature notes
+├── {model}_predictions.json            # Inference metadata for each catalog-backed model (e.g., sla_breach)
 ├── gate.json                           # PASS/WARN/STOP status with policy context
 ├── story_ops.json / cards.json         # Narrative cards for business storytelling
 ├── column_coverage.json                # Field-level coverage statistics
@@ -1190,7 +1195,7 @@ artifacts/{run_id}/stage_08_insights/
 ### Stage 09: Business Validation
 
 #### Stage Definition
-Stage 09 Business Validation reconciles operational KPIs, SLA contracts, and Stage 08 insights into governed fact tables, action plans, and BI feeds. It ensures business stakeholders receive trusted numbers alongside explicit data-health diagnostics.
+Stage 09 Business Validation reconciles operational KPIs, SLA contracts, and Stage 08 insights into governed fact tables, action plans, and BI feeds. It is **inference-only**—no training occurs here. Instead, Stage 09 loads approved models from `contracts/models/models_catalog.yml`, applies them to the standardized features, and surfaces the resulting risk scores alongside the BI deliverables. If the catalog entry or model file is missing, Stage 09 logs a WARN (“`sla_breach model not available, skipping ML scores`”) and continues without emitting ML scores or prediction artifacts.
 
 #### Implementation Status
 - Status: Implemented
@@ -1211,6 +1216,7 @@ Stage 09 Business Validation reconciles operational KPIs, SLA contracts, and Sta
 - Optional: `inputs["raw"]` (Stage 01 `raw.parquet`) for KPI back-calculations, `inputs["sla_manifest"]`/`inputs["sla_bundle"]`, and `inputs["what_if"]` scenario YAMLs.
 - Rule & contract overrides: `inputs["rules"]`, `inputs["kpi_cfg"]`, `inputs["bi_cfg"]` (fallback to `configs/` when omitted).
 - `config["artifacts_root"]`: root directory for Stage 09 outputs.
+- `config["models_catalog"]` (optional): override path to `contracts/models/models_catalog.yml`, used to locate pre-trained inference models (e.g., `sla_breach` XGBoost exported from Stage 11 ML Lab).
 - SLA/KPI contracts and baseline metadata are auto-resolved by the phase when explicit overrides are not supplied.
 
 #### Business Objective
@@ -1223,9 +1229,11 @@ Executives and operations managers need vetted SLA %, RTO %, lead-time percentil
 - **Validation & gating**: Generates `validation_report.json`, whitelist/blacklist feeds, and `ops_actions.json` capturing guard breaches, missing columns, and remediation steps.
 - **BI feed assembly**: Produces `bi_feed.parquet`, per-grain tiles, segment insights, and benchmarks ready for Stage 10 BI; records scenario, locale, and code-hash metadata for reproducibility.
 - **SLA diagnostics**: Summarizes SLA breaches, target performance, and contract references in `sla_summary.json`; materializes row-level decisions for audit trails.
+- **Model inference (catalog-driven)**: Looks up the active model (e.g., `sla_breach`) in `models_catalog.yml`, loads the serialized estimator from `artifacts/models/`, and computes risk scores without any `.fit()` calls. Scores are written to both the BI feed and a dedicated `{model_key}_predictions.json` artifact for auditability. The shim prefers `predict_proba`, falls back to `predict`, and emits WARN logs + skips scoring if the catalog entry, model file, or features are unavailable.
 - **Stage 08 gate propagation**: Reads `stage_08_insights/gate.json` so WARN/STOP reasons (e.g., low-signal fallbacks) carry into Stage 09 `gate.json`, `validation_report.json`, and `logs`. Non-PASS statuses from Stage 08 now act as warn/stop flags when computing the final readiness decision.
 - **NZV transparency**: Reuses Stage 05/06 NZV metadata to filter context-only columns while still reporting protected low-variance fields; `validation_report`, `data_health`, `gate.json`, and the new `diagnostics.json` expose a shared `nzv_impact` block consumers can trust.
 - **Logging & metrics**: Streams JSONL logs, data-health details, and metrics payload describing row counts, thresholds, and elapsed time.
+- **System health logging**: Records throughput and duration metrics for each run via `SystemHealth`, so the same `system_health.json` file tracks ingestion and BI latency in one place.
 
 #### Inter-Stage Relationships
 - **Upstream dependencies**: Consumes Stage 01 ingestion baselines, Stage 06 (standardize + feature engineering), Stage 08 insights, SLA manifests, and KPI catalogs.
@@ -1410,6 +1418,74 @@ artifacts/{run_id}/stage_10_bi/
 - Automate BI dataset validation against semantic definitions to ensure no drift in metrics.
 - Track mart usage metrics to prioritize optimizations or pruning.
 - Offer incremental dataset exports (deltas) for efficient downstream refreshes.
+
+---
+
+### Stage 11: ML Lab (Training & Experiments)
+
+#### Stage Definition
+Stage 11 is the offline ML Lab where all heavy training, experimentation, and causal simulations occur. It usually runs in Colab or a similar notebook environment, consumes Stage 10 exports, and produces versioned models plus lab reports. The online pipeline never performs `.fit()`—it only loads artifacts produced here.
+
+#### Implementation Status
+- Status: Implemented (skeleton)
+- Evidence: `notebooks/ml_lab/README.md`, `contracts/models/models_catalog.yml`, `artifacts/models/`, `artifacts/ml_lab/`
+- Last checked: {{TO_FILL_DATE}}
+
+#### Quality Gates & STOP/WARN
+- Training happens manually/async; notebooks must log dataset ranges, seeds, and metrics into `artifacts/ml_lab/ml_lab_report_*.json`.
+- Promotion requires updating `contracts/models/models_catalog.yml` with the new version/path and capturing reviewer sign-off (documented in the README).
+- No automated PASS/STOP gating inside the main pipeline—Stage 09 keeps the run moving even if an inference model is missing or invalid; it records a WARN (`model_prediction_skipped`) and continues without scores.
+
+#### Inputs
+- Stage 10 exports (`marts/*.parquet`, BI feedback logs, Golden Dataset entries).
+- Optional diagnostic feeds from Stage 07 readiness and Stage 08 insights.
+- Config files describing KPI targets, imputation strategies, and causal problem definitions.
+
+#### Business Objective
+Provide a controlled sandbox for ML engineers (often a single developer) to train and evaluate models (XGBoost, RandomForest, MICE imputers, DoWhy scenarios) without impacting the CPU-only production pipeline. The lab ensures every promoted model is reproducible, documented, and explicitly registered before Stage 09 consumes it.
+
+#### Operational Mechanics
+- **Data export**: Analysts run Stage 10, export curated datasets (e.g., SLA breach labels, Golden Dataset samples) into `notebooks/ml_lab/data/` or cloud storage.
+- **Training notebooks**: Colab notebooks under `notebooks/ml_lab/` (or linked via README) perform preprocessing, training, cross-validation, and causal checks. Results are saved into `artifacts/ml_lab/ml_lab_report_{date}.json`.
+- **Model packaging**: Trained estimators are serialized as `.pkl` files in `artifacts/models/` (e.g., `model_sla_xgb_v1.pkl`, `mice_imputer_v1.pkl`).
+- **Catalog registration**: `contracts/models/models_catalog.yml` is updated with the new version, target, file path, and optional feature list. Stage 09 uses this catalog for inference-only loading.
+- **Promotion workflow**: No model reaches production without a manual review/PR that updates the catalog and commits the accompanying lab report.
+
+#### Outputs & Reports
+```
+notebooks/ml_lab/
+├── README.md                     # How to run Colab and promotion checklist
+artifacts/ml_lab/
+├── ml_lab_report_example.json    # Metrics, datasets, seeds, assumptions
+artifacts/models/
+├── model_{kpi}_{version}.pkl     # Serialized estimators ready for Stage 09 inference
+contracts/models/models_catalog.yml
+└── …                             # Mapping from KPI → active model version/path
+```
+
+#### Future Enhancements (ML & Data Science)
+- Automate basic validation scripts (unit tests, drift checks) that run after each notebook export.
+- Add CI hooks to verify catalog entries actually load and predict on a smoke dataset.
+- Integrate DoWhy/causal scores into Stage 09 diagnostics once promotion is complete.
+
+---
+
+## 🗺️ Roadmap Alignment (V4.2)
+
+1. **Sprint 1–2 (Foundation, CPU-first)**
+   - Refactor Stage 01 ingestion toward Polars streaming (guarded by `MINDQ_ENABLE_STREAMING_INGESTION`).
+   - Keep BI-first sequencing: finish Stage 10 marts before touching ML artifacts.
+
+2. **Sprint 3–4 (Diagnostics & Insights)**
+   - Harden Stage 07 readiness (diagnostics-only, no auto-drop) and Stage 07.6 LLM summaries with SystemHealth logging.
+   - Stage 08 continues to export hypothesis scenarios, feeding Stage 09/10.
+
+3. **Sprint 5+ (ML Lab & Promotion)**
+   - All training (XGBoost, MICE, DoWhy) happens in Stage 11 notebooks/Colab.
+   - Updated models must be serialized into `artifacts/models/`, documented via `ml_lab_report_*.json`, and registered in `contracts/models/models_catalog.yml` before Stage 09 consumes them for inference.
+   - Stage 09 remains inference-only; any `.fit()` work is rejected during review unless it lives in Stage 11 materials.
+
+This roadmap keeps the CPU-only pipeline lean while still enabling iterative ML/AI improvements via the ML Lab.
 
 ---
 

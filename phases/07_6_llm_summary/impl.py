@@ -15,6 +15,7 @@ from pydantic import BaseModel, ValidationError, field_validator
 
 from src.agents import llm_adapter  # type: ignore
 from shared.logging import setup_logger  # type: ignore
+from backend.src.app.services.system_health import SystemHealth  # type: ignore
 
 TOKEN_PATTERN = re.compile(r"(phone|mobile|msisdn|email|name)", re.IGNORECASE)
 CARD_MAX_CHARS = 700
@@ -510,6 +511,7 @@ def run(run_id: str, inputs: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, A
     logs: List[Dict[str, Any]] = [{"event": "start", "run_id": run_id, "timestamp": datetime.now(timezone.utc).isoformat()}]
 
     artifacts_root = Path(cfg.get("artifacts_root", "artifacts")).expanduser().resolve()
+    health = SystemHealth(artifacts_root=artifacts_root)
     report_path = Path(inputs.get("report", ""))
     kpis_path = Path(inputs.get("kpis", "")) if inputs.get("kpis") else None
 
@@ -852,6 +854,12 @@ def run(run_id: str, inputs: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, A
         status = "WARN"  # Fallback used
     else:
         status = "PASS"
+
+    cost_estimate = float(metrics_payload.get("cost_estimate") or 0.0)
+    health.log_llm_cost(run_id, cost_estimate)
+    cache_hit_rate = 1.0 if metrics_payload.get("cache_hit") else 0.0
+    health.log_cache_metrics(run_id, cache_hit_rate)
+    health.emit_report(extra={"stage": "stage_07_6_llm_summary", "status": status})
 
     return {
         "run_id": run_id,

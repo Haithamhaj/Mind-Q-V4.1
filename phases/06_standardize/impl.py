@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 import re
 
 try:
@@ -90,6 +90,10 @@ NUMERIC_HINT_DEFAULTS = {
 }
 
 CANON_NUMERIC_HINTS: Set[str] = {_comparison_key(entry) for entry in NUMERIC_HINT_DEFAULTS}
+STRUCTURED_TEXTOPS_DIR = "stage_03_5_textops"
+STRUCTURED_FIELDS_FILE = "structured_fields.parquet"
+STRUCTURED_JOIN_CANDIDATES: Tuple[str, ...] = ("AWB_NO", "awb_no", "shipment_id", "SHIPMENT_ID")
+PHONE_DEFAULT_COUNTRY = "966"
 
 
 def _ensure_dir(path: Path) -> None:
@@ -140,6 +144,118 @@ def _write_logs(out_dir: Path, records: Iterable[Dict[str, Any]]) -> None:
     with log_path.open("w", encoding="utf-8") as handle:
         for record in records:
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def _load_structured_fields(artifacts_root: Path, run_id: str) -> Tuple[Optional["pd.DataFrame"], Optional[Path], Optional[str]]:
+    path = artifacts_root / run_id / STRUCTURED_TEXTOPS_DIR / STRUCTURED_FIELDS_FILE
+    if not path.exists():
+        return None, None, None
+    try:
+        data = pd.read_parquet(path)
+    except Exception as exc:  # pragma: no cover - defensive
+        return None, path, str(exc)
+    return data, path, None
+
+
+def _select_structured_join_key(columns_a: Sequence[str], columns_b: Sequence[str]) -> Optional[str]:
+    for candidate in STRUCTURED_JOIN_CANDIDATES:
+        if candidate in columns_a and candidate in columns_b:
+            return candidate
+    return None
+
+
+def _normalize_phone_e164(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    digits = re.sub(r"\D", "", text)
+    if not digits:
+        return None
+    if text.startswith("+") or digits.startswith(PHONE_DEFAULT_COUNTRY):
+        normalized = f"+{digits}"
+    elif digits.startswith("00"):
+        normalized = f"+{digits[2:]}"
+    elif digits.startswith("0"):
+        normalized = f"+{PHONE_DEFAULT_COUNTRY}{digits.lstrip('0')}"
+    else:
+        normalized = f"+{PHONE_DEFAULT_COUNTRY}{digits}"
+    if len(re.sub(r"\D", "", normalized)) < 9:
+        return None
+    return normalized
+
+
+def _parse_components(value: Any) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    try:
+        parsed = json.loads(value)
+    except Exception:
+        return []
+    if isinstance(parsed, list):
+        return [str(item).strip() for item in parsed if str(item).strip()]
+    return []
+
+
+def _sans_validate_components(value: Any) -> Optional[bool]:
+    components = _parse_components(value)
+    if not components:
+        return None
+    return len(components) >= 3
+
+
+def _apply_structured_fields(
+    df: "pd.DataFrame", structured_df: "pd.DataFrame", join_key: str
+) -> Tuple["pd.DataFrame", List[Dict[str, Any]]]:
+    logs: List[Dict[str, Any]] = []
+    if structured_df.empty or join_key not in structured_df.columns:
+        return df, logs
+    structured_indexed = structured_df.dropna(subset=[join_key]).set_index(join_key)
+    if structured_indexed.empty:
+        return df, logs
+    column_lookup = {col.lower(): col for col in df.columns}
+
+    def _resolve_column(candidates: Sequence[str]) -> Optional[str]:
+        for candidate in candidates:
+            actual = column_lookup.get(candidate.lower())
+            if actual:
+                return actual
+        return None
+
+    phone_targets = {
+        "sender_phone_structured": ("SENDER_PHONE", "sender_phone", "shipper_phone"),
+        "receiver_phone_structured": ("RECEIVER_PHONE", "receiver_phone", "consignee_phone"),
+    }
+    for source_col, target_candidates in phone_targets.items():
+        if source_col not in structured_indexed.columns:
+            continue
+        target_col = _resolve_column(target_candidates)
+        if not target_col:
+            continue
+        mapped = df[join_key].map(structured_indexed[source_col])
+        normalized = mapped.map(_normalize_phone_e164)
+        existing = df[target_col] if target_col in df.columns else pd.Series(index=df.index)
+        df[target_col] = normalized.combine_first(existing)
+        applied = int(normalized.notna().sum())
+        logs.append({"event": "structured_phone_applied", "column": target_col, "count": applied})
+
+    address_targets = {
+        "sender_address_components": "sender_address_sans_valid",
+        "receiver_address_components": "receiver_address_sans_valid",
+    }
+    for source_col, target_col in address_targets.items():
+        if source_col not in structured_indexed.columns:
+            continue
+        components = df[join_key].map(structured_indexed[source_col])
+        validity = components.map(_sans_validate_components)
+        df[target_col] = validity
+        positive = int(validity.fillna(False).sum())
+        logs.append({"event": "structured_address_validated", "column": target_col, "valid": positive})
+
+    return df, logs
 
 
 def _collect_hint_strings(payload: Any) -> Set[str]:
@@ -364,6 +480,23 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
             }
         )
     df_post = df_pre.copy()
+    structured_logs: List[Dict[str, Any]] = []
+    structured_df, structured_path, structured_error = _load_structured_fields(artifacts_root, run_id)
+    if structured_error:
+        structured_logs.append(
+            {
+                "event": "structured_fields_error",
+                "path": structured_path.as_posix() if structured_path else None,
+                "message": structured_error,
+            }
+        )
+    elif structured_df is not None:
+        join_key_struct = _select_structured_join_key(df_post.columns, structured_df.columns)
+        if join_key_struct:
+            df_post, applied_logs = _apply_structured_fields(df_post, structured_df, join_key_struct)
+            structured_logs.extend(applied_logs)
+        else:
+            structured_logs.append({"event": "structured_fields_join_key_missing"})
 
     if created_series is not None and "created_at" not in df_post.columns:
         df_post = df_post.copy()
@@ -375,6 +508,7 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         {"event": "exclusions_applied", "columns": filtered_exclusions},
     ]
     logs.extend(pending_logs)
+    logs.extend(structured_logs)
     if renamed_columns:
         logs.append({"event": "column_rename", "count": len(renamed_columns), "mapping": renamed_columns})
     if protected_hits:

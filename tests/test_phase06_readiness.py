@@ -54,8 +54,14 @@ def _build_dataset() -> pd.DataFrame:
     dates = pd.date_range("2025-01-01", periods=n, freq="D")
     cod_amount = np.concatenate([np.full(60, 10.0), np.full(60, 120.0)])
     weight = np.concatenate([np.full(60, 1.0), np.full(60, 5.0)])
+    awb = [f"AWB-{i:06d}" for i in range(n)]
+    sender_phone = [f"055500{i:04d}" for i in range(n)]
+    receiver_phone = [f"055511{i:04d}" for i in range(n)]
+    sender_address = ["Riyadh _ District _ Street 10" for _ in range(n)]
+    receiver_address = ["Jeddah _ District _ Street 5" for _ in range(n)]
     df = pd.DataFrame(
         {
+            "AWB_NO": awb,
             "feature_constant": 1,
             "feature_numeric1": np.arange(n, dtype=float),
             "feature_numeric2": np.arange(n, dtype=float) * 1.01,
@@ -64,6 +70,10 @@ def _build_dataset() -> pd.DataFrame:
             "future_ts": dates + pd.Timedelta(days=2),
             "COD_AMOUNT": cod_amount,
             "WEIGHT_KG": weight,
+            "SENDER PHONE": sender_phone,
+            "RECEIVER PHONE": receiver_phone,
+            "SENDER ADDRESS": sender_address,
+            "RECEIVER ADDRESS": receiver_address,
         }
     )
     return df
@@ -105,6 +115,17 @@ def test_phase06_and_readiness_artifacts(tmp_path: Path) -> None:
 
     _write_baseline(artifacts_root, run_id, len(df), len(df.columns))
 
+    structured_dir = artifacts_root / run_id / "stage_03_5_textops"
+    structured_dir.mkdir(parents=True, exist_ok=True)
+    structured_payload = {
+        "AWB_NO": df["AWB_NO"],
+        "sender_phone_structured": ["0555000000"] * len(df),
+        "receiver_phone_structured": ["0555110000"] * len(df),
+        "sender_address_components": [json.dumps(["Riyadh", "District", "Street"], ensure_ascii=False)] * len(df),
+        "receiver_address_components": [json.dumps(["Jeddah", "District", "Street"], ensure_ascii=False)] * len(df),
+    }
+    pd.DataFrame(structured_payload).to_parquet((structured_dir / "structured_fields.parquet").as_posix(), index=False)
+
     cfg = {"artifacts_root": artifacts_root.as_posix()}
     std_result = standardize.run(run_id, {"raw": raw_path.as_posix()}, cfg)  # type: ignore[arg-type]
     outputs = std_result["outputs"]
@@ -112,6 +133,11 @@ def test_phase06_and_readiness_artifacts(tmp_path: Path) -> None:
     features_curated = Path(outputs["features_curated"])
     assert features_pre.exists()
     assert features_curated.exists()
+    clean_df = pd.read_parquet(Path(outputs["clean"]))
+    assert "SENDER_PHONE" in clean_df.columns
+    assert clean_df["SENDER_PHONE"].str.startswith("+966").any()
+    assert "sender_address_sans_valid" in clean_df.columns
+    assert clean_df["sender_address_sans_valid"].dropna().all()
 
     feature_dir = artifacts_root / run_id / "stage_06_feature_eng"
     feature_spec = {"main_ts": "main_ts", "business_event_ts": "future_ts"}
@@ -135,6 +161,11 @@ def test_phase06_and_readiness_artifacts(tmp_path: Path) -> None:
     assert (readiness_dir / "correlations.json").exists()
     assert (readiness_dir / "leakage_scan.json").exists()
     assert (readiness_dir / "stability.json").exists()
+    feature_flags_path = readiness_dir / "feature_flags.json"
+    assert feature_flags_path.exists()
+    feature_flags = json.loads(feature_flags_path.read_text(encoding="utf-8"))
+    assert any(flag.get("flag") == "confounded_risk" for flag in feature_flags)
+    assert any(flag.get("flag") == "unstable_feature" for flag in feature_flags)
     report = json.loads((readiness_dir / "readiness_report.json").read_text(encoding="utf-8"))
     key_stats = report["key_stats"]
     assert key_stats["nzv_count"] >= 1
