@@ -125,6 +125,7 @@ def _seed_nzv_artifacts(
             "nzv_reason": "dominant_pct>=0.95,max_unique<=5",
             "nzv_dominant_value": "A",
             "nzv_dominant_pct": 0.98,
+            "usage_hint": "context_only",
         }
     for name in high_imbalance:
         stage06_columns.setdefault(
@@ -611,9 +612,33 @@ def test_stage08_ignores_low_variance_fields(tmp_path: Path) -> None:
     assert all(isinstance(entry, dict) for entry in ignored)
     assert any(entry.get("name") == "CARRIER" for entry in ignored)
     assert any(entry.get("usage_hint") == "context_only" for entry in ignored)
+    column_roles = diagnostics.get("column_roles", {})
+    assert "context_columns" in column_roles
+    assert "CARRIER" in column_roles.get("context_columns", [])
     insights = _load_json(out_dir / "insights_report.json")
     impact_report = insights.get("nzv_impact", {})
     assert any(entry.get("name") == "CARRIER" for entry in impact_report.get("low_variance_ignored_columns", []))
+    llm_input = _load_json(out_dir / "input.json")
+    assert "context_columns" in llm_input
+    assert "analysis_columns" in llm_input
+    assert "CARRIER" in llm_input["context_columns"]
+    assert "instructions" in llm_input and "NEVER" in llm_input["instructions"].upper()
+    story = _load_json(out_dir / "story_ops.json")
+    assert story.get("context", {}).get("column_roles", {}).get("context_columns")
+
+
+def test_high_nzv_ratio_falls_back_to_warn(tmp_path: Path) -> None:
+    run_id = "nzv_warn"
+    artifacts_root = _make_artifacts(tmp_path, run_id)
+    _seed_nzv_artifacts(artifacts_root, run_id, low_variance=["CARRIER", "REGION", "STATUS"])
+    config = {"emit_threshold": 0.95}
+    result, out_dir = _run_stage(tmp_path, run_id, config=config)
+    assert result["status"] == "WARN"
+    gate = _load_json(out_dir / "gate.json")
+    assert gate["status"] == "WARN"
+    assert any("High NZV ratio" in reason for reason in gate.get("reasons", []))
+    diagnostics = _load_json(out_dir / "diagnostics.json")
+    assert "demotion_note" in diagnostics.get("column_roles", {})
 
 
 def test_stage08_tags_high_imbalance_columns(tmp_path: Path) -> None:

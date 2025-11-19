@@ -30,10 +30,20 @@ EPS = 1e-12
 DEFAULT_KPI_NAMES: Tuple[str, ...] = ("cod_amount", "sla_achieved", "rto_rate", "rto_flag")
 BACKEND_ROOT = Path(__file__).resolve().parents[4]
 KPI_CONTRACT_PATH = BACKEND_ROOT / "contracts" / "kpis.yml"
+GATE_CONFIG_PATH = BACKEND_ROOT / "contracts" / "analytics" / "gate.yml"
 DEFAULT_GEO_COLUMN_HINTS = {"latitude", "lat", "longitude", "lon", "lng"}
 DEFAULT_GEO_WARN_THRESHOLD = 0.6
 DEFAULT_GEO_STOP_THRESHOLD = 0.95
 LOW_VARIANCE_CATEGORIES = {"constant_like", "near_zero_variance"}
+COLUMN_ROLE_FILENAME = Path("meta") / "column_roles.json"
+KEY_NAME_HINTS = (
+    "SHIPMENT",
+    "ORDER",
+    "WAYBILL",
+    "TRACKING",
+    "AWB",
+    "ROW_ID",
+)
 
 
 def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
@@ -231,6 +241,101 @@ def _apply_low_variance_filter(
         else:
             removed_details.append({"name": column, "nzv_category": "near_zero_variance", "usage_hint": "context_only"})
     return filtered, removed_details
+
+
+def _guess_key_columns(columns: Sequence[str]) -> Set[str]:
+    guesses: Set[str] = set()
+    for column in columns:
+        normalized = column.upper()
+        if normalized.endswith("_ID"):
+            guesses.add(column)
+            continue
+        if any(hint in normalized for hint in KEY_NAME_HINTS):
+            guesses.add(column)
+    return guesses
+
+
+def load_column_roles(
+    run_dir: Path,
+    df: pl.DataFrame,
+    *,
+    stage06_columns: Optional[Mapping[str, Dict[str, Any]]] = None,
+    low_variance_details: Optional[Sequence[Mapping[str, Any]]] = None,
+    logger: Optional[Any] = None,
+) -> Dict[str, str]:
+    meta_path = run_dir / COLUMN_ROLE_FILENAME
+    roles: Dict[str, str] = {}
+    if meta_path.exists():
+        try:
+            payload = json.loads(meta_path.read_text(encoding="utf-8"))
+            if isinstance(payload, Mapping):
+                for column, role in payload.items():
+                    if isinstance(column, str) and isinstance(role, str):
+                        roles[column] = role.upper()
+        except json.JSONDecodeError:
+            if logger:
+                logger.warning("Failed to parse %s; falling back to inferred column roles.", meta_path)
+
+    context_candidates: Dict[str, str] = {}
+    if stage06_columns:
+        for column, meta in stage06_columns.items():
+            usage = str(meta.get("usage_hint") or "").lower()
+            if usage == "context_only":
+                context_candidates[column.lower()] = column
+                original = meta.get("original_name")
+                if isinstance(original, str):
+                    context_candidates[original.lower()] = original
+    if low_variance_details:
+        for entry in low_variance_details:
+            for field in ("name", "original_name"):
+                name = entry.get(field)
+                if isinstance(name, str):
+                    context_candidates[name.lower()] = name
+
+    key_candidates = _guess_key_columns(df.columns)
+
+    for column in df.columns:
+        lower = column.lower()
+        if lower in context_candidates:
+            roles[column] = "CONTEXT_ONLY"
+            continue
+        if column in roles:
+            continue
+        if column in key_candidates:
+            roles[column] = "KEY"
+            continue
+        roles[column] = "FEATURE"
+
+    role_counts: Dict[str, int] = {}
+    for role in roles.values():
+        role_counts[role] = role_counts.get(role, 0) + 1
+    if logger:
+        logger.info(
+            "column_roles_loaded total=%d analysis=%d context=%d key=%d",
+            len(df.columns),
+            role_counts.get("FEATURE", 0) + role_counts.get("TARGET", 0),
+            role_counts.get("CONTEXT_ONLY", 0),
+            role_counts.get("KEY", 0),
+        )
+    return roles
+
+
+def split_columns_by_role(
+    df: pl.DataFrame, roles: Mapping[str, str]
+) -> Tuple[List[str], List[str], List[str]]:
+    analysis_cols: List[str] = []
+    context_cols: List[str] = []
+    key_cols: List[str] = []
+    normalized_roles = {col.lower(): role.upper() for col, role in roles.items()}
+    for column in df.columns:
+        role = normalized_roles.get(column.lower(), "FEATURE")
+        if role == "CONTEXT_ONLY":
+            context_cols.append(column)
+        elif role == "KEY":
+            key_cols.append(column)
+        else:
+            analysis_cols.append(column)
+    return analysis_cols, context_cols, key_cols
 
 
 def _describe_high_imbalance(
@@ -2296,18 +2401,61 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
     if not policy_payload:
         logger.warning("Stage 08 policy file not found at %s; using defaults.", policy_path)
 
+    gate_config_payload = _load_policy(GATE_CONFIG_PATH)
+    high_nzv_cfg = gate_config_payload.get("high_nzv_ratio") if isinstance(gate_config_payload, Mapping) else {}
+    high_nzv_threshold = float(high_nzv_cfg.get("threshold", 0.25)) if isinstance(high_nzv_cfg, Mapping) else 0.25
+    high_nzv_message = (
+        str(high_nzv_cfg.get("message"))
+        if isinstance(high_nzv_cfg, Mapping) and high_nzv_cfg.get("message")
+        else "High NZV ratio triggered graceful degradation; treat insights as advisory."
+    )
+    gate_config_event = {
+        "event": "gate_config",
+        "path": str(GATE_CONFIG_PATH),
+        "loaded": bool(gate_config_payload),
+        "high_nzv_threshold": high_nzv_threshold,
+    }
+
     features_df = pl.read_parquet(paths["features"].as_posix())
     features_df, sampling_info = _apply_sampling(features_df, settings, logger)
     features_df, coverage_summary = _screen_columns(features_df, settings)
     protected_low_variance: Set[str] = set(filter(None, [settings.timestamp_col, settings.text_join_key]))
-    features_df, low_variance_removed = _apply_low_variance_filter(features_df, nzv_lookup, protected_low_variance)
+    protected_low_variance.update(_guess_key_columns(features_df.columns))
+    features_df_analysis, low_variance_removed = _apply_low_variance_filter(features_df, nzv_lookup, protected_low_variance)
     high_imbalance_details = _describe_high_imbalance(stage05_columns, stage06_columns, features_df.columns)
+    run_dir = artifacts_root / run_id
+    column_roles = load_column_roles(
+        run_dir,
+        features_df,
+        stage06_columns=stage06_columns,
+        low_variance_details=low_variance_removed,
+        logger=logger,
+    )
+    analysis_cols, context_cols, key_cols = split_columns_by_role(features_df, column_roles)
+    if not analysis_cols:
+        analysis_cols = [col for col in features_df.columns if col not in context_cols]
+    analysis_view_cols = [col for col in analysis_cols + key_cols if col in features_df.columns]
+    if analysis_view_cols:
+        df_analysis = features_df.select(analysis_view_cols)
+    else:
+        df_analysis = features_df_analysis
     nzv_source = stage05_path or stage06_path
+    demotion_note = (
+        f"Note: {len(context_cols)} column(s) were demoted to context-only due to low variance. "
+        "Use them for descriptive purposes only."
+    )
+    nzv_ratio = float(nzv_summary_payload.get("nzv_ratio") or 0.0) if nzv_summary_payload else 0.0
+    high_nzv_triggered = nzv_ratio >= high_nzv_threshold and bool(context_cols)
     nzv_impact_payload = {
         "low_variance_ignored_columns": low_variance_removed,
         "high_imbalance_included_columns": high_imbalance_details,
         "nzv_summary": nzv_summary_payload,
         "nzv_source": nzv_source.as_posix() if nzv_source else None,
+        "nzv_ratio": nzv_ratio,
+        "analysis_columns": analysis_cols,
+        "context_columns": context_cols,
+        "key_columns": key_cols,
+        "demotion_note": demotion_note,
     }
     raw_correlations = _load_json(paths["correlations"])
     kpi_names = _load_kpi_names()
@@ -2334,7 +2482,7 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
     analytics_overlay = _summarize_analytics(dq_summary, forecast_summary, paths["forecast"])
     llm_overlay = _summarize_llm(llm_metrics)
 
-    preflight = _preflight_checks(features_df, correlations, settings, tz, geo_policy)
+    preflight = _preflight_checks(df_analysis, correlations, settings, tz, geo_policy)
 
     logs: List[Dict[str, Any]] = [
         {
@@ -2353,6 +2501,7 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
             },
         },
         policy_event,
+        gate_config_event,
         {
             "event": "column_screen",
             "threshold": coverage_summary["threshold"],
@@ -2384,7 +2533,7 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
 
     anomaly_metric = "COD_AMOUNT"
     anomaly_records: List[Dict[str, Any]] = []
-    anomalies_df = _anomalies(features_df, settings.segments, anomaly_metric, sigma=3.0, min_n=300)
+    anomalies_df = _anomalies(df_analysis, settings.segments, anomaly_metric, sigma=3.0, min_n=300)
     if not anomalies_df.is_empty():
         selected_cols = [col for col in anomalies_df.columns if not col.startswith("_")] + ["_n", "_m", "_s", "z_score"]
         ordered_cols: List[str] = []
@@ -2426,7 +2575,7 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
     _write_json(out_dir / "quality_report.json", quality_report_payload)
 
     layer2_exports = _materialise_layer2_artifacts(run_id, tz, paths, out_dir)
-    advanced_profile_exports = _materialise_advanced_profiles(run_id, tz, paths, out_dir, features_df)
+    advanced_profile_exports = _materialise_advanced_profiles(run_id, tz, paths, out_dir, df_analysis)
     if layer2_exports:
         logs.append(
             {
@@ -2491,7 +2640,7 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
             "logs_uri": (out_dir / "logs.jsonl").as_posix(),
         }
 
-    records, meta = _compute_candidate_records(features_df, correlations, redundancy, settings, tz)
+    records, meta = _compute_candidate_records(df_analysis, correlations, redundancy, settings, tz)
     _post_process_coverage(records)
     official, exploratory = _partition_candidates(records, settings)
     gate_status, gate_reasons = _gate_status(
@@ -2509,6 +2658,9 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
         llm_overlay,
         enforce_readiness=settings.enforce_readiness_gates,
     )
+    if gate_status == "STOP" and not official and high_nzv_triggered:
+        gate_status = "WARN"
+        gate_reasons = [high_nzv_message]
 
     official_payloads = [record.to_official_payload() for record in official]
     candidate_payloads = [record.to_candidate_payload() for record in exploratory]
@@ -2516,12 +2668,34 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
     _validate_records(official_payloads, OFFICIAL_REQUIRED_FIELDS, OFFICIAL_ALLOWED_FIELDS, "official_insights")
     _validate_records(candidate_payloads, CANDIDATE_REQUIRED_FIELDS, CANDIDATE_ALLOWED_FIELDS, "insight_candidates")
 
+    column_roles_payload = {
+        "analysis_columns": analysis_cols,
+        "context_columns": context_cols,
+        "key_columns": key_cols,
+        "demotion_note": demotion_note,
+    }
     story_context = {
         "readiness": readiness_overlay,
         "analytics": analytics_overlay,
         "text_ops": textops_overlay,
         "llm_summary": llm_overlay,
+        "column_roles": column_roles_payload,
     }
+    llm_instructions = (
+        "You have access to context_columns for descriptive purposes only. "
+        "NEVER cite them as root causes or key KPI drivers; they are statistically constant."
+    )
+    llm_input_payload = {
+        "run_id": run_id,
+        "generated_at": datetime.now(tz).isoformat(),
+        "analysis_columns": analysis_cols,
+        "context_columns": context_cols,
+        "key_columns": key_cols,
+        "demotion_note": demotion_note,
+        "instructions": llm_instructions,
+    }
+    llm_input_path = out_dir / "input.json"
+    _write_json(llm_input_path, llm_input_payload)
 
     insights_payload = {
         "run_id": run_id,
@@ -2568,6 +2742,8 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
         warnings.append("Stage 07 analytics detected critical data-quality failures.")
     if llm_overlay.get("provider") == "heuristic":
         warnings.append("LLM summary fell back to heuristics; narratives are advisory.")
+    if high_nzv_triggered:
+        warnings.append(high_nzv_message)
     notes = ["All signals are associative, not causal."]
     if low_signal_count:
         notes.append(f"{low_signal_count} candidate(s) generated via low-signal KPI fallback.")
@@ -2629,6 +2805,7 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
             "min_n": 300,
             "records": anomaly_records,
         },
+        "column_roles": column_roles_payload,
     }
     diagnostics_payload["nzv_impact"] = nzv_impact_payload
     _write_json(out_dir / "diagnostics.json", diagnostics_payload)
@@ -2797,6 +2974,7 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
         "keyphrases_topk": (out_dir / "keyphrases_topk.json").as_posix(),
         "column_coverage": coverage_path.as_posix(),
         "quality_report": (out_dir / "quality_report.json").as_posix(),
+        "llm_input": llm_input_path.as_posix(),
     }
     if settings.candidates_enable:
         outputs["insights_candidates"] = (out_dir / "insights_candidates.json").as_posix()

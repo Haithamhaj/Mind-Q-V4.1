@@ -1,0 +1,9 @@
+high_nzv_ratio:
+  threshold: 0.25
+  message: "High NZV ratio triggered graceful degradation; treat insights as advisory."
+  severity: WARN
+  action: log_only
+
+critical_schema_failures:
+  severity: STOP
+  action: block
