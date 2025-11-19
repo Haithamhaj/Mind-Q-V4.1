@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field, root_validator
 from dotenv import dotenv_values
 
 from backend.src.app.api.bi.router import router as bi_router
+from backend.src.app.api.v2_bi_bridge import router as v2_bi_bridge_router
 from backend.src.app.api.pipeline.router import router as pipeline_router
 from backend.src.app.services.pipeline_api.timeline import build_run_timeline
 from shared.run_events import PhaseRunRecorder, derive_phase_identity
@@ -1248,6 +1249,7 @@ async def get_bi_orders_direct(run: str):
     return FR(path=str(json_file), media_type="application/json")
 
 app.include_router(bi_router)
+app.include_router(v2_bi_bridge_router)
 app.include_router(pipeline_router)
 
 app.add_middleware(
@@ -2327,7 +2329,6 @@ async def run_full_pipeline(
 
 
 __all__ = ["app"]
-
 
 
 
