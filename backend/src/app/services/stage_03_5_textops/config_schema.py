@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 import yaml
 from pydantic import BaseModel, Field, ConfigDict
@@ -133,6 +133,19 @@ class ThresholdsConfig(BaseModel):
     join_sample_min: int = 1_000
 
 
+class DocsTextOpsConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    enabled: bool = True
+    doc_roots: Dict[str, str] = Field(default_factory=dict, description="Mapping of document types to directories.")
+    reader_priority: List[str] = Field(default_factory=lambda: [".txt", ".md"], description="Ordered suffixes to read.")
+    chunk_tokens: int = 200
+    chunk_overlap: int = 40
+    max_chars: int = 4000
+    client_map: Optional[str] = Field(None, description="Optional JSON mapping of doc paths to client_id.")
+    llm_enabled: bool = True
+
+
 class TextOpsConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -150,6 +163,7 @@ class TextOpsConfig(BaseModel):
     rag: RagConfig = RagConfig()
     vector_store: VectorStoreConfig = VectorStoreConfig()
     llm: LlmConfig = LlmConfig()
+    docs_textops: DocsTextOpsConfig = DocsTextOpsConfig()
     handoff: HandoffConfig = HandoffConfig()
     thresholds: ThresholdsConfig = ThresholdsConfig()
 
@@ -177,4 +191,3 @@ def load_config(path: Path, overrides: Optional[Mapping[str, Any]] = None) -> Te
 
 
 __all__ = ["TextOpsConfig", "load_config"]
-

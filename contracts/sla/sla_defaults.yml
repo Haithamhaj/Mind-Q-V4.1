@@ -1,0 +1,13 @@
+defaults:
+  global_hours: 48.0
+  by_region:
+    "RUH": 24.0
+    "JED": 36.0
+    "DMM": 36.0
+  by_client:
+    "CLIENT_001":
+      global_hours: 24.0
+      by_region:
+        "RUH": 12.0
+    "CLIENT_002":
+      global_hours: 30.0

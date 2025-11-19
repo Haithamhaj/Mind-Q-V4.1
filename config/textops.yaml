@@ -5,6 +5,20 @@ inputs:
   shipments_path: "raw/shipments/*.parquet"
   docs_path: "raw/docs"
   notes_path: "raw/notes"
+docs_textops:
+  enabled: true
+  doc_roots:
+    sla: "contracts/sla"
+    sop: "contracts/sop"
+    profile: "contracts/profile"
+  reader_priority:
+    - ".txt"
+    - ".md"
+  chunk_tokens: 200
+  chunk_overlap: 40
+  max_chars: 4000
+  client_map: null
+  llm_enabled: true
 sources:
   domain_dict: "artifacts/{run_id}/stage_03/domain_dict.json"
   text_catalog: "artifacts/{run_id}/stage_03/text_columns_catalog.json"

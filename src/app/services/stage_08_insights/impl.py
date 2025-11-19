@@ -1444,8 +1444,12 @@ def _compute_binary_numeric(df: pl.DataFrame, binary_col: str, numeric_col: str)
     if subset.height < 3:
         return {"metric": "point_biserial_r", "effect": 0.0, "strength": 0.0, "direction": "unknown", "n": subset.height, "details": {}}
     pb = _point_biserial(subset[binary_col], subset[numeric_col])
-    group1 = subset.filter(subset[binary_col] > 0)[numeric_col].to_numpy()
-    group0 = subset.filter(subset[binary_col] <= 0)[numeric_col].to_numpy()
+    if subset.schema[binary_col] == pl.Boolean:
+        group1 = subset.filter(pl.col(binary_col))[numeric_col].to_numpy()
+        group0 = subset.filter(~pl.col(binary_col))[numeric_col].to_numpy()
+    else:
+        group1 = subset.filter(pl.col(binary_col) > 0)[numeric_col].to_numpy()
+        group0 = subset.filter(pl.col(binary_col) <= 0)[numeric_col].to_numpy()
     d_value = _cohens_d(group1, group0)
     ci_low, ci_high = _cohens_d_ci(d_value, len(group1), len(group0))
     strength = min(1.0, abs(pb))

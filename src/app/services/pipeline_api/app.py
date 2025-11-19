@@ -1,4 +1,51 @@
-"""Compatibility shim that re-exports the backend pipeline API surface."""
+"""Compatibility shim exposing backend pipeline API symbols under src.* namespace."""
 
-from backend.src.app.services.pipeline_api.app import *  # noqa: F401, F403
-from backend.src.app.services.pipeline_api.app import app  # noqa: F401
+from backend.src.app.services.pipeline_api.app import (
+    app,
+    IngestionRequest,
+    PhaseRequest,
+    run_phase01,
+    run_phase02,
+    run_phase03,
+    run_phase03_5,
+    run_phase04,
+    run_phase05,
+    run_phase06,
+    run_phase07,
+    run_phase07_5,
+    run_phase07_6,
+    run_phase07_7,
+    run_phase07_analytics,
+    run_phase07_knime_bridge,
+    run_phase07_timeseries,
+    run_phase08,
+    run_phase09,
+    run_phase09_5,
+    run_phase10,
+    run_phase12,
+)
+
+__all__ = [
+    "app",
+    "IngestionRequest",
+    "PhaseRequest",
+    "run_phase01",
+    "run_phase02",
+    "run_phase03",
+    "run_phase03_5",
+    "run_phase04",
+    "run_phase05",
+    "run_phase06",
+    "run_phase07",
+    "run_phase07_5",
+    "run_phase07_6",
+    "run_phase07_7",
+    "run_phase07_analytics",
+    "run_phase07_knime_bridge",
+    "run_phase07_timeseries",
+    "run_phase08",
+    "run_phase09",
+    "run_phase09_5",
+    "run_phase10",
+    "run_phase12",
+]

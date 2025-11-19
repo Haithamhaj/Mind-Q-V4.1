@@ -3,25 +3,25 @@
   "mappings": [
     {
       "original": "payment method",
-      "normalized": "وضع الاستلام",
+      "normalized": "وضع المستلم",
       "confidence": 1.0,
       "source": "terminology"
     },
     {
       "original": "payment type",
-      "normalized": "وضع الاستلام",
+      "normalized": "وضع المستلم",
       "confidence": 1.0,
       "source": "terminology"
     },
     {
       "original": "طريقة الدفع",
-      "normalized": "وضع الاستلام",
+      "normalized": "وضع المستلم",
       "confidence": 1.0,
       "source": "terminology"
     },
     {
       "original": "نوع الدفع",
-      "normalized": "وضع الاستلام",
+      "normalized": "وضع المستلم",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -164,5 +164,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-16T07:57:46.458636"
+  "updated_at": "2025-11-19T08:14:34.462362"
 }

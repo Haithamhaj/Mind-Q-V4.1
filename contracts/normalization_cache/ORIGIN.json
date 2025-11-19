@@ -282,7 +282,13 @@
       "normalized": "المصدر",
       "confidence": 1.0,
       "source": "terminology"
+    },
+    {
+      "original": "مكان الانطلاق",
+      "normalized": "المصدر",
+      "confidence": 1.0,
+      "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-16T07:57:05.827502"
+  "updated_at": "2025-11-19T08:01:48.062312"
 }

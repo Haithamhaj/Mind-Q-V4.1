@@ -1,6 +1,11 @@
 models:
   sla_breach:
-    version: v1
-    path: artifacts/models/model_sla_xgb_v1.pkl
+    version: v1.1.0
+    path: artifacts/models/sla_breach/v1.1.0/model.pkl
     target: will_breach_sla_4h
     updated_at: "2025-11-02T10:15:00Z"
+    features:
+      - COD_AMOUNT
+      - ON_WEIGHT
+    lab_report: artifacts/ml_lab/ml_lab_report_20251012.json
+    trained_at: "2025-10-12T08:30:00Z"

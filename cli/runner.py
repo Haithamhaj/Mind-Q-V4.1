@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import shutil
+from datetime import date, datetime
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
@@ -75,6 +76,14 @@ def _load_json_payload(path_str: str) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"JSON payload must be an object: {path}")
     return data
+
+
+def _json_default(value: Any) -> str:
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, Path):
+        return value.as_posix()
+    return str(value)
 
 
 def _llm_credentials_available() -> bool:
@@ -304,7 +313,7 @@ def flow(run_id: str, flags: PipelineFlags, artifacts_root: Path) -> None:
 
     flow_path = artifacts_root / run_id / "flow_results.json"
     flow_path.parent.mkdir(parents=True, exist_ok=True)
-    flow_path.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
+    flow_path.write_text(json.dumps(results, ensure_ascii=False, indent=2, default=_json_default), encoding="utf-8")
 
     summary_dir = artifacts_root / run_id / "_summary"
     summary_dir.mkdir(parents=True, exist_ok=True)
@@ -318,7 +327,9 @@ def flow(run_id: str, flags: PipelineFlags, artifacts_root: Path) -> None:
             }
         )
     run_report: Dict[str, Any] = {"run_id": run_id, "phases": phases_summary}
-    (summary_dir / "run_report.json").write_text(json.dumps(run_report, ensure_ascii=False, indent=2), encoding="utf-8")
+    (summary_dir / "run_report.json").write_text(
+        json.dumps(run_report, ensure_ascii=False, indent=2, default=_json_default), encoding="utf-8"
+    )
 
     if run_id != "run-latest":
         latest_dir = artifacts_root / "run-latest"
@@ -347,8 +358,8 @@ def run_ml_sandbox(flow_run_id: str, artifacts_root: Path, n_clusters: int) -> N
 
     payload = {"run_id": flow_run_id, "base_table": base_meta, "clustering": cluster_meta}
     summary_path = stage_dir / "ml_sandbox_summary.json"
-    summary_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    summary_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, default=_json_default), encoding="utf-8")
+    print(json.dumps(payload, ensure_ascii=False, indent=2, default=_json_default))
 
 
 def main() -> None:

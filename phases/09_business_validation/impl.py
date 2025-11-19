@@ -41,7 +41,7 @@ OPS_ALIAS_CANDIDATES: Dict[str, List[str]] = {
     "carrier": ["FORWARD_COMPANY", "FORWARD COMPANY", "carrier"],
 }
 
-OPS_METRIC_KEYS = {"sla_pct", "rto_pct", "lead_time_p50", "lead_time_p90"}
+OPS_METRIC_KEYS = {"sla_pct", "sla_contract_pct", "sla_legacy_pct", "rto_pct", "lead_time_p50", "lead_time_p90"}
 MODEL_CATALOG_DEFAULT = PROJECT_ROOT / "contracts" / "models" / "models_catalog.yml"
 
 
@@ -51,6 +51,19 @@ class ModelCatalogEntry:
     target: str
     features: Optional[List[str]]
     model: Any
+
+
+@dataclass
+class SLAClientDefaults:
+    global_hours: Optional[float]
+    by_region: Dict[str, float]
+
+
+@dataclass
+class SLAConfig:
+    global_hours: Optional[float]
+    by_region: Dict[str, float]
+    clients: Dict[str, SLAClientDefaults]
 
 
 def _load_model_from_catalog(model_key: str, catalog_path: Optional[Path] = None) -> Optional[ModelCatalogEntry]:
@@ -128,7 +141,363 @@ def _predict_scores(entry: ModelCatalogEntry, frame: pl.DataFrame) -> Optional[L
             predictions = None
     return predictions
 
-SLA_LIMIT_HOURS = 48.0
+
+def _normalize_token(value: Optional[Any]) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return text.upper()
+
+
+def _coerce_float(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _load_sla_defaults(path: Optional[Path] = None) -> Tuple[SLAConfig, List[str]]:
+    warnings: List[str] = []
+    resolved = Path(path or SLA_DEFAULTS_PATH)
+    payload: Mapping[str, Any] = {}
+    if resolved.exists():
+        try:
+            loaded = yaml.safe_load(resolved.read_text(encoding="utf-8")) or {}
+            if isinstance(loaded, Mapping):
+                payload = loaded
+        except Exception as exc:
+            warnings.append(f"sla_defaults_error::{exc}")
+    else:
+        warnings.append(f"sla_defaults_missing::{resolved}")
+    defaults_payload = payload.get("defaults") if isinstance(payload, Mapping) else {}
+    if not isinstance(defaults_payload, Mapping):
+        defaults_payload = payload if isinstance(payload, Mapping) else {}
+    global_hours = _coerce_float(defaults_payload.get("global_hours"))
+    if global_hours is None:
+        global_hours = 48.0
+        warnings.append("sla_defaults_global_fallback")
+    by_region_raw = defaults_payload.get("by_region") or {}
+    by_region: Dict[str, float] = {}
+    if isinstance(by_region_raw, Mapping):
+        for key, value in by_region_raw.items():
+            zone = _normalize_token(key)
+            hours = _coerce_float(value)
+            if zone and hours is not None:
+                by_region[zone] = hours
+    by_client_raw = defaults_payload.get("by_client") or {}
+    clients: Dict[str, SLAClientDefaults] = {}
+    if isinstance(by_client_raw, Mapping):
+        for client_id, client_cfg in by_client_raw.items():
+            key = _normalize_token(client_id)
+            if not key or not isinstance(client_cfg, Mapping):
+                continue
+            client_global = _coerce_float(client_cfg.get("global_hours"))
+            client_regions: Dict[str, float] = {}
+            region_cfg = client_cfg.get("by_region") or {}
+            if isinstance(region_cfg, Mapping):
+                for region_key, region_value in region_cfg.items():
+                    zone = _normalize_token(region_key)
+                    hours = _coerce_float(region_value)
+                    if zone and hours is not None:
+                        client_regions[zone] = hours
+            clients[key] = SLAClientDefaults(global_hours=client_global, by_region=client_regions)
+    return SLAConfig(global_hours=global_hours, by_region=by_region, clients=clients), warnings
+
+
+def _load_sla_policies(run_id: str, artifacts_root: Path) -> Tuple[Dict[str, List[Dict[str, Any]]], List[str]]:
+    path = artifacts_root / run_id / STAGE_03_5_DIR / SLA_POLICIES_FILENAME
+    if not path.exists():
+        return {}, [f"sla_policies_missing::{path}"]
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return {}, [f"sla_policies_invalid::{exc}"]
+    if isinstance(payload, Mapping) and payload.get("client_id"):
+        records = [payload]
+    elif isinstance(payload, Mapping):
+        candidates = None
+        for key in ("clients", "policies", "entries"):
+            group = payload.get(key)
+            if isinstance(group, list):
+                candidates = group
+                break
+        records = [entry for entry in (candidates or []) if isinstance(entry, Mapping)]
+    elif isinstance(payload, list):
+        records = [entry for entry in payload if isinstance(entry, Mapping)]
+    else:
+        records = []
+    policies: Dict[str, List[Dict[str, Any]]] = {}
+    for entry in records:
+        client_id = _normalize_token(entry.get("client_id"))
+        if not client_id:
+            continue
+        service_levels = entry.get("service_levels") or []
+        normalized_levels: List[Dict[str, Any]] = []
+        if isinstance(service_levels, Sequence):
+            for raw_level in service_levels:
+                if not isinstance(raw_level, Mapping):
+                    continue
+                max_hours = _coerce_float(raw_level.get("max_hours"))
+                if max_hours is None:
+                    continue
+                zones = [
+                    zone for zone in (_normalize_token(zone) for zone in raw_level.get("zones") or [])
+                    if zone
+                ]
+                normalized_levels.append(
+                    {
+                        "name": str(raw_level.get("name") or "").strip() or None,
+                        "max_hours": max_hours,
+                        "zones": zones,
+                    }
+                )
+        if normalized_levels:
+            policies.setdefault(client_id, []).extend(normalized_levels)
+    return policies, []
+
+
+def _match_policy_level(levels: List[Dict[str, Any]], zone: Optional[str]) -> Optional[Dict[str, Any]]:
+    zone = zone or ""
+    exact_matches: List[Tuple[float, Dict[str, Any]]] = []
+    fallback_matches: List[Tuple[float, Dict[str, Any]]] = []
+    for level in levels:
+        hours = _coerce_float(level.get("max_hours"))
+        if hours is None:
+            continue
+        zones = level.get("zones") or []
+        if zones:
+            if zone and zone in zones:
+                exact_matches.append((hours, level))
+        else:
+            fallback_matches.append((hours, level))
+    if exact_matches:
+        return min(exact_matches, key=lambda item: item[0])[1]
+    if fallback_matches:
+        return min(fallback_matches, key=lambda item: item[0])[1]
+    return None
+
+
+def _resolve_promised_hours(
+    client_id: Optional[str],
+    zone: Optional[str],
+    policies: Mapping[str, List[Dict[str, Any]]],
+    defaults: SLAConfig,
+) -> Tuple[Optional[float], str, Optional[str]]:
+    client_key = _normalize_token(client_id)
+    zone_key = _normalize_token(zone)
+    if client_key and client_key in policies:
+        best = _match_policy_level(policies[client_key], zone_key)
+        if best:
+            return best.get("max_hours"), "contract_policy", best.get("name")
+    if client_key and client_key in defaults.clients:
+        client_cfg = defaults.clients[client_key]
+        if zone_key and zone_key in client_cfg.by_region:
+            return client_cfg.by_region[zone_key], "config_client", None
+        if client_cfg.global_hours is not None:
+            return client_cfg.global_hours, "config_client", None
+    if zone_key and zone_key in defaults.by_region:
+        return defaults.by_region[zone_key], "config_region", None
+    if defaults.global_hours is not None:
+        return defaults.global_hours, "config_global", None
+    return None, "unknown", None
+
+
+def _attach_sla_contract_columns(
+    df: pl.DataFrame,
+    defaults: SLAConfig,
+    policies: Mapping[str, List[Dict[str, Any]]],
+) -> Tuple[pl.DataFrame, Dict[str, int], List[str]]:
+    if df.is_empty():
+        df = df.with_columns(
+            [
+                pl.lit(None).cast(pl.Float64).alias("sla_promised_hours_contract"),
+                pl.lit(None).cast(pl.Float64).alias("sla_actual_hours"),
+                pl.lit(None).cast(pl.Boolean).alias("sla_breached_contract"),
+                pl.lit(None, dtype=pl.Utf8).alias("sla_basis"),
+                pl.lit(None, dtype=pl.Utf8).alias("sla_policy_name"),
+                pl.lit(None).cast(pl.Boolean).alias("on_time"),
+                pl.lit(None).cast(pl.Boolean).alias("on_time_legacy"),
+            ]
+        )
+        return df, {}, []
+
+    warnings: List[str] = []
+    client_candidates = [
+        col for col in ("Account_NO", "CLIENT_ID", "CLIENT", "SHIPPER_CODE", "Super_ID") if col in df.columns
+    ]
+    zone_candidates = [col for col in ("DESTINATION", "DESTINATION_HUB", "CITY", "receiver_city_hint") if col in df.columns]
+    if not client_candidates:
+        warnings.append("sla_client_column_missing")
+    if not zone_candidates:
+        warnings.append("sla_zone_column_missing")
+    client_expr = (
+        pl.col(client_candidates[0]).cast(pl.Utf8, strict=False) if client_candidates else pl.lit(None, dtype=pl.Utf8)
+    )
+    if zone_candidates:
+        zone_expr = pl.coalesce([pl.col(name).cast(pl.Utf8, strict=False) for name in zone_candidates])
+    else:
+        zone_expr = pl.lit(None, dtype=pl.Utf8)
+
+    def _resolver(row: Mapping[str, Any]) -> Dict[str, Any]:
+        promised, basis, policy_name = _resolve_promised_hours(
+            row.get("client_id"),
+            row.get("zone_hint"),
+            policies,
+            defaults,
+        )
+        return {"promised": promised, "basis": basis, "policy_name": policy_name}
+
+    sla_struct_dtype = pl.Struct(
+        [
+            pl.Field("promised", pl.Float64),
+            pl.Field("basis", pl.Utf8),
+            pl.Field("policy_name", pl.Utf8),
+        ]
+    )
+
+    df = df.with_columns(
+        pl.struct(
+            [
+                client_expr.alias("client_id"),
+                zone_expr.alias("zone_hint"),
+            ]
+        )
+        .map_elements(_resolver, return_dtype=sla_struct_dtype)
+        .alias("sla_struct")
+    )
+    df = df.with_columns(
+        [
+            pl.col("sla_struct").struct.field("promised").alias("sla_promised_hours_contract"),
+            pl.col("lead_time_hours").alias("sla_actual_hours"),
+            pl.col("sla_struct").struct.field("basis").alias("sla_basis"),
+            pl.col("sla_struct").struct.field("policy_name").alias("sla_policy_name"),
+        ]
+    ).drop("sla_struct")
+    df = df.with_columns(
+        pl.when(pl.col("sla_promised_hours_contract").is_not_null() & pl.col("lead_time_hours").is_not_null())
+        .then(pl.col("lead_time_hours") > pl.col("sla_promised_hours_contract"))
+        .otherwise(None)
+        .alias("sla_breached_contract")
+    )
+    df = df.with_columns(
+        pl.when(pl.col("sla_breached_contract").is_null())
+        .then(None)
+        .otherwise(~pl.col("sla_breached_contract"))
+        .alias("on_time")
+    )
+    if defaults.global_hours is not None:
+        df = df.with_columns(
+            pl.when(pl.col("lead_time_hours").is_not_null())
+            .then(pl.col("lead_time_hours") <= defaults.global_hours)
+            .otherwise(None)
+            .alias("on_time_legacy")
+        )
+    else:
+        df = df.with_columns(pl.lit(None).cast(pl.Boolean).alias("on_time_legacy"))
+    summary: Dict[str, int] = {}
+    for value in df["sla_basis"].to_list():
+        label = str(value) if value is not None else "UNKNOWN"
+        summary[label] = summary.get(label, 0) + 1
+    return df, summary, warnings
+
+
+def _load_sop_rules(run_id: str, artifacts_root: Path) -> Tuple[Dict[str, float], List[str]]:
+    path = artifacts_root / run_id / STAGE_03_5_DIR / SOP_RULES_FILENAME
+    if not path.exists():
+        return {}, [f"sop_rules_missing::{path}"]
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return {}, [f"sop_rules_invalid::{exc}"]
+    if isinstance(payload, Mapping) and payload.get("client_id"):
+        records = [payload]
+    elif isinstance(payload, Mapping):
+        group = payload.get("clients") or payload.get("entries")
+        if isinstance(group, list):
+            records = [entry for entry in group if isinstance(entry, Mapping)]
+        else:
+            records = []
+    elif isinstance(payload, list):
+        records = [entry for entry in payload if isinstance(entry, Mapping)]
+    else:
+        records = []
+    escalation: Dict[str, float] = {}
+    for record in records:
+        client_id = _normalize_token(record.get("client_id"))
+        if not client_id:
+            continue
+        steps = record.get("escalation_steps") or []
+        hours: List[float] = []
+        if isinstance(steps, Sequence):
+            for step in steps:
+                if not isinstance(step, Mapping):
+                    continue
+                value = _coerce_float(step.get("sla_hours"))
+                if value is not None:
+                    hours.append(value)
+        if hours:
+            escalation[client_id] = min(hours)
+    return escalation, []
+
+
+def _attach_sop_escalation_columns(
+    df: pl.DataFrame,
+    escalation_map: Mapping[str, float],
+) -> Tuple[pl.DataFrame, List[str]]:
+    if df.is_empty():
+        df = df.with_columns(
+            [
+                pl.lit(None).cast(pl.Float64).alias("sop_escalation_hours"),
+                pl.lit(None).cast(pl.Boolean).alias("sop_escalation_breached"),
+            ]
+        )
+        return df, []
+
+    client_candidates = [
+        col for col in ("Account_NO", "CLIENT_ID", "CLIENT", "SHIPPER_CODE", "Super_ID") if col in df.columns
+    ]
+    client_expr = (
+        pl.col(client_candidates[0]).cast(pl.Utf8, strict=False) if client_candidates else pl.lit(None, dtype=pl.Utf8)
+    )
+
+    def _lookup(client: Optional[str]) -> Optional[float]:
+        key = _normalize_token(client)
+        if key and key in escalation_map:
+            return escalation_map[key]
+        return None
+
+    df = df.with_columns(
+        client_expr.map_elements(_lookup, return_dtype=pl.Float64).alias("sop_escalation_hours")
+    )
+    now_ts = datetime.now(TZ)
+    now_expr = pl.lit(now_ts, dtype=pl.Datetime(time_zone=io.DEFAULT_TIMEZONE))
+    age_expr = (
+        pl.when(pl.col("ts_created").is_not_null() & pl.col("ts_delivered").is_null())
+        .then((now_expr - pl.col("ts_created")).dt.total_hours())
+        .otherwise(None)
+    )
+    df = df.with_columns(age_expr.alias("sop_age_open_hours"))
+    df = df.with_columns(
+        pl.when(pl.col("sop_escalation_hours").is_not_null() & pl.col("ts_created").is_not_null())
+        .then(
+            pl.when(pl.col("ts_delivered").is_null())
+            .then(pl.col("sop_age_open_hours") > pl.col("sop_escalation_hours"))
+            .otherwise(False)
+        )
+        .otherwise(None)
+        .alias("sop_escalation_breached")
+    )
+    df = df.drop("sop_age_open_hours")
+    return df, []
+
+SLA_DEFAULTS_PATH = PROJECT_ROOT / "contracts" / "sla" / "sla_defaults.yml"
+STAGE_03_5_DIR = "stage_03_5_textops"
+SLA_POLICIES_FILENAME = "sla_policies.json"
+SOP_RULES_FILENAME = "sop_rules.json"
 RTO_PATTERN = "RTO|RETURN"
 
 # Core KPI and business logic columns (original)
@@ -502,13 +871,28 @@ def _to_riyadh(series: pl.Series) -> pl.Series:
 
 
 def _extract_ts(df: pl.DataFrame) -> pl.Series:
-    preferred = ["EVENT_TS", "CREATED_AT", "CREATED_AT_TS", "PICKUP_DATE", "DELIVERY_DATE"]
+    preferred = [
+        "EVENT_TS",
+        "CREATED_AT",
+        "CREATED_AT_TS",
+        "PICKUP_DATE",
+        "DELIVERY_DATE",
+        "DELIVER_DATE",
+        "ENTRY_DATE",
+    ]
+    normalized_names = {column.lower(): column for column in df.columns}
     for name in preferred:
-        if name in df.columns and df[name].dtype.is_temporal():
-            return _to_riyadh(df[name])
+        actual = normalized_names.get(name.lower())
+        if not actual:
+            continue
+        series = df[actual]
+        if series.dtype.is_temporal() and series.null_count() < series.len():
+            return _to_riyadh(series)
     for column, dtype in zip(df.columns, df.dtypes):
         if dtype.is_temporal():
-            return _to_riyadh(df[column])
+            series = df[column]
+            if series.null_count() < series.len():
+                return _to_riyadh(series)
     now = datetime.now(TZ)
     return pl.Series("ts", [now] * df.height, dtype=pl.Datetime(time_zone=io.DEFAULT_TIMEZONE))
 
@@ -625,10 +1009,6 @@ def _prepare_ops(
     )
     prepared = prepared.with_columns(
         [
-            (
-                pl.col("lead_time_hours").is_not_null()
-                & (pl.col("lead_time_hours") <= SLA_LIMIT_HOURS)
-            ).alias("on_time"),
             pl.col("STATUS")
             .fill_null("")
             .str.to_uppercase()
@@ -655,14 +1035,33 @@ def _compute_ops_metrics(df: pl.DataFrame) -> Tuple[Dict[str, float], List[str]]
         warnings.append("kpi_guard::ops_metrics_no_rows")
         return metrics, warnings
 
-    sla_guard = total_rows >= 200 and "on_time" in df.columns
     rto_guard = total_rows >= 200 and "rto_flag" in df.columns
 
-    if sla_guard:
-        metrics["sla_pct"] = float(df["on_time"].mean())
+    if "on_time" in df.columns:
+        on_time_series = df["on_time"].drop_nulls()
+        sla_guard = on_time_series.len() >= 200
+        if sla_guard and on_time_series.len() > 0:
+            contract_pct = float(on_time_series.mean())
+            metrics["sla_contract_pct"] = contract_pct
+            metrics["sla_pct"] = contract_pct
+        else:
+            metrics["sla_contract_pct"] = math.nan
+            metrics["sla_pct"] = math.nan
+            warnings.append("kpi_guard::sla_pct_insufficient_n")
     else:
+        metrics["sla_contract_pct"] = math.nan
         metrics["sla_pct"] = math.nan
-        warnings.append("kpi_guard::sla_pct_insufficient_n")
+        warnings.append("kpi_guard::sla_pct_missing")
+
+    if "on_time_legacy" in df.columns:
+        legacy_series = df["on_time_legacy"].drop_nulls()
+        if legacy_series.len() >= 200 and legacy_series.len() > 0:
+            metrics["sla_legacy_pct"] = float(legacy_series.mean())
+        else:
+            metrics["sla_legacy_pct"] = math.nan
+            warnings.append("kpi_guard::sla_legacy_pct_insufficient_n")
+    else:
+        metrics["sla_legacy_pct"] = math.nan
 
     if rto_guard:
         metrics["rto_pct"] = float(df["rto_flag"].mean())
@@ -1106,7 +1505,7 @@ def _tiles(feed: pl.DataFrame) -> Dict[str, pl.DataFrame]:
         .group_by(["day", "DESTINATION"])
         .agg(
             [
-                pl.count().alias("orders_cnt"),
+                pl.len().alias("orders_cnt"),
                 pl.col("COD_AMOUNT").sum().alias("cod_total"),
                 pl.col("COD_AMOUNT").mean().alias("cod_avg"),
                 pl.col("RECEIVER_MODE").eq("COD").mean().alias("cod_rate"),
@@ -1127,7 +1526,7 @@ def _tiles(feed: pl.DataFrame) -> Dict[str, pl.DataFrame]:
         .group_by(["week", "STATUS"])
         .agg(
             [
-                pl.count().alias("orders_cnt"),
+                pl.len().alias("orders_cnt"),
                 pl.col("COD_AMOUNT").sum().alias("cod_total"),
                 pl.col("COD_AMOUNT").mean().alias("cod_avg"),
             ]
@@ -1156,7 +1555,7 @@ def _benchmarks(feed: pl.DataFrame) -> pl.DataFrame:
         window.group_by(["DESTINATION", "STATUS"])
         .agg(
             [
-                pl.count().alias("orders_cnt"),
+                pl.len().alias("orders_cnt"),
                 pl.col("COD_AMOUNT").mean().alias("cod_avg"),
                 pl.col("COD_AMOUNT").quantile(0.5).alias("cod_avg_p50"),
                 pl.col("COD_AMOUNT").quantile(0.9).alias("cod_avg_p90"),
@@ -1382,6 +1781,7 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
         "text_sentiment": (textops_dir / "sentiment_features.parquet").as_posix(),
     }
     textops_context = _load_textops_context(textops_inputs)
+    pre_warnings: List[str] = []
 
     catalog = io.load_kpi_catalog(kpi_path)
     io.write_json_sorted(catalog.model_dump(mode="json"), out_dir / "kpi_catalog.json")
@@ -1405,6 +1805,20 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
 
     clean_df = pl.read_parquet(clean_path.as_posix())
     clean_df, _alias_matches = _prepare_ops(clean_df, artifacts_root, run_id)
+
+    sla_defaults_path = Path(str(config.get("sla_defaults") or SLA_DEFAULTS_PATH)).expanduser()
+    sla_defaults, default_warnings = _load_sla_defaults(sla_defaults_path)
+    pre_warnings.extend(default_warnings)
+    sla_policies, policy_warnings = _load_sla_policies(run_id, artifacts_root)
+    pre_warnings.extend(policy_warnings)
+
+    clean_df, sla_summary, sla_attach_warnings = _attach_sla_contract_columns(clean_df, sla_defaults, sla_policies)
+    pre_warnings.extend(sla_attach_warnings)
+
+    sop_rules, sop_warnings = _load_sop_rules(run_id, artifacts_root)
+    pre_warnings.extend(sop_warnings)
+    clean_df, sop_attach_warnings = _attach_sop_escalation_columns(clean_df, sop_rules)
+    pre_warnings.extend(sop_attach_warnings)
     kpi_source_df = _prepare_kpi_source(raw_path, clean_df)
     protected_low_variance: Set[str] = set(REQUIRED_FACT_COLUMNS)
     clean_df, low_variance_removed = _apply_low_variance_filter(clean_df, nzv_lookup, protected_low_variance)
@@ -1595,7 +2009,8 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     sla_summary_path = out_dir / "sla_summary.json"
     io.write_json_sorted(sla_summary_payload, sla_summary_path)
 
-    warnings: List[str] = list(ops_metric_warnings)
+    warnings: List[str] = list(pre_warnings)
+    warnings.extend(ops_metric_warnings)
     if stage08_gate_reasons:
         warnings.extend(stage08_gate_reasons)
     if stage08_gate_status == "WARN":

@@ -17,12 +17,14 @@ def _build_rows(
     cod_values: Optional[Sequence[float]] = None,
     status_cycle: Optional[Sequence[str]] = None,
     receiver_modes: Optional[Sequence[str]] = None,
+    account_cycle: Optional[Sequence[str]] = None,
 ) -> List[dict]:
     tz = ZoneInfo("Asia/Riyadh")
     rows: List[dict] = []
     status_cycle = status_cycle or ("DELIVERED", "IN_TRANSIT", "DELIVERED", "RETURNED")
     receiver_modes = receiver_modes or ("COD", "PREPAID")
     cod_values = cod_values or (10.0, 0.0, 25.5, 5.0)
+    account_cycle = account_cycle or ("CLIENT_001", "CLIENT_002", "CLIENT_003")
     for idx in range(n_rows):
         pickup = datetime(2024, 1, 1, 8, 0, tzinfo=tz) + timedelta(days=idx)
         delivery = pickup + timedelta(days=idx % 3)
@@ -36,6 +38,7 @@ def _build_rows(
                 "COD_AMOUNT": cod_values[idx % len(cod_values)],
                 "PICKUP_DATE": pickup,
                 "DELIVERY_DATE": delivery,
+                "Account_NO": account_cycle[idx % len(account_cycle)],
             }
         )
     return rows
@@ -164,7 +167,12 @@ def write_stage_artifacts(
         receiver_modes=receiver_modes,
     )
     clean_df = pl.DataFrame(rows, orient="row")
-    clean_df = clean_df.with_columns(pl.col("PICKUP_DATE").dt.cast_time_unit("us"))
+    clean_df = clean_df.with_columns(
+        [
+            pl.col("PICKUP_DATE").dt.cast_time_unit("us"),
+            pl.col("DELIVERY_DATE").dt.cast_time_unit("us"),
+        ]
+    )
     clean_df.write_parquet((stage06_dir / "clean.parquet").as_posix())
 
     if insights_override is not None:

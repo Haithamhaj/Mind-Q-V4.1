@@ -6,6 +6,7 @@ import os
 import random
 import re
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -14,6 +15,8 @@ import numpy as np  # type: ignore
 import polars as pl  # type: ignore
 from dotenv import dotenv_values, load_dotenv
 from polars.datatypes import Datetime as PlDatetime  # type: ignore
+
+from src.agents.llm_adapter import invoke_model  # type: ignore
 
 from .config_schema import TextOpsConfig, load_config
 from .contracts import ContractError, enforce_privacy_on_evidence, validate_row_keys
@@ -54,6 +57,16 @@ SENDER_PHONE_KEYS: Tuple[str, ...] = ("sender phone", "shipper phone", "pickup p
 RECEIVER_PHONE_KEYS: Tuple[str, ...] = ("receiver phone", "delivery phone", "consignee phone", "receiver contact")
 CITY_SENDER_KEYS: Tuple[str, ...] = ("origin", "sender city", "origin city")
 CITY_RECEIVER_KEYS: Tuple[str, ...] = ("destination", "receiver city", "delivery city")
+DOC_TYPE_SLA = "sla"
+DOC_TYPE_SOP = "sop"
+DOC_TYPE_PROFILE = "profile"
+
+
+@dataclass
+class DocRecord:
+    doc_type: str
+    path: Path
+    text: str
 
 
 def _is_flag_enabled(name: str) -> bool:
@@ -194,6 +207,479 @@ def _build_structured_fields(frame: pl.DataFrame, join_key: str) -> Optional[pl.
     if not has_structured:
         return None
     return pl.DataFrame(structured_cols)
+
+
+def _read_text_file(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        try:
+            return path.read_text(encoding="latin-1")
+        except Exception:
+            return ""
+    except Exception:
+        return ""
+
+
+def _resolve_doc_path(template: str, run_id: str, artifacts_root: Path) -> Path:
+    formatted = _format_path(template, run_id)
+    candidate = Path(formatted)
+    search_paths = [candidate]
+    if not candidate.is_absolute():
+        search_paths = [
+            (PROJECT_ROOT / formatted).resolve(),
+            (artifacts_root / formatted).resolve(),
+        ]
+    for path in search_paths:
+        if path.exists():
+            return path
+    return search_paths[0]
+
+
+def _load_client_map(path: Optional[str]) -> Dict[str, str]:
+    if not path:
+        return {}
+    resolved = Path(path)
+    if not resolved.is_absolute():
+        resolved = (PROJECT_ROOT / path).resolve()
+    if not resolved.exists():
+        return {}
+    try:
+        data = json.loads(resolved.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    if isinstance(data, Mapping):
+        return {str(key): str(value) for key, value in data.items()}
+    return {}
+
+
+def _discover_docs(
+    run_id: str,
+    cfg: TextOpsConfig,
+    artifacts_root: Path,
+) -> Tuple[Dict[str, List[DocRecord]], List[Dict[str, str]]]:
+    docs_cfg = getattr(cfg, "docs_textops", None)
+    if not docs_cfg or not docs_cfg.enabled:
+        return {}, []
+    doc_roots = docs_cfg.doc_roots or {}
+    priority = [suffix.lower() for suffix in docs_cfg.reader_priority or []]
+    allowed = set(priority)
+    discovered: Dict[str, List[DocRecord]] = {}
+    warnings: List[Dict[str, str]] = []
+
+    if not doc_roots:
+        warnings.append({"code": "docs_unconfigured", "message": "No document roots configured for Docs TextOps."})
+
+    for doc_type, root_template in doc_roots.items():
+        if not root_template:
+            continue
+        root_path = _resolve_doc_path(root_template, run_id, artifacts_root)
+        if not root_path.exists():
+            warnings.append(
+                {"code": f"docs_missing_{doc_type}", "message": f"Document path '{root_path}' not found."}
+            )
+            continue
+        records: List[DocRecord] = []
+        for candidate in root_path.rglob("*"):
+            if not candidate.is_file():
+                continue
+            suffix = candidate.suffix.lower()
+            if allowed and suffix not in allowed:
+                warnings.append(
+                    {
+                        "code": "docs_unsupported_file",
+                        "message": f"{candidate.name} ignored (suffix {suffix})",
+                    }
+                )
+                continue
+            raw = _read_text_file(candidate)
+            if not raw.strip():
+                continue
+            normalised = mask_pii(
+                normalize_ar_en(raw, unescape_html=True, unify_alef_ya_ta=True, strip_diacritics=False, unify_digits=True)
+            )
+            if normalised.strip():
+                records.append(DocRecord(doc_type=doc_type, path=candidate, text=normalised))
+        if records:
+            discovered[doc_type] = records
+        else:
+            warnings.append(
+                {"code": f"docs_empty_{doc_type}", "message": f"No supported documents discovered under '{root_path}'."}
+            )
+    return discovered, warnings
+
+
+def _build_doc_context(records: List[DocRecord], chunk_tokens: int, overlap: int, max_chars: int) -> str:
+    snippets: List[str] = []
+    for record in records:
+        chunks = _chunk_tokens(record.text, max_tokens=chunk_tokens, overlap=overlap)
+        if not chunks:
+            continue
+        snippets.extend(chunks)
+    combined: List[str] = []
+    total = 0
+    for snippet in snippets:
+        snippet = snippet.strip()
+        if not snippet:
+            continue
+        proposed = total + len(snippet) + 1
+        if proposed > max_chars and combined:
+            break
+        combined.append(snippet)
+        total = proposed
+    return "\n".join(combined)
+
+
+def _infer_client_fields(records: List[DocRecord], client_map: Dict[str, str]) -> Tuple[Optional[str], Optional[str]]:
+    for record in records:
+        for key, value in client_map.items():
+            if record.path.as_posix().endswith(key):
+                return value, None
+    client_id = None
+    client_name = None
+    pattern_id = re.compile(r"CLIENT[_\s-]*ID[:=\s]+([A-Za-z0-9_\-]+)", re.IGNORECASE)
+    pattern_name = re.compile(r"(?:CLIENT|COMPANY)[_\s-]*NAME[:=\s]+(.+)", re.IGNORECASE)
+    for record in records:
+        if not client_id:
+            match = pattern_id.search(record.text)
+            if match:
+                client_id = match.group(1).strip()
+        if not client_name:
+            match = pattern_name.search(record.text)
+            if match:
+                client_name = match.group(1).strip()
+    return client_id, client_name
+
+
+def _split_list(value: str) -> List[str]:
+    parts = re.split(r"[;,/]+", value)
+    return [part.strip() for part in parts if part and part.strip()]
+
+
+def _heuristic_extract_sla(records: List[DocRecord], client_map: Dict[str, str]) -> Dict[str, Any]:
+    client_id, client_name = _infer_client_fields(records, client_map)
+    service_levels: List[Dict[str, Any]] = []
+    kpi_definitions: Dict[str, str] = {}
+    service_re = re.compile(
+        r"(?:SLA|Service(?:\s+Level)?)\s*(?P<name>[A-Za-z0-9 \-/]+?)\s*[:\-]\s*(?P<hours>\d+(?:\.\d+)?)\s*(?:hours|hrs|h)",
+        re.IGNORECASE,
+    )
+    kpi_re = re.compile(r"(on[-\s]?time|rto|cod)\s*[:\-]\s*(.+)", re.IGNORECASE)
+    zone_re = re.compile(r"zone[s]?:\s*(.+)", re.IGNORECASE)
+    days_tokens = {"sun", "mon", "tue", "wed", "thu", "fri", "sat"}
+
+    for record in records:
+        for line in record.text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            service_match = service_re.search(line)
+            if service_match:
+                zones: List[str] = []
+                working_days: List[str] = []
+                zone_match = zone_re.search(line)
+                if zone_match:
+                    zones = _split_list(zone_match.group(1))
+                for token in days_tokens:
+                    if token in line.lower():
+                        working_days.append(token.title())
+                try:
+                    max_hours = float(service_match.group("hours"))
+                except ValueError:
+                    max_hours = None
+                service_levels.append(
+                    {
+                        "name": service_match.group("name").strip(),
+                        "max_hours": max_hours,
+                        "zones": zones,
+                        "working_days": working_days,
+                        "notes": line,
+                        "source_doc": record.path.as_posix(),
+                    }
+                )
+                continue
+            kpi_match = kpi_re.search(line)
+            if kpi_match:
+                key = kpi_match.group(1).strip().lower().replace("-", "_")
+                kpi_definitions[key] = kpi_match.group(2).strip()
+    return {
+        "client_id": client_id,
+        "client_name": client_name,
+        "service_levels": service_levels,
+        "kpi_definitions": kpi_definitions,
+        "source_docs": [record.path.as_posix() for record in records],
+    }
+
+
+def _heuristic_extract_sop(records: List[DocRecord], client_map: Dict[str, str]) -> Dict[str, Any]:
+    client_id, _ = _infer_client_fields(records, client_map)
+    escalation_steps: List[Dict[str, Any]] = []
+    responsibilities: List[Dict[str, Any]] = []
+    constraints: List[str] = []
+    esc_re = re.compile(
+        r"(?:Escalation|Level)\s*(?:Level)?\s*(?P<level>\d+)[^\n]*?(?:Owner|->)\s*(?P<owner>[A-Za-z &]+)"
+        r"[^\n]*?(?:SLA|within)?\s*(?P<hours>\d+(?:\.\d+)?)\s*(?:h|hour)",
+        re.IGNORECASE,
+    )
+    resp_re = re.compile(r"(?:Role|Owner)[:=\s]+(?P<role>[^-:]+)[\s\-:]+(?P<duty>.+)", re.IGNORECASE)
+    for record in records:
+        for line in record.text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            esc_match = esc_re.search(line)
+            if esc_match:
+                escalation_steps.append(
+                    {
+                        "level": int(esc_match.group("level")),
+                        "owner": esc_match.group("owner").strip(),
+                        "sla_hours": float(esc_match.group("hours")),
+                        "trigger": line,
+                        "source_doc": record.path.as_posix(),
+                    }
+                )
+            resp_match = resp_re.search(line)
+            if resp_match:
+                duties_raw = resp_match.group("duty").strip()
+                duties_raw = re.sub(r"^(?:duty|duties)[:=\s-]+", "", duties_raw, flags=re.IGNORECASE)
+                duties = _split_list(duties_raw) or [duties_raw] if duties_raw else []
+                responsibilities.append(
+                    {
+                        "role": resp_match.group("role").strip(),
+                        "duties": duties,
+                        "source_doc": record.path.as_posix(),
+                    }
+                )
+            if line.lower().startswith("constraint") or "no " in line.lower():
+                constraints.append(line)
+    return {
+        "client_id": client_id,
+        "escalation_steps": escalation_steps,
+        "responsibilities": responsibilities,
+        "constraints": constraints,
+        "source_docs": [record.path.as_posix() for record in records],
+    }
+
+
+def _heuristic_extract_profile(records: List[DocRecord], client_map: Dict[str, str]) -> Dict[str, Any]:
+    client_id, client_name = _infer_client_fields(records, client_map)
+    industries: List[str] = []
+    regions: List[str] = []
+    channels: List[str] = []
+    peaks: List[str] = []
+    remarks: List[str] = []
+    patterns = {
+        "industries": re.compile(r"industr(?:y|ies)[:=\s]+(.+)", re.IGNORECASE),
+        "regions": re.compile(r"(?:region|country|area)s?[:=\s]+(.+)", re.IGNORECASE),
+        "channels": re.compile(r"(?:service|channel)s?[:=\s]+(.+)", re.IGNORECASE),
+        "peaks": re.compile(r"(?:peak|season)s?[:=\s]+(.+)", re.IGNORECASE),
+    }
+    for record in records:
+        for line in record.text.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            for key, pattern in patterns.items():
+                match = pattern.search(stripped)
+                if match:
+                    values = _split_list(match.group(1))
+                    if key == "industries":
+                        industries.extend(values)
+                    elif key == "regions":
+                        regions.extend(values)
+                    elif key == "channels":
+                        channels.extend(values)
+                    elif key == "peaks":
+                        peaks.extend(values)
+            if stripped.lower().startswith("note") or stripped.lower().startswith("remark"):
+                remarks.append(stripped)
+    return {
+        "client_id": client_id,
+        "client_name": client_name,
+        "industries": industries,
+        "regions_served": regions,
+        "service_channels": channels,
+        "peak_periods": peaks,
+        "remarks": remarks,
+        "source_docs": [record.path.as_posix() for record in records],
+    }
+
+
+def _safe_json_parse(content: str) -> Mapping[str, Any]:
+    try:
+        payload = json.loads(content)
+        if isinstance(payload, Mapping):
+            return payload
+    except Exception:
+        return {}
+    return {}
+
+
+def _doc_prompts(doc_type: str) -> Tuple[str, str]:
+    base = (
+        "You are a logistics policy extraction agent. Respond ONLY with strict JSON. "
+        "Use null for unknown fields. Ensure arrays exist even if empty."
+    )
+    if doc_type == DOC_TYPE_SLA:
+        user = (
+            "Using the provided context, extract SLA details. "
+            "Return JSON with keys client_id, client_name, service_levels, kpi_definitions. "
+            "service_levels => array of {name, max_hours, zones[], working_days[], notes}. "
+            "kpi_definitions => object of KPI -> description."
+        )
+        return base, user
+    if doc_type == DOC_TYPE_SOP:
+        user = (
+            "Extract SOP escalation information. Return JSON with keys client_id, escalation_steps, responsibilities, constraints. "
+            "escalation_steps => array {level, owner, sla_hours, trigger}. "
+            "responsibilities => array {role, duties[]}."
+        )
+        return base, user
+    user = (
+        "Summarise client profile. Return JSON with keys client_id, industries[], regions_served[], service_channels[], "
+        "peak_periods[], remarks[]."
+    )
+    return base, user
+
+
+def _merge_doc_payload(doc_type: str, base_payload: Dict[str, Any], llm_payload: Mapping[str, Any]) -> Dict[str, Any]:
+    merged = dict(base_payload)
+    if not llm_payload:
+        return merged
+    if doc_type == DOC_TYPE_SLA:
+        merged["client_id"] = llm_payload.get("client_id") or merged.get("client_id")
+        merged["client_name"] = llm_payload.get("client_name") or merged.get("client_name")
+        if isinstance(llm_payload.get("service_levels"), list):
+            merged["service_levels"] = llm_payload["service_levels"]
+        if isinstance(llm_payload.get("kpi_definitions"), Mapping):
+            merged["kpi_definitions"] = dict(llm_payload["kpi_definitions"])
+    elif doc_type == DOC_TYPE_SOP:
+        merged["client_id"] = llm_payload.get("client_id") or merged.get("client_id")
+        if isinstance(llm_payload.get("escalation_steps"), list):
+            merged["escalation_steps"] = llm_payload["escalation_steps"]
+        if isinstance(llm_payload.get("responsibilities"), list):
+            merged["responsibilities"] = llm_payload["responsibilities"]
+        if isinstance(llm_payload.get("constraints"), list):
+            merged["constraints"] = llm_payload["constraints"]
+    else:
+        merged["client_id"] = llm_payload.get("client_id") or merged.get("client_id")
+        if isinstance(llm_payload.get("industries"), list):
+            merged["industries"] = llm_payload["industries"]
+        if isinstance(llm_payload.get("regions_served"), list):
+            merged["regions_served"] = llm_payload["regions_served"]
+        if isinstance(llm_payload.get("service_channels"), list):
+            merged["service_channels"] = llm_payload["service_channels"]
+        if isinstance(llm_payload.get("peak_periods"), list):
+            merged["peak_periods"] = llm_payload["peak_periods"]
+        if isinstance(llm_payload.get("remarks"), list):
+            merged["remarks"] = llm_payload["remarks"]
+    return merged
+
+
+def _maybe_refine_with_llm(
+    doc_type: str,
+    context: str,
+    cfg: TextOpsConfig,
+    docs_cfg,
+    payload: Dict[str, Any],
+    warnings: List[Dict[str, str]],
+) -> Dict[str, Any]:
+    if not context.strip():
+        return payload
+    if not (cfg.llm.enabled and docs_cfg.llm_enabled):
+        return payload
+    system_prompt, user_prompt = _doc_prompts(doc_type)
+    final_user_prompt = f"{user_prompt}\n\nContext:\n{context}"
+    try:
+        response = invoke_model(
+            provider=cfg.llm.provider,
+            model=cfg.llm.model,
+            system_prompt=system_prompt,
+            user_prompt=final_user_prompt,
+            max_tokens=cfg.llm.max_tokens,
+            temperature=cfg.llm.temperature,
+            top_p=cfg.llm.top_p,
+            timeout=cfg.llm.timeout_sec,
+        )
+    except Exception as exc:
+        warnings.append({"code": "docs_llm_error", "message": str(exc)})
+        return payload
+    llm_payload = _safe_json_parse(response.content)
+    return _merge_doc_payload(doc_type, payload, llm_payload)
+
+
+def _build_empty_docs_payload(doc_type: str) -> Dict[str, Any]:
+    if doc_type == DOC_TYPE_SLA:
+        return {
+            "client_id": None,
+            "client_name": None,
+            "service_levels": [],
+            "kpi_definitions": {},
+            "source_docs": [],
+        }
+    if doc_type == DOC_TYPE_SOP:
+        return {
+            "client_id": None,
+            "escalation_steps": [],
+            "responsibilities": [],
+            "constraints": [],
+            "source_docs": [],
+        }
+    return {
+        "client_id": None,
+        "client_name": None,
+        "industries": [],
+        "regions_served": [],
+        "service_channels": [],
+        "peak_periods": [],
+        "remarks": [],
+        "source_docs": [],
+    }
+
+
+def _run_docs_textops(
+    run_id: str,
+    cfg: TextOpsConfig,
+    artifacts_root: Path,
+    out_dir: Path,
+) -> Tuple[Dict[str, str], Dict[str, int], List[Dict[str, str]]]:
+    docs_cfg = getattr(cfg, "docs_textops", None)
+    if not docs_cfg or not docs_cfg.enabled:
+        return {}, {}, []
+
+    discovered, warnings = _discover_docs(run_id, cfg, artifacts_root)
+    client_map = _load_client_map(docs_cfg.client_map)
+    generated_at = utcnow_iso(cfg.timezone)
+    metrics: Dict[str, int] = {}
+
+    def _process(
+        doc_type: str,
+        builder,
+        filename: str,
+    ) -> str:
+        records = discovered.get(doc_type, [])
+        metrics[f"docs_{doc_type}_count"] = len(records)
+        if records:
+            payload = builder(records, client_map)
+            context = _build_doc_context(records, docs_cfg.chunk_tokens, docs_cfg.chunk_overlap, docs_cfg.max_chars)
+            payload = _maybe_refine_with_llm(doc_type, context, cfg, docs_cfg, payload, warnings)
+        else:
+            payload = _build_empty_docs_payload(doc_type)
+        payload["generated_at"] = generated_at
+        path = out_dir / filename
+        write_json(path, payload)
+        return path.as_posix()
+
+    outputs: Dict[str, str] = {}
+    sla_path = _process(DOC_TYPE_SLA, _heuristic_extract_sla, "sla_policies.json")
+    sop_path = _process(DOC_TYPE_SOP, _heuristic_extract_sop, "sop_rules.json")
+    profile_path = _process(DOC_TYPE_PROFILE, _heuristic_extract_profile, "profile_entities.json")
+
+    outputs["sla_policies"] = sla_path
+    outputs["sop_rules"] = sop_path
+    outputs["profile_entities"] = profile_path
+
+    return outputs, metrics, warnings
 
 
 def _apply_env_entries(entries: Mapping[str, Any]) -> None:
@@ -865,7 +1351,20 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Mapping[str, Any]) -> Di
         doc_fields_path = None
         doc_fields_count = 0
 
-    if warnings and status == PASS:        status = WARN
+    docs_outputs: Dict[str, str] = {}
+    docs_metrics: Dict[str, int] = {}
+    try:
+        docs_outputs, docs_metrics, docs_warnings = _run_docs_textops(run_id, cfg, artifacts_root, out_dir)
+        warnings.extend(docs_warnings)
+        if docs_outputs:
+            append_log(logs, "docs_textops_completed", outputs=list(docs_outputs.values()))
+    except Exception as exc:
+        warnings.append({"code": "docs_textops_error", "message": str(exc)})
+        docs_outputs = {}
+        docs_metrics = {}
+
+    if warnings and status == PASS:
+        status = WARN
 
     sentiment_path = out_dir / "sentiment_features.parquet"
     vectors_path = out_dir / "svd_components.parquet"
@@ -918,6 +1417,10 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Mapping[str, Any]) -> Di
         artefacts.append({"path": doc_fields_path.as_posix(), "sha256": sha256_file(doc_fields_path)})
     if structured_fields_path:
         artefacts.append({"path": structured_fields_path.as_posix(), "sha256": sha256_file(structured_fields_path)})
+    for path in docs_outputs.values():
+        candidate = Path(path)
+        if candidate.exists():
+            artefacts.append({"path": candidate.as_posix(), "sha256": sha256_file(candidate)})
 
     outputs: Dict[str, str] = {
         "sentiment_features": sentiment_path.as_posix(),
@@ -933,6 +1436,8 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Mapping[str, Any]) -> Di
         outputs["document_field_predictions"] = doc_fields_path.as_posix()
     if structured_fields_path:
         outputs["structured_fields"] = structured_fields_path.as_posix()
+    if docs_outputs:
+        outputs.update(docs_outputs)
 
     for key, path in rag_paths.items():
         if path.exists():
@@ -984,7 +1489,7 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Mapping[str, Any]) -> Di
     if cfg.handoff.write_manifest:
         write_json(manifest_path, artefact_manifest(artefacts))
 
-    return {
+    phase_metrics: Dict[str, Any] = {
         "run_id": run_id,
         "status": status,
         "outputs": outputs,
@@ -997,6 +1502,8 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Mapping[str, Any]) -> Di
         },
         "logs_uri": log_path.as_posix(),
     }
+    phase_metrics["metrics"].update(docs_metrics)
+    return phase_metrics
 
 
 __all__ = ["run"]

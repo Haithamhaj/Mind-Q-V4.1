@@ -96,7 +96,19 @@
       "normalized": "رقم الحساب",
       "confidence": 1.0,
       "source": "terminology"
+    },
+    {
+      "original": "168889000000.0",
+      "normalized": "168889000000",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "166013000000.0",
+      "normalized": "166013000000",
+      "confidence": 1.0,
+      "source": "llm"
     }
   ],
-  "updated_at": "2025-10-30T11:53:27.754099"
+  "updated_at": "2025-11-18T18:58:05.494052"
 }
