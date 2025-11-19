@@ -105,19 +105,19 @@
     },
     {
       "original": "SMSA v2",
-      "normalized": "شركة الشحن",
+      "normalized": "SMSA v2",
       "confidence": 1.0,
       "source": "llm"
     },
     {
       "original": "Aramex",
-      "normalized": "شركة الشحن",
+      "normalized": "Aramex",
       "confidence": 1.0,
       "source": "llm"
     },
     {
       "original": "J&T",
-      "normalized": "شركة الشحن",
+      "normalized": "J&T",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -165,13 +165,13 @@
     },
     {
       "original": "Wepik Express",
-      "normalized": "شركة الشحن",
+      "normalized": "Wepik Express",
       "confidence": 1.0,
       "source": "llm"
     },
     {
       "original": "Red Box",
-      "normalized": "شركة الشحن",
+      "normalized": "Red Box",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -260,5 +260,5 @@
       "source": "llm"
     }
   ],
-  "updated_at": "2025-11-19T08:09:12.339437"
+  "updated_at": "2025-11-19T18:06:46.057418"
 }

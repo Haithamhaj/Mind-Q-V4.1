@@ -72,7 +72,13 @@
       "normalized": "استلام الوارد",
       "confidence": 1.0,
       "source": "terminology"
+    },
+    {
+      "original": "استلام الواردات",
+      "normalized": "استلام الوارد",
+      "confidence": 1.0,
+      "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-16T09:47:21.730996"
+  "updated_at": "2025-11-19T18:06:28.512132"
 }

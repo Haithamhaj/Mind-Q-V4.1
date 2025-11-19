@@ -156,7 +156,19 @@
       "normalized": "حالة المستحقات",
       "confidence": 1.0,
       "source": "terminology"
+    },
+    {
+      "original": "Payment Status",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "حالة الدفع",
+      "normalized": "حالة المستحقات",
+      "confidence": 1.0,
+      "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-16T09:48:31.447948"
+  "updated_at": "2025-11-19T18:07:41.940421"
 }

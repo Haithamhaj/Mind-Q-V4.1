@@ -51,9 +51,9 @@
     },
     {
       "original": "Pending",
-      "normalized": "معلق",
+      "normalized": "حالة الانتظار",
       "confidence": 1.0,
-      "source": "llm"
+      "source": "terminology"
     },
     {
       "original": "Awaiting",
@@ -75,9 +75,9 @@
     },
     {
       "original": "Delayed",
-      "normalized": "متأخر",
+      "normalized": "حالة الانتظار",
       "confidence": 1.0,
-      "source": "llm"
+      "source": "terminology"
     },
     {
       "original": "متأخر",
@@ -134,5 +134,5 @@
       "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-16T07:58:04.103546"
+  "updated_at": "2025-11-19T18:06:35.321320"
 }
