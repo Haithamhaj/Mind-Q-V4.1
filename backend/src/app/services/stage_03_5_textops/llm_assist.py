@@ -95,7 +95,14 @@ def _collect_context(question: str, rag: RagBundle) -> Tuple[str, List[int]]:
         question_vec = _normalise(question_vec.astype(np.float32))
         scores = np.dot(rag.embeddings, question_vec[0])
         top_indices = np.argsort(scores)[::-1][: rag.top_k]
-        selected = rag.segments.take(top_indices)
+        index_list = [int(idx) for idx in top_indices.tolist()]
+        try:
+            selected = rag.segments.take(index_list)
+        except AttributeError:
+            if hasattr(rag.segments, "iloc"):
+                selected = rag.segments.iloc[index_list]
+            else:
+                selected = rag.segments.head(len(index_list))
     else:
         limit = min(rag.top_k, rag.segments.height)
         selected = rag.segments.head(limit)

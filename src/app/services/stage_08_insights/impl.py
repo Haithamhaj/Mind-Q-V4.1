@@ -44,6 +44,7 @@ KEY_NAME_HINTS = (
     "AWB",
     "ROW_ID",
 )
+AUTO_CONTEXT_KEYWORDS = ("latitude", "longitude", "lat", "lng")
 
 
 def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
@@ -296,6 +297,9 @@ def load_column_roles(
 
     for column in df.columns:
         lower = column.lower()
+        if any(keyword in lower for keyword in AUTO_CONTEXT_KEYWORDS):
+            roles[column] = "CONTEXT_ONLY"
+            continue
         if lower in context_candidates:
             roles[column] = "CONTEXT_ONLY"
             continue
@@ -1046,7 +1050,15 @@ def _build_readiness_cards(readiness_overlay: Mapping[str, Any]) -> List[Dict[st
         if not isinstance(entry, Mapping):
             continue
         feature_list = entry.get("features") or []
-        feature_text = ", ".join(feature_list) if isinstance(feature_list, list) else str(feature_list)
+        feature_text = ""
+        if isinstance(feature_list, list) and feature_list:
+            display = feature_list[:3]
+            extra = len(feature_list) - len(display)
+            feature_text = ", ".join(display)
+            if extra > 0:
+                feature_text += f", +{extra} others"
+        elif isinstance(feature_list, str):
+            feature_text = feature_list
         cards.append(
             {
                 "title": "Readiness guardrail",
@@ -1254,6 +1266,9 @@ def _preflight_checks(
 ) -> Dict[str, Any]:
     kpi_features = {(entry["kpi"], entry["feature"]) for entry in correlations if "kpi" in entry and "feature" in entry}
     critical_columns = sorted({column for pair in kpi_features for column in pair})
+    critical_columns = [
+        column for column in critical_columns if not any(keyword in column.lower() for keyword in AUTO_CONTEXT_KEYWORDS)
+    ]
     if settings.timestamp_col:
         critical_columns.append(settings.timestamp_col)
     ratios = _missing_ratio(df, critical_columns)

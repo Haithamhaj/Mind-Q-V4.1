@@ -291,6 +291,21 @@ const arTranslations: Record<string, string> = {
   "Loading...": "جارٍ التحميل...",
   "Unknown status": "حالة غير معروفة",
   "Untitled document": "مستند بدون عنوان",
+  "Action Feed": "موجز الإجراءات",
+  "AI-curated insights from Stage 08.": "رؤى مختارة من المرحلة 08 بواسطة الذكاء الاصطناعي.",
+  "Enter a run_id to load insights.": "أدخل معرّف التشغيل لتحميل الرؤى.",
+  "No actionable items found for this run.": "لا توجد عناصر قابلة للتنفيذ لهذا التشغيل.",
+  "Failed to load insights: {error}": "فشل تحميل الرؤى: {error}",
+  "Deep Dive": "استكشاف تفصيلي",
+  "Performance Heatmap": "خريطة حرارة الأداء",
+  "City x Carrier KPI view": "عرض المؤشرات حسب المدينة والناقل",
+  "Heatmap error": "خطأ في خريطة الحرارة",
+  "Loading heatmap…": "جارٍ تحميل خريطة الحرارة...",
+  "No heatmap data found for this run.": "لا توجد بيانات لخريطة الحرارة في هذا التشغيل.",
+  "Heatmap filtered for readability": "تم تقليص خريطة الحرارة لتحسين قابلية القراءة.",
+  "Showing top {cities} cities × {carriers} carriers": "عرض أعلى {cities} مدينة × {carriers} ناقلاً",
+  "City": "المدينة",
+  "Carrier": "الناقل",
 }
 
 

@@ -1,2 +1,2 @@
-2025-11-19 20:47:06,382 INFO column_roles_loaded total=8 analysis=7 context=0 key=1
-2025-11-19 20:47:06,393 INFO {"gate_status": "WARN", "duration_sec": 0.0138}
+2025-11-20 11:59:43,833 INFO column_roles_loaded total=8 analysis=7 context=0 key=1
+2025-11-20 11:59:43,846 INFO {"gate_status": "WARN", "duration_sec": 0.0159}

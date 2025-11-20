@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useLanguage } from '@/context/language-context';
 
 type InsightItem = {
   id: string;
@@ -25,6 +26,7 @@ const severityIntent: Record<InsightItem['severity'], { label: string; variant: 
 export function ActionFeed({ runId }: { runId: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { translate } = useLanguage();
   const [insights, setInsights] = useState<InsightItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +42,7 @@ export function ActionFeed({ runId }: { runId: string }) {
     fetch(`/api/v2/ml/insights/feed?run_id=${encodeURIComponent(runId)}`)
       .then((response) => {
         if (!response.ok) {
-          throw new Error(`Failed to load insights (${response.status})`);
+          throw new Error(translate('Failed to load insights: {error}', { error: response.status.toString() }));
         }
         return response.json();
       })
@@ -85,8 +87,8 @@ export function ActionFeed({ runId }: { runId: string }) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Action Feed</CardTitle>
-          <CardDescription>Enter a run_id to load insights.</CardDescription>
+          <CardTitle>{translate('Action Feed')}</CardTitle>
+          <CardDescription>{translate('Enter a run_id to load insights.')}</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -95,21 +97,24 @@ export function ActionFeed({ runId }: { runId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Action Feed</CardTitle>
-        <CardDescription>AI-curated insights from Stage 08.</CardDescription>
+        <CardTitle>{translate('Action Feed')}</CardTitle>
+        <CardDescription>{translate('AI-curated insights from Stage 08.')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {loading && <p className="text-sm text-muted-foreground">Loading insights…</p>}
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        {noData && <p className="text-sm text-muted-foreground">No actionable items found for this run.</p>}
+        {loading && <p className="text-base text-muted-foreground">{translate('Loading...')}</p>}
+        {error && <p className="text-base text-destructive">{error}</p>}
+        {noData && <p className="text-base text-muted-foreground">{translate('No actionable items found for this run.')}</p>}
         {insights.map((insight) => {
           const severity = severityIntent[insight.severity] ?? severityIntent.info;
           return (
             <div key={insight.id} className="rounded-lg border p-4 shadow-sm">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-base font-semibold">{insight.title}</p>
-                  <p className="text-sm text-muted-foreground">{insight.insight_text}</p>
+                  <p className="text-lg font-semibold leading-relaxed">{insight.title}</p>
+                  <p className="text-base text-muted-foreground leading-relaxed">{insight.insight_text}</p>
+                  {insight.demotion_note && (
+                    <p className="text-xs text-muted-foreground mt-1">{insight.demotion_note}</p>
+                  )}
                 </div>
                 <Badge variant={severity.variant}>{severity.label}</Badge>
               </div>
@@ -127,7 +132,7 @@ export function ActionFeed({ runId }: { runId: string }) {
               </div>
               <div className="mt-4 flex justify-end">
                 <Button variant="secondary" onClick={() => handleDeepDive(insight.deep_dive_filters || {})}>
-                  Deep Dive
+                  {translate('Deep Dive')}
                 </Button>
               </div>
             </div>
