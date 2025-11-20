@@ -75,7 +75,6 @@ def _invoke_openai(
         "model": model,
         "max_tokens": max_tokens,
         "temperature": temperature,
-        "top_p": top_p,
         "response_format": {"type": "json_object"},
         "messages": [
             {"role": "system", "content": system_prompt},
@@ -83,9 +82,17 @@ def _invoke_openai(
         ],
     }
     start = time.perf_counter()
-    with httpx.Client(timeout=timeout) as client:
-        response = client.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-        response.raise_for_status()
+    try:
+        with httpx.Client(timeout=timeout) as client:
+            response = client.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+            response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        body = exc.response.text
+        print("CRITICAL LLM ERROR (OpenAI HTTP)", body)
+        raise
+    except Exception as exc:
+        print(f"CRITICAL LLM ERROR (OpenAI) {exc}")
+        raise
     elapsed = time.perf_counter() - start
     data = response.json()
     choice = data["choices"][0]
