@@ -15,6 +15,10 @@ type InsightItem = {
   severity: 'critical' | 'warning' | 'info';
   deep_dive_filters: Record<string, string | number | null | undefined>;
 };
+type InsightsResponse = {
+  items: InsightItem[];
+  demotion_note?: string | null;
+};
 
 const severityIntent: Record<InsightItem['severity'], { label: string; variant: 'destructive' | 'secondary' | 'default' }> =
   {
@@ -30,6 +34,7 @@ export function ActionFeed({ runId }: { runId: string }) {
   const [insights, setInsights] = useState<InsightItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [demotionNote, setDemotionNote] = useState<string | null>(null);
 
   useEffect(() => {
     if (!runId) {
@@ -46,9 +51,10 @@ export function ActionFeed({ runId }: { runId: string }) {
         }
         return response.json();
       })
-      .then((payload: InsightItem[]) => {
+      .then((payload: InsightsResponse) => {
         if (active) {
-          setInsights(payload);
+          setInsights(payload?.items ?? []);
+          setDemotionNote(payload?.demotion_note ?? null);
         }
       })
       .catch((err) => {
@@ -101,6 +107,7 @@ export function ActionFeed({ runId }: { runId: string }) {
         <CardDescription>{translate('AI-curated insights from Stage 08.')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {demotionNote && <p className="text-sm text-muted-foreground">{demotionNote}</p>}
         {loading && <p className="text-base text-muted-foreground">{translate('Loading...')}</p>}
         {error && <p className="text-base text-destructive">{error}</p>}
         {noData && <p className="text-base text-muted-foreground">{translate('No actionable items found for this run.')}</p>}

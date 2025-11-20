@@ -2447,6 +2447,12 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
         logger=logger,
     )
     analysis_cols, context_cols, key_cols = split_columns_by_role(features_df, column_roles)
+    auto_context = [
+        column for column in analysis_cols if any(keyword in column.lower() for keyword in AUTO_CONTEXT_KEYWORDS)
+    ]
+    if auto_context:
+        analysis_cols = [col for col in analysis_cols if col not in auto_context]
+        context_cols.extend(auto_context)
     if not analysis_cols:
         analysis_cols = [col for col in features_df.columns if col not in context_cols]
     analysis_view_cols = [col for col in analysis_cols + key_cols if col in features_df.columns]

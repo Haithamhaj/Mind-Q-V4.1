@@ -107,7 +107,7 @@ def test_v2_insights_feed(tmp_path):
     )
     assert response.status_code == 200
     payload = response.json()
-    assert isinstance(payload, list)
-    assert payload[0]["id"] == "ins-1"
-    assert payload[0]["deep_dive_filters"]["city"] == "Riyadh"
-    assert payload[1]["demotion_note"] == "3 columns demoted"
+    assert isinstance(payload, dict)
+    assert payload["items"][0]["id"] == "ins-1"
+    assert payload["items"][0]["deep_dive_filters"]["city"] == "Riyadh"
+    assert payload["demotion_note"] == "3 columns demoted"

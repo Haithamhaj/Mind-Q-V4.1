@@ -58,11 +58,11 @@ class InsightItem(BaseModel):
     insight_text: str
     severity: str = Field(description="critical|warning|info")
     deep_dive_filters: Dict[str, Any] = Field(default_factory=dict)
-    demotion_note: Optional[str] = None
 
 
 class InsightsResponse(BaseModel):
     items: List[InsightItem] = Field(default_factory=list)
+    demotion_note: Optional[str] = None
 
 
 def _resolve_artifacts_root(artifacts_root: Optional[str] = None) -> Path:
@@ -257,11 +257,11 @@ def _map_priority(priority: Optional[str]) -> str:
     return "info"
 
 
-@router.get("/ml/insights/feed", response_model=List[InsightItem])
+@router.get("/ml/insights/feed", response_model=InsightsResponse)
 def get_insights_feed(
     run_id: str = Query(...),
     artifacts_root: Optional[str] = Query(default=None),
-) -> List[InsightItem]:
+) -> InsightsResponse:
     insights_path = _resolve_insights_path(run_id, artifacts_root)
     if not insights_path.exists():
         logger.warning("Insights payload missing for run %s (%s)", run_id, insights_path)
@@ -298,10 +298,9 @@ def get_insights_feed(
                     "where": item.get("where"),
                     "window": item.get("window"),
                 },
-                demotion_note=demotion_note,
             )
         )
-    return response
+    return InsightsResponse(items=response, demotion_note=demotion_note)
 
 
 def _load_demotion_note(insights_dir: Path) -> Optional[str]:
