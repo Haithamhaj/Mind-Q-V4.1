@@ -10,6 +10,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
+from dotenv import load_dotenv
+
+load_dotenv()
+print(f"DEBUG: API Key loaded: {'Yes' if os.getenv('OPENAI_API_KEY') else 'No'}")
+
 import anyio
 from fastapi import HTTPException
 

@@ -284,6 +284,11 @@ def _discover_docs(
             if not candidate.is_file():
                 continue
             suffix = candidate.suffix.lower()
+            if suffix in {".yml", ".yaml", ".json"}:
+                warnings.append(
+                    {"code": "docs_config_file", "message": f"{candidate.name} ignored (configuration file)."}
+                )
+                continue
             if allowed and suffix not in allowed:
                 warnings.append(
                     {
