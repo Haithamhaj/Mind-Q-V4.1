@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 import duckdb
 from fastapi import APIRouter, HTTPException, Query
@@ -19,7 +19,21 @@ router = APIRouter(prefix="/api/v2", tags=["bi_v2_bridge"])
 ARTIFACTS_ROOT_DEFAULT = Path("artifacts")
 FACT_REL_PATH = Path("stage_10_bi/marts/fact_business.parquet")
 INSIGHTS_REL_PATH = Path("stage_08_insights/story_ops.json")
+INSIGHTS_REPORT_PATH = Path("stage_08_insights/insights_report.json")
 _SAFE_COLUMN_PATTERN = re.compile(r"^[A-Za-z0-9_]+$")
+TABLE_FILTER_MAP: Mapping[str, str] = {
+    "city": "locale",
+    "carrier": "CARRIER",
+}
+DATE_COLUMN = "ts"
+CITY_DIMENSION = "locale"
+CARRIER_DIMENSION = "CARRIER"
+KPI_METRIC_EXPRESSIONS: Mapping[str, str] = {
+    "rto_rate": "kpi_rto_pct",
+    "cod_delay_pct": "kpi_cod_rate",
+    "sla_breach_pct": "CAST(sla_breached_contract AS DOUBLE)",
+}
+DEFAULT_METRIC = "kpi_rto_pct"
 
 
 class TableColumn(BaseModel):
@@ -44,6 +58,7 @@ class InsightItem(BaseModel):
     insight_text: str
     severity: str = Field(description="critical|warning|info")
     deep_dive_filters: Dict[str, Any] = Field(default_factory=dict)
+    demotion_note: Optional[str] = None
 
 
 class InsightsResponse(BaseModel):
@@ -108,6 +123,8 @@ def get_bi_table(
     run_id: str = Query(..., description="Pipeline run identifier"),
     city: Optional[str] = Query(default=None),
     carrier: Optional[str] = Query(default=None),
+    date_from: Optional[str] = Query(default=None, description="ISO date (YYYY-MM-DD)"),
+    date_to: Optional[str] = Query(default=None, description="ISO date (YYYY-MM-DD) inclusive"),
     limit: int = Query(default=1000, ge=1, le=10000),
     offset: int = Query(default=0, ge=0),
     artifacts_root: Optional[str] = Query(default=None, description="Override artifacts root (for testing)"),
@@ -122,11 +139,24 @@ def get_bi_table(
     filters: List[str] = []
 
     if city:
-        filters.append("city = ?")
+        column = TABLE_FILTER_MAP.get("city", "city")
+        filters.append(f"{column} = ?")
         params.append(city)
     if carrier:
-        filters.append("carrier = ?")
+        column = TABLE_FILTER_MAP.get("carrier", "carrier")
+        filters.append(f"{column} = ?")
         params.append(carrier)
+    if date_from:
+        parsed = _parse_date(date_from)
+        if parsed:
+            filters.append(f"{DATE_COLUMN} >= ?")
+            params.append(parsed.isoformat())
+    if date_to:
+        parsed = _parse_date(date_to)
+        if parsed:
+            next_day = parsed + timedelta(days=1)
+            filters.append(f"{DATE_COLUMN} < ?")
+            params.append(next_day.isoformat())
 
     if filters:
         base_sql += " WHERE " + " AND ".join(filters)
@@ -146,10 +176,21 @@ def get_bi_table(
 
 def _sanitize_metric(metric: str) -> str:
     if not metric:
-        return "rto_rate"
+        return DEFAULT_METRIC
+    if metric.lower() in KPI_METRIC_EXPRESSIONS:
+        return KPI_METRIC_EXPRESSIONS[metric.lower()]
     if not _SAFE_COLUMN_PATTERN.match(metric):
         raise HTTPException(status_code=400, detail="Invalid KPI parameter")
     return metric
+
+
+def _parse_date(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
 
 
 @router.get("/bi/heatmap", response_model=HeatmapResponse)
@@ -163,12 +204,19 @@ def get_heatmap(
         logger.warning("Heatmap source missing for run %s (%s)", run_id, fact_path)
         return HeatmapResponse()
 
-    metric = _sanitize_metric(kpi)
-    sql = f"""
-        SELECT city, carrier, AVG({metric}) AS value
+    metric_expr = _sanitize_metric(kpi)
+    inner_sql = f"""
+        SELECT
+            COALESCE({CITY_DIMENSION}, 'Unknown') AS __city,
+            COALESCE({CARRIER_DIMENSION}, 'Unknown') AS __carrier,
+            {metric_expr} AS __metric
         FROM read_parquet(?)
-        WHERE {metric} IS NOT NULL
-        GROUP BY city, carrier
+    """
+    sql = f"""
+        SELECT __city AS city, __carrier AS carrier, AVG(__metric) AS value
+        FROM ({inner_sql})
+        WHERE __metric IS NOT NULL
+        GROUP BY __city, __carrier
     """
     columns, rows = _duckdb_select(sql, [fact_path.as_posix()])
     idx_city = columns.index("city") if "city" in columns else 0
@@ -229,20 +277,44 @@ def get_insights_feed(
     if not isinstance(items, list):
         return []
 
+    demotion_note = _load_demotion_note(insights_path.parent)
+
     response: List[InsightItem] = []
     for idx, item in enumerate(items):
         if not isinstance(item, dict):
             continue
+        insight_text_raw = item.get("what_we_see") or item.get("insight_text") or ""
+        if isinstance(insight_text_raw, dict):
+            insight_text = json.dumps(insight_text_raw, ensure_ascii=False)
+        else:
+            insight_text = str(insight_text_raw)
         response.append(
             InsightItem(
                 id=str(item.get("id") or f"{run_id}-{idx}"),
                 title=item.get("title") or "Untitled Insight",
-                insight_text=item.get("what_we_see") or item.get("insight_text") or "",
+                insight_text=insight_text,
                 severity=_map_priority(item.get("priority")),
                 deep_dive_filters=item.get("deep_dive_filters") or {
                     "where": item.get("where"),
                     "window": item.get("window"),
                 },
+                demotion_note=demotion_note,
             )
         )
     return response
+
+
+def _load_demotion_note(insights_dir: Path) -> Optional[str]:
+    report_path = insights_dir / "insights_report.json"
+    if not report_path.exists():
+        return None
+    try:
+        payload = json.loads(report_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    nzv = payload.get("nzv_impact")
+    if isinstance(nzv, Mapping):
+        note = nzv.get("demotion_note")
+        if isinstance(note, str):
+            return note
+    return None

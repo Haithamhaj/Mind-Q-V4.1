@@ -27,7 +27,7 @@
     },
     {
       "original": "FORWARD_COMPANY",
-      "normalized": "شركة الشحن",
+      "normalized": "شركة التوصيل",
       "confidence": 1.0,
       "source": "terminology"
     },
@@ -75,7 +75,7 @@
     },
     {
       "original": "Labaih",
-      "normalized": "شركة الشحن",
+      "normalized": "شركة التوصيل",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -87,7 +87,7 @@
     },
     {
       "original": "Yamama (LT)",
-      "normalized": "شركة الشحن",
+      "normalized": "شركة التوصيل",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -105,19 +105,19 @@
     },
     {
       "original": "SMSA v2",
-      "normalized": "SMSA v2",
+      "normalized": "شركة التوصيل",
       "confidence": 1.0,
       "source": "llm"
     },
     {
       "original": "Aramex",
-      "normalized": "Aramex",
+      "normalized": "شركة التوصيل",
       "confidence": 1.0,
       "source": "llm"
     },
     {
       "original": "J&T",
-      "normalized": "J&T",
+      "normalized": "شركة التوصيل",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -260,5 +260,5 @@
       "source": "llm"
     }
   ],
-  "updated_at": "2025-11-19T18:06:46.057418"
+  "updated_at": "2025-11-20T06:54:25.608329"
 }
