@@ -1,0 +1,548 @@
+{
+  "run_id": "run-20251120171848",
+  "created_at": "2025-11-20T17:19:09.467400+00:00",
+  "source": "/Users/haitham/development/Mind-Q-V4.1-port/artifacts/run-20251120171848/stage_01_ingestion/sla_raw/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+  "original_name": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1_.pdf",
+  "media_type": "application/pdf",
+  "size_bytes": 1753193,
+  "sha256": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc",
+  "text_excerpt": "SOP: Process  Code: OPS  Date: 01/01/2022\n Department: Operations  Addressed to: Client\n Written by: HOO  Verified by: Sales | Ops\n Approved by: COO\nClient’s SOPs & SLAs\nVersion 1.0\nContent:\n● Company Concept\n○ Who we are ?\n○ Fulfillment Process\n○ Last Mile Sequence\n○ What sets us apart \nfrom the rest ?\n● Onboard Process\n○ Onboard Workflow\n○ Onboard Procedure.\n○ Onboard Exceptions.\n○ Prohibited\n● Inbound Process\n○ Replenishment\n○ Workflow\n○ Inbound Procedure\n●   Inventory Process\n○ Inventory Workflow\n○ Inventory Procedure\n○ Inventory Exception\n○ SLA\n○ Prohibited\n● Fulfillment Process\n○ Segregation of Orders\n○ B2C Procedure\n●   Outbound Process\n○ Outbound Workflow\n○ Outbound Procedure\n○ Outbound Exceptions\n○ SLA\n○ Prohibited\n● Exceptions | Module\n○ Before Adding to Inventory\n○ Before Receiving the Orders\n○ Before Assigning to Picker\n○ Before Order Packaging\n○ Before Order Dispatching\n○ Financial Module for \nCompanies\n●   Closing Account Process\n○ Workflow\n○ SLA\n○ Prohibited\n● Client Forecast\n○ Workflow\n○ Forecast Procedure\n○ Prohibited\n●   Return Process\n○ Workflow\n○ Return Procedure\n○ Exception\n○ SLA\n○ Prohibited\n●   Special Process 3PL\n○ SLA\n○ Prohibited\n\n\n\n\nOnboard Process:\n● This step describes how you will be onboarded to grow your business. Our system is capable of auto-product creation through our integration once you list your product in your website. However, it is important to review your new listed product under Product Management to avoid any missing information.\nOnboard Workflow:\nAccount\nCreation\nData \nSubmission\nSystem \nIntegration\nSystem \nTraining\nCreate\nASN\nCreate \nManifest  Receiving\nProduct \nDetails\n        Product\n        Details\nProduct \nCreation\nProduct \nDetails\n Product\n Image\n1.1.1 1.1.2 1.1.3 1.1.4 1.1.5 1.1.9 1.1.10\n1.1.7 1.1.81.1.6\n● Account Creation: After signing the contract our team will create an account for you in our system.\n● Data Submission: The client must upload the products or he should provide file to our team  to fill in your products list\nand in this file we will need data for each product.\n● System Integration: The client must inform about their platform and tech will integrate with DIGGIPACKS.\n● System Training: Our talented team will meet you to train you on using our system.\n● Create ASN:\n○ Create Replenishment.\n○ Import the file from the portal and fill the required product details and upload in one time.\n○ Upload the Zip file contains images with SKU code and upload.\n○ Create manifest for the products which you want to drop at our facility else pick up from your location.\n○ All the products should be received with Labelling (Barcoding) else DIGGIPACKS will do it with an additional charge.\n\u0000 To maintain faster receiving:\n\u0000 Print Manifest from Client Portal and attach with your shipment.\n\u0000 Palletized your shipment.\n\u0000 Put your SKUs in boxes (Each SKU in a box is highly recommended).\n\u0000 Product Creation:  In case there is missing product is not added or you wish to add new product to your selection so the\nnew manifest will be created.\n\u0000 Product Images: Mandatory to upload your product images to ensure improve Operations quality work and eliminate\nany errors or DIGGIPACKS will take the picture of your products to upload with an additional charge.\nOnboard Procedure\nOnboard Exceptions:\n● In case client prefer to not do the system integration. Then, client will have to use our Client Portal for manual process.\nProhibited:\n► In case you have expiry product, then you need to mention the expiry \ndate while creating manifest, this will allow our team to arrange your \nproduct in the FIFO manner.\n\nInbound:\n● This section describes usual process for receiving your products.\nReplenishment:\n► You should make manifest through the client portal from your side so we can compare expected QTYs & arrived or received QTYs.\nWorkflow:\nPushing \nManifest\nBins / Storage\n Schedule\n pickup from\nClient Portal\n Receiving with\n QC\n Inventory with\nBarcoding\nSubmitted\nShelves / Storage \nDrop off\nBoxes / Pallets\nCli...",
+  "tables": [],
+  "notes": [],
+  "terms": [
+    {
+      "kpi": "SOP",
+      "direction": "gte",
+      "target": 1.0,
+      "warn": 1.0,
+      "stop": 2022.0,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "Process Code: OPS Date: 01/01/2022"
+      ]
+    },
+    {
+      "kpi": "Department",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "Operations Addressed to: Client"
+      ]
+    },
+    {
+      "kpi": "Written by",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "HOO Verified by: Sales | Ops"
+      ]
+    },
+    {
+      "kpi": "Approved by",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "COO"
+      ]
+    },
+    {
+      "kpi": "Account Creation",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "After signing the contract our team will create an account for you in our system."
+      ]
+    },
+    {
+      "kpi": "Data Submission",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "The client must upload the products or he should provide file to our team to fill in your products list"
+      ]
+    },
+    {
+      "kpi": "System Integration",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "The client must inform about their platform and tech will integrate with DIGGIPACKS."
+      ]
+    },
+    {
+      "kpi": "System Training",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "Our talented team will meet you to train you on using our system."
+      ]
+    },
+    {
+      "kpi": "In case of un",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "labelled items our team will print the barcodes for each item."
+      ]
+    },
+    {
+      "kpi": "Description",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "At this section we will walk you through how your product will be"
+      ]
+    },
+    {
+      "kpi": "Staging Put",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "away Area"
+      ]
+    },
+    {
+      "kpi": "Holding area 48H",
+      "direction": "gte",
+      "target": 48.0,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "- >48 TBD"
+      ]
+    },
+    {
+      "kpi": "B2C Account only for e",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "commerce orders."
+      ]
+    },
+    {
+      "kpi": "Description",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "This section describes how your orders will be handled by our team from the moment we receive the order until the order get shipped."
+      ]
+    },
+    {
+      "kpi": "Compensation 72 hours",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "- - -"
+      ]
+    },
+    {
+      "kpi": "Before Addition to Inventory",
+      "direction": "gte",
+      "target": 2.0,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "B2C"
+      ]
+    },
+    {
+      "kpi": "Before Receiving the Orders",
+      "direction": "gte",
+      "target": 2.0,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "B2C"
+      ]
+    },
+    {
+      "kpi": "Before Assigning to Pickers",
+      "direction": "gte",
+      "target": 2.0,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "B2C"
+      ]
+    },
+    {
+      "kpi": "Before Order Packaging",
+      "direction": "gte",
+      "target": 2.0,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "B2C"
+      ]
+    },
+    {
+      "kpi": "Before Order Dispatching",
+      "direction": "gte",
+      "target": 2.0,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "B2C"
+      ]
+    },
+    {
+      "kpi": "Financial Module for Companies",
+      "direction": "gte",
+      "target": 2.0,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "B2C"
+      ]
+    },
+    {
+      "kpi": "Description",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "Closing orders describes two scenarios, one of which client deciding to"
+      ]
+    },
+    {
+      "kpi": "Packed to Shipped 2 days 1 day",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "Same as delivery Charge"
+      ]
+    },
+    {
+      "kpi": "Description",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "Forecast is used to build operation capacity and request materials that are used to serve our clients. Client’s information is top priority to DIGGIPACKS so not of your information will be share with other."
+      ]
+    },
+    {
+      "kpi": "Off",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "load Shipment Scan Order Quality Check Inform Client"
+      ]
+    },
+    {
+      "kpi": "In case of International shipment our Inbound team will off",
+      "direction": "gte",
+      "target": null,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "load your shipments then will share with you the receiving lead-time based on workload. However, Client is responsible of updating with his/her account manager once shipment is cleared from Saudi customs and under delivery to our facility."
+      ]
+    },
+    {
+      "kpi": "Holding area 24 hours",
+      "direction": "gte",
+      "target": 24.0,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "- >24 - -"
+      ]
+    },
+    {
+      "kpi": "Holding area 24 hours",
+      "direction": "gte",
+      "target": 24.0,
+      "warn": null,
+      "stop": null,
+      "window": null,
+      "unit": null,
+      "source": {
+        "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+        "document_path": "contracts/sla_processed/run-20251120171848/1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf.json",
+        "document_title": "SOP: Process Code: OPS Date: 01/01/2022",
+        "document_sha": "26abf9ca3961ce326735b1b73c3a8defe2e925db7546e379b4270749164b6bfc"
+      },
+      "raw": {},
+      "notes": [
+        "- >24 - -"
+      ]
+    }
+  ],
+  "document_id": "1763659146588-9ef2e2f1-964c-4727-be29-44a283a2bd20-DIGGIPACKS_Client_s_SOPs___SLAs__4___1__26abf9ca39.pdf",
+  "title": "SOP: Process Code: OPS Date: 01/01/2022"
+}

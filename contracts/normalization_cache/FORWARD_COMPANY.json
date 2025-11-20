@@ -75,7 +75,7 @@
     },
     {
       "original": "Labaih",
-      "normalized": "شركة التوصيل",
+      "normalized": "Labaih",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -87,7 +87,7 @@
     },
     {
       "original": "Yamama (LT)",
-      "normalized": "شركة التوصيل",
+      "normalized": "Yamama (LT)",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -111,7 +111,7 @@
     },
     {
       "original": "Aramex",
-      "normalized": "شركة التوصيل",
+      "normalized": "Aramex",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -260,5 +260,5 @@
       "source": "llm"
     }
   ],
-  "updated_at": "2025-11-20T12:04:50.794619"
+  "updated_at": "2025-11-20T17:22:40.698462"
 }
