@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Set
 
+import polars as pl  # type: ignore
+
 try:
     import pandas as pd  # type: ignore
     from pandas.api import types as ptypes  # type: ignore
@@ -13,6 +15,10 @@ except Exception as exc:  # pragma: no cover
     raise RuntimeError("pandas is required for phase 06 feature engineering") from exc
 
 from shared import baseline as baseline_utils  # type: ignore
+from .payment import derive_payment_type, load_payment_rules  # type: ignore
+
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_CONTRACTS_DIR = BACKEND_ROOT / "contracts"
 
 
 def _ensure_dir(path: Path) -> None:
@@ -42,6 +48,50 @@ def _load_exclusions(feature_dir: Path) -> Set[str]:
     if isinstance(entries, list):
         return {str(item) for item in entries}
     return set()
+
+
+def _search_client_id(payload: Any) -> Optional[str]:
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            normalized_key = str(key).strip().lower()
+            if normalized_key in {"client_id", "client", "account_id", "account", "account_no"}:
+                if isinstance(value, str):
+                    trimmed = value.strip()
+                    if trimmed:
+                        return trimmed
+            if isinstance(value, (dict, list)):
+                nested = _search_client_id(value)
+                if nested:
+                    return nested
+    if isinstance(payload, list):
+        for item in payload:
+            nested = _search_client_id(item)
+            if nested:
+                return nested
+    return None
+
+
+def _load_client_id(artifacts_root: Path, run_id: str) -> Optional[str]:
+    run_dir = artifacts_root / run_id
+    candidates = [
+        run_dir / "run_meta.json",
+        run_dir / "stage_03_5_textops" / "run_meta.json",
+        run_dir / "phase_07_knime" / "run_meta.json",
+    ]
+    textops_dir = run_dir / "stage_03_5_textops"
+    for name in ("sop_rules.json", "sla_policies.json", "profile_entities.json"):
+        candidates.append(textops_dir / name)
+    for path in candidates:
+        if not path.exists():
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        client_id = _search_client_id(payload)
+        if client_id:
+            return client_id
+    return None
 
 
 STRING_DTYPE = "string[pyarrow]"
@@ -106,6 +156,13 @@ LAYER1_FIELD_SPECS: Sequence[Layer1FieldSpec] = (
     Layer1FieldSpec(name="on_hold_reason", role="dimension", dtype="string", sources=("ON_HOLD_REASON",)),
     Layer1FieldSpec(name="on_hold_date", role="temporal", dtype="datetime", sources=("ON_HOLD_DATE",)),
     Layer1FieldSpec(name="payment_method", role="dimension", dtype="string", sources=("RECEIVER_MODE",)),
+    Layer1FieldSpec(
+        name="payment_type",
+        role="dimension",
+        dtype="string",
+        sources=("PAYMENT_TYPE",),
+        description_en="Derived payment mode (COD vs Prepaid).",
+    ),
     Layer1FieldSpec(name="invoice_status", role="dimension", dtype="string", sources=("PAY_INVOICE_STATUS",)),
     Layer1FieldSpec(name="receivable_status", role="dimension", dtype="string", sources=("Recievable_Status",)),
     Layer1FieldSpec(name="payable_status", role="dimension", dtype="string", sources=("Payable_Status",)),
@@ -367,6 +424,7 @@ def _serialize_preview_rows(frame: "pd.DataFrame", limit: int = 200) -> List[Dic
 
 def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:  # type: ignore[override]
     artifacts_root = Path((config or {}).get("artifacts_root", "artifacts"))
+    contracts_root = Path((config or {}).get("contracts_root", DEFAULT_CONTRACTS_DIR)).expanduser()
     out_dir = artifacts_root / run_id / "stage_06_feature_eng"
     _ensure_dir(out_dir)
 
@@ -391,6 +449,30 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         n_in_rows = None
 
     df_curated = _load_dataframe(curated_path)
+    client_id = _load_client_id(artifacts_root, run_id)
+    payment_rules = load_payment_rules(contracts_root, client_id)
+    payment_columns: List[str] = []
+    for signal in payment_rules.get("priority_signals", []):
+        column = signal.get("column")
+        if isinstance(column, str) and column in df_curated.columns:
+            payment_columns.append(column)
+    flag_cfg = payment_rules.get("explicit_prepaid_flag") or {}
+    flag_column = flag_cfg.get("column")
+    if isinstance(flag_column, str) and flag_column in df_curated.columns:
+        payment_columns.append(flag_column)
+    fallback_cfg = payment_rules.get("fallback_by_cod_amount") or {}
+    if bool(fallback_cfg.get("enabled")) and "COD_AMOUNT" in df_curated.columns:
+        payment_columns.append("COD_AMOUNT")
+    if "PAYMENT_TYPE" in df_curated.columns:
+        payment_columns.append("PAYMENT_TYPE")
+    payment_columns = list(dict.fromkeys(payment_columns))
+    if payment_columns:
+        payment_subset = df_curated[payment_columns].copy()
+    else:
+        payment_subset = pd.DataFrame(index=df_curated.index)
+    payment_frame = pl.from_pandas(payment_subset)
+    payment_frame = derive_payment_type(payment_frame, payment_rules)
+    df_curated["PAYMENT_TYPE"] = payment_frame["PAYMENT_TYPE"].to_list()
     n_rows = int(len(df_curated))
     post_columns: List[str] = [str(col) for col in df_curated.columns]
 
@@ -424,6 +506,10 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
 
     final_path = out_dir / "features.parquet"
     df_final = df_curated  # placeholder for future feature engineering steps
+    payment_distribution: Dict[str, int] = {}
+    if "PAYMENT_TYPE" in df_final.columns:
+        counts_series = df_final["PAYMENT_TYPE"].value_counts(dropna=False)
+        payment_distribution = {str(key): int(value) for key, value in counts_series.items()}
     df_final.to_parquet(final_path, index=False)
 
     layer1_frame, layer1_schema = _build_layer1_dataset(df_final, run_id)
@@ -469,7 +555,20 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
     }
     (out_dir / "feature_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    priority_columns = [
+        entry.get("column")
+        for entry in payment_rules.get("priority_signals", [])
+        if isinstance(entry, dict) and isinstance(entry.get("column"), str)
+    ]
+    payment_rules_path = (contracts_root / "payment" / "payment_rules.yml").expanduser()
     logs = [
+        {
+            "event": "payment_rules",
+            "client_id": client_id,
+            "rules_path": payment_rules_path.as_posix(),
+            "priority_columns": priority_columns,
+            "fallback_cod_amount": bool(fallback_cfg.get("enabled")),
+        },
         {"event": "rows_in", "value": int(n_in_rows)},
         {"event": "rows_out", "value": n_rows},
         {"event": "cols_out", "value": len(post_columns)},
@@ -477,6 +576,8 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         {"event": "dropped_cols", "count": len(dropped_cols)},
         {"event": "added_cols", "count": len(added_cols)},
     ]
+    if payment_distribution:
+        logs.append({"event": "payment_type_distribution", "counts": payment_distribution})
     logs.append(
         {
             "event": "layer1_dataset",

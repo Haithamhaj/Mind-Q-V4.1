@@ -1,3 +1,2 @@
-2025-11-20 11:59:44,353 INFO {"event": "sampling", "enabled": true, "fraction": 0.5, "population_rows": 8, "sampled_rows": 4}
-2025-11-20 11:59:44,354 INFO column_roles_loaded total=8 analysis=7 context=0 key=1
-2025-11-20 11:59:44,363 INFO {"gate_status": "PASS", "duration_sec": 0.0122}
+2025-11-20 21:34:38,514 INFO {"event": "sampling", "enabled": true, "fraction": 0.5, "population_rows": 8, "sampled_rows": 4}
+2025-11-20 21:34:38,515 INFO column_roles_loaded total=8 analysis=7 context=0 key=1

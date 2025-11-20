@@ -1,0 +1,31 @@
+default:
+  priority_signals:
+    - column: "PAYMENT_METHOD"
+      mapping:
+        COD: "COD"
+        CASH_ON_DELIVERY: "COD"
+        PREPAID: "Prepaid"
+        ONLINE: "Prepaid"
+    - column: "PAY_MODE"
+      mapping:
+        PPD: "Prepaid"
+        PPD_PREPAID: "Prepaid"
+        PPU: "COD"
+        COD: "COD"
+  explicit_prepaid_flag:
+    column: "IS_PREPAID"
+    truthy_values: [1, "1", "Y", "YES", "True", "true"]
+  fallback_by_cod_amount:
+    enabled: true
+    treat_zero_dash_empty_as: "Prepaid"
+    treat_positive_as: "COD"
+
+clients:
+  FASTCOO:
+    fallback_by_cod_amount:
+      enabled: true
+      treat_zero_dash_empty_as: "Prepaid"
+      treat_positive_as: "COD"
+  SOME_OTHER_CLIENT:
+    fallback_by_cod_amount:
+      enabled: false

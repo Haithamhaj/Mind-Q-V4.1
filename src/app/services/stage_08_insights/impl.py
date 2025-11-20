@@ -71,6 +71,26 @@ def _read_json_safe(path: Path) -> Optional[Dict[str, Any]]:
     return payload if isinstance(payload, dict) else None
 
 
+def _normalize_string_list(payload: Any) -> List[str]:
+    if payload is None:
+        return []
+    if isinstance(payload, str):
+        text = payload.strip()
+        return [text] if text else []
+    if isinstance(payload, Mapping):
+        result: List[str] = []
+        for value in payload.values():
+            result.extend(_normalize_string_list(value))
+        return result
+    if isinstance(payload, Iterable) and not isinstance(payload, (bytes, bytearray)):
+        result: List[str] = []
+        for item in payload:
+            result.extend(_normalize_string_list(item))
+        return result
+    text = str(payload).strip()
+    return [text] if text else []
+
+
 def _load_stage05_nzv(artifacts_root: Path, run_id: str) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Path]]:
     nzv_path = artifacts_root / run_id / "stage_05_missing" / "nzv_summaries.json"
     payload = _read_json_safe(nzv_path)
@@ -276,6 +296,11 @@ def load_column_roles(
         except json.JSONDecodeError:
             if logger:
                 logger.warning("Failed to parse %s; falling back to inferred column roles.", meta_path)
+
+    default_roles = {"PAYMENT_TYPE": "FEATURE"}
+    for column, role in default_roles.items():
+        if column in df.columns and column not in roles:
+            roles[column] = role.upper()
 
     context_candidates: Dict[str, str] = {}
     if stage06_columns:
@@ -1263,14 +1288,30 @@ def _preflight_checks(
     settings: Stage08Settings,
     tz: ZoneInfo,
     geo_policy: Optional[Mapping[str, Any]],
+    gate_config: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
+    quality_cfg_raw = gate_config.get("quality_checks") if isinstance(gate_config, Mapping) else None
+    quality_cfg = quality_cfg_raw if isinstance(quality_cfg_raw, Mapping) else {}
+    configured_critical = _normalize_string_list(quality_cfg.get("critical_columns"))
+    warn_only_columns = {column.lower() for column in _normalize_string_list(quality_cfg.get("warn_only_columns"))}
+    skip_columns = {column.lower() for column in _normalize_string_list(quality_cfg.get("skip_columns"))}
     kpi_features = {(entry["kpi"], entry["feature"]) for entry in correlations if "kpi" in entry and "feature" in entry}
-    critical_columns = sorted({column for pair in kpi_features for column in pair})
-    critical_columns = [
-        column for column in critical_columns if not any(keyword in column.lower() for keyword in AUTO_CONTEXT_KEYWORDS)
-    ]
+    kpi_candidates = sorted({column for pair in kpi_features for column in pair})
+    candidate_columns: List[str] = configured_critical + kpi_candidates
     if settings.timestamp_col:
-        critical_columns.append(settings.timestamp_col)
+        candidate_columns.append(settings.timestamp_col)
+    critical_columns: List[str] = []
+    seen_columns: Set[str] = set()
+    for column in candidate_columns:
+        if not isinstance(column, str):
+            continue
+        normalized = column.lower()
+        if not normalized or normalized in seen_columns or normalized in skip_columns:
+            continue
+        if any(keyword in normalized for keyword in AUTO_CONTEXT_KEYWORDS):
+            continue
+        critical_columns.append(column)
+        seen_columns.add(normalized)
     ratios = _missing_ratio(df, critical_columns)
     geo_policy = geo_policy or {}
     geo_columns_config = [str(col) for col in (geo_policy.get("columns") or [])]
@@ -1324,6 +1365,9 @@ def _preflight_checks(
             warn_threshold = default_warn_threshold
             stop_threshold = default_stop_threshold
 
+        if normalized in warn_only_columns:
+            stop_threshold = float("inf")
+
         if ratio >= stop_threshold:
             missing_blockers[column] = ratio
             reasons.append(
@@ -1334,6 +1378,68 @@ def _preflight_checks(
             warning_messages.append(
                 f"Critical column '{column}' missing ratio {ratio:.2%} exceeds {warn_threshold:.0%} warning threshold."
             )
+
+    numeric_rules_cfg_raw = gate_config.get("numeric_rules") if isinstance(gate_config, Mapping) else None
+    numeric_rules_cfg = numeric_rules_cfg_raw if isinstance(numeric_rules_cfg_raw, Sequence) else []
+    numeric_rule_violations: List[Dict[str, Any]] = []
+    for rule in numeric_rules_cfg:
+        if not isinstance(rule, Mapping):
+            continue
+            column = rule.get("column")
+            if not isinstance(column, str) or column not in df.columns:
+                continue
+            series = _ensure_numeric(df[column]).drop_nulls()
+            if series.len() == 0:
+                continue
+            try:
+                min_threshold = float(rule.get("min_value")) if rule.get("min_value") is not None else None
+            except (TypeError, ValueError):
+                min_threshold = None
+            try:
+                max_threshold = float(rule.get("max_value")) if rule.get("max_value") is not None else None
+            except (TypeError, ValueError):
+                max_threshold = None
+            if min_threshold is None and max_threshold is None:
+                continue
+            violation_count = 0
+            if min_threshold is not None:
+                below_mask = series < min_threshold
+                below_count = int(below_mask.sum() or 0)
+                violation_count += below_count
+            else:
+                below_count = 0
+            if max_threshold is not None:
+                above_mask = series > max_threshold
+                above_count = int(above_mask.sum() or 0)
+                violation_count += above_count
+            else:
+                above_count = 0
+            if violation_count == 0:
+                continue
+            share = violation_count / series.len()
+            rule_name = str(rule.get("name") or column)
+            severity = str(rule.get("severity", "WARN")).upper()
+            numeric_rule_violations.append(
+                {
+                    "name": rule_name,
+                    "column": column,
+                    "severity": severity,
+                    "violations": violation_count,
+                    "share": share,
+                    "min_value": min_threshold,
+                    "max_value": max_threshold,
+                    "below_count": below_count,
+                    "above_count": above_count,
+                }
+            )
+            message = (
+                f"Numeric rule '{rule_name}' violated on '{column}': {violation_count} rows ({share:.2%}) outside bounds."
+            )
+            if severity == "STOP":
+                status = "STOP"
+                reasons.append(message)
+            else:
+                warning_messages.append(message)
 
     if missing_blockers:
         status = "STOP"
@@ -1356,6 +1462,11 @@ def _preflight_checks(
             "default_stop": default_stop_threshold,
         },
         "geo_columns": geo_columns_config,
+        "quality_checks": {
+            "critical_columns": critical_columns,
+            "warn_only_columns": sorted(warn_only_columns),
+        },
+        "numeric_rule_violations": numeric_rule_violations,
     }
 
 
@@ -2503,7 +2614,7 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
     analytics_overlay = _summarize_analytics(dq_summary, forecast_summary, paths["forecast"])
     llm_overlay = _summarize_llm(llm_metrics)
 
-    preflight = _preflight_checks(df_analysis, correlations, settings, tz, geo_policy)
+    preflight = _preflight_checks(df_analysis, correlations, settings, tz, geo_policy, gate_config_payload)
 
     logs: List[Dict[str, Any]] = [
         {
@@ -2641,6 +2752,8 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
             "coverage_report": coverage_summary,
             "policy": gate_payload["policy"],
             "thresholds": preflight.get("thresholds"),
+            "quality_checks": preflight.get("quality_checks"),
+            "numeric_rule_violations": preflight.get("numeric_rule_violations"),
         }
         _write_json(out_dir / "diagnostics.json", diagnostics_payload)
         logs.append({"event": "gate", **gate_payload})
@@ -2820,6 +2933,8 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
             "geo_columns": geo_columns_cfg,
         },
         "thresholds": preflight.get("thresholds"),
+        "quality_checks": preflight.get("quality_checks"),
+        "numeric_rule_violations": preflight.get("numeric_rule_violations"),
         "anomalies": {
             "metric": anomaly_metric,
             "sigma": 3.0,

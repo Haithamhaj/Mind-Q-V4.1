@@ -1,3 +1,16 @@
+quality_checks:
+  critical_columns:
+    - "AWB_NO"
+    - "STATUS"
+  warn_only_columns:
+    - "COD_AMOUNT"
+
+numeric_rules:
+  - name: "cod_amount_non_negative"
+    column: "COD_AMOUNT"
+    min_value: 0
+    severity: "WARN"
+
 high_nzv_ratio:
   threshold: 0.25
   message: "High NZV ratio triggered graceful degradation; treat insights as advisory."
