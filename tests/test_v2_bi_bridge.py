@@ -24,8 +24,8 @@ def _prepare_artifacts(tmp_path: Path) -> tuple[str, Path]:
                 datetime(2025, 1, 2, tzinfo=timezone.utc),
                 datetime(2025, 1, 3, tzinfo=timezone.utc),
             ],
-            "locale": ["Riyadh", "Jeddah", "Riyadh"],
-            "CARRIER": ["SMSA", "Aramex", "SMSA"],
+            "DESTINATION": ["Riyadh", "Jeddah", "Riyadh"],
+            "FORWARD_COMPANY": ["SMSA", "Aramex", "SMSA"],
             "kpi_rto_pct": [0.1, 0.2, 0.3],
             "kpi_cod_rate": [0.4, 0.5, 0.6],
             "sla_breached_contract": [True, False, True],
@@ -81,7 +81,7 @@ def test_v2_table_endpoint_filters(tmp_path):
     assert response.status_code == 200
     payload = response.json()
     assert payload["rows"], "Expected at least one filtered row"
-    assert all(row["locale"] == "Riyadh" for row in payload["rows"])
+    assert all(row["DESTINATION"] == "Riyadh" for row in payload["rows"])
     assert any(col["field"] == "orders_cnt" for col in payload["columns"])
 
 

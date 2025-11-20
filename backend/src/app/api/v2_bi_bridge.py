@@ -22,12 +22,12 @@ INSIGHTS_REL_PATH = Path("stage_08_insights/story_ops.json")
 INSIGHTS_REPORT_PATH = Path("stage_08_insights/insights_report.json")
 _SAFE_COLUMN_PATTERN = re.compile(r"^[A-Za-z0-9_]+$")
 TABLE_FILTER_MAP: Mapping[str, str] = {
-    "city": "locale",
-    "carrier": "CARRIER",
+    "city": "DESTINATION",
+    "carrier": "FORWARD_COMPANY",
 }
 DATE_COLUMN = "ts"
-CITY_DIMENSION = "locale"
-CARRIER_DIMENSION = "CARRIER"
+CITY_DIMENSION = "DESTINATION"
+CARRIER_DIMENSION = "FORWARD_COMPANY"
 KPI_METRIC_EXPRESSIONS: Mapping[str, str] = {
     "rto_rate": "kpi_rto_pct",
     "cod_delay_pct": "kpi_cod_rate",
