@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+import traceback
 
 import numpy as np  # type: ignore
 import polars as pl  # type: ignore
@@ -340,6 +341,8 @@ def run_llm_tasks(
             response = _invoke_llm(task=task, cfg=cfg, system_prompt=system_prompt, user_prompt=user_prompt)
             payload = _ensure_json(response.content)
         except Exception as exc:  # pragma: no cover - network/LLM dependent
+            traceback.print_exc()
+            print(f"CRITICAL LLM ERROR [{task}]: {exc}")
             warnings.append({"code": f"llm_error_{task}", "message": str(exc)})
             continue
 
