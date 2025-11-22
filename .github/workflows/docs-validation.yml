@@ -1,0 +1,135 @@
+name: Documentation Validation
+
+on:
+  pull_request:
+    paths:
+      - 'docs/PHASES_DETAILED_GUIDE.md'
+      - 'phases/**/impl.py'
+      - 'src/app/services/**/impl.py'
+      - 'backend/src/app/services/**/impl.py'
+      - 'backend/src/app/services/pipeline_api/app.py'
+      - 'scripts/validate_docs.py'
+      - '.github/workflows/docs-validation.yml'
+  push:
+    branches:
+      - main
+      - port/update-*
+    paths:
+      - 'docs/PHASES_DETAILED_GUIDE.md'
+      - 'scripts/generate_phase_docs.py'
+      - 'scripts/validate_docs.py'
+
+jobs:
+  validate-docs:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Run documentation validator
+        id: validate
+        run: |
+          echo "🔍 Validating PHASES_DETAILED_GUIDE.md..."
+          python3 scripts/validate_docs.py --strict
+        continue-on-error: true
+      
+      - name: Generate appendix
+        if: always()
+        run: |
+          echo "📝 Generating documentation appendix..."
+          python3 scripts/generate_phase_docs.py --output docs/GENERATED_APPENDIX.md
+      
+      - name: Check for placeholder dates
+        if: always()
+        run: |
+          echo "🔍 Checking for {{TO_FILL_DATE}} placeholders..."
+          if grep -n "{{TO_FILL_DATE}}" docs/PHASES_DETAILED_GUIDE.md; then
+            echo "⚠️ Found placeholder dates that need to be updated"
+            exit 1
+          else
+            echo "✅ No placeholder dates found"
+          fi
+      
+      - name: Upload validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-validation-results
+          path: |
+            docs/GENERATED_APPENDIX.md
+          retention-days: 30
+      
+      - name: Comment on PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const message = `## 📖 Documentation Validation Failed
+            
+            The documentation validation checks have found issues:
+            
+            - ❌ Check the workflow logs for details
+            - Run \`python scripts/validate_docs.py\` locally to see errors
+            - Run \`python scripts/generate_phase_docs.py\` to generate updated appendix
+            
+            **Common issues:**
+            - \`{{TO_FILL_DATE}}\` placeholders not replaced
+            - Line number references out of sync
+            - Referenced files don't exist
+            - STOP/WARN conditions don't match implementation
+            
+            Please update the documentation before merging.`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });
+      
+      - name: Fail if validation failed
+        if: steps.validate.outcome == 'failure'
+        run: |
+          echo "❌ Documentation validation failed. Please fix the issues and update docs."
+          exit 1
+
+  generate-appendix:
+    name: Generate Documentation Appendix
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Generate appendix
+        run: |
+          python3 scripts/generate_phase_docs.py --output docs/GENERATED_APPENDIX.md
+      
+      - name: Check for changes
+        id: git-check
+        run: |
+          git diff --exit-code docs/GENERATED_APPENDIX.md || echo "changed=true" >> $GITHUB_OUTPUT
+      
+      - name: Commit and push if changed
+        if: steps.git-check.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/GENERATED_APPENDIX.md
+          git commit -m "docs: auto-update GENERATED_APPENDIX.md [skip ci]"
+          git push

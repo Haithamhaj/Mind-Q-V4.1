@@ -36,3 +36,31 @@ stage01:
 
 migrate-smoke:
 	$(PY) tools/migrate_artifacts.py --dry-run --run-id fake-run
+
+# Documentation targets
+docs:
+	@echo "📝 Generating documentation appendix..."
+	$(PY) scripts/generate_phase_docs.py --output docs/GENERATED_APPENDIX.md
+	@echo "✅ Generated: docs/GENERATED_APPENDIX.md"
+
+validate-docs:
+	@echo "🔍 Validating PHASES_DETAILED_GUIDE.md..."
+	$(PY) scripts/validate_docs.py
+
+validate-docs-strict:
+	@echo "🔍 Validating PHASES_DETAILED_GUIDE.md (strict mode)..."
+	$(PY) scripts/validate_docs.py --strict
+
+check-docs: validate-docs docs
+	@echo "✅ Documentation check complete"
+
+# Pre-commit setup
+pre-commit-install:
+	@echo "🔧 Installing pre-commit hooks..."
+	pip install pre-commit
+	pre-commit install
+	@echo "✅ Pre-commit hooks installed"
+
+pre-commit-run:
+	@echo "🔍 Running pre-commit checks..."
+	pre-commit run --all-files

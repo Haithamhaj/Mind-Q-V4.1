@@ -1,4 +1,32 @@
 repos:
+# Documentation validation hooks
+- repo: local
+  hooks:
+    - id: validate-docs
+      name: Validate Documentation
+      entry: python3 scripts/validate_docs.py
+      language: system
+      files: ^docs/PHASES_DETAILED_GUIDE\.md$
+      pass_filenames: false
+      stages: [commit]
+    
+    - id: generate-docs-appendix
+      name: Generate Documentation Appendix
+      entry: python3 scripts/generate_phase_docs.py
+      language: system
+      files: ^(backend/src/app/services/pipeline_api/app\.py|phases/.*/impl\.py|src/app/services/.*/impl\.py)$
+      pass_filenames: false
+      stages: [commit]
+    
+    - id: check-placeholder-dates
+      name: Check for {{TO_FILL_DATE}} placeholders
+      entry: bash -c 'if grep -n "{{TO_FILL_DATE}}" docs/PHASES_DETAILED_GUIDE.md; then echo "❌ Found {{TO_FILL_DATE}} placeholders"; exit 1; fi'
+      language: system
+      files: ^docs/PHASES_DETAILED_GUIDE\.md$
+      pass_filenames: false
+      stages: [commit]
+
+# Python code quality
 - repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.6.9
   hooks:
@@ -13,3 +41,8 @@ repos:
   hooks:
     - id: end-of-file-fixer
     - id: trailing-whitespace
+    - id: check-yaml
+      args: [--allow-multiple-documents]
+    - id: check-json
+    - id: check-merge-conflict
+    - id: detect-private-key
