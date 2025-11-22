@@ -27,6 +27,7 @@ class RuleFailure(BaseModel):
     count: int
     sample_ids: List[str] = Field(default_factory=list)
     message: str
+    sla_clause: Optional[Dict[str, Any]] = None
 
 
 class RowDecision(BaseModel):
@@ -227,6 +228,7 @@ class RuleEvaluationResult:
     rule: RuleSpec
     failing_ids: List[str] = field(default_factory=list)
     message: Optional[str] = None
+    sla_clause: Optional[Dict[str, Any]] = None
 
     @property
     def count(self) -> int:
@@ -239,6 +241,7 @@ class RuleEvaluationResult:
             count=self.count,
             sample_ids=self.failing_ids[:sample_limit],
             message=self.message or self.rule.message or "",
+            sla_clause=self.sla_clause,
         )
 
 

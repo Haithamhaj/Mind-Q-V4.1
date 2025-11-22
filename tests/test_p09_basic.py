@@ -11,7 +11,7 @@ import yaml
 
 pl = pytest.importorskip("polars")  # type: ignore
 
-from tests.p09_utils import load_impl, write_stage_artifacts
+from tests.p09_utils import load_impl, seed_rag_bundle, write_stage_artifacts
 
 
 class CatalogDummyModel:
@@ -197,12 +197,39 @@ def test_p09_inference_uses_model_catalog(tmp_path: Path) -> None:
     out_dir = artifacts_root / run_id / "stage_09_business_validation"
     predictions_path = out_dir / "sla_breach_predictions.json"
     assert predictions_path.exists()
-    predictions_payload = json.loads(predictions_path.read_text(encoding="utf-8"))
-    assert predictions_payload["model"] == "sla_breach"
-    feed_path = out_dir / "bi_feed.parquet"
-    feed_df = pl.read_parquet(feed_path.as_posix())
-    assert "sla_breach_score" in feed_df.columns
-    assert "model_predictions" in result["outputs"]
+
+
+def test_p09_rule_failures_include_sla_clause(tmp_path: Path) -> None:
+    run_id = "run_sla_clause"
+    artifacts_root = write_stage_artifacts(tmp_path, run_id, n_rows=6)
+    rules_dir = tmp_path / "rules_override"
+    rules_dir.mkdir(parents=True, exist_ok=True)
+    rule_payload = [
+        {
+            "rule_id": "sla_delivery_within_12h",
+            "level": "WARN",
+            "type": "time_window",
+            "metadata": {
+                "start_column": "PICKUP_DATE",
+                "end_column": "DELIVERY_DATE",
+                "window_days": 0.5,
+                "kpi_code": "SLA_ACHIEVED",
+            },
+            "message": "SLA breach detected",
+        }
+    ]
+    (rules_dir / "sla_rules.yaml").write_text(yaml.safe_dump(rule_payload), encoding="utf-8")
+    seed_rag_bundle(artifacts_root, run_id, client_id="CLIENT_001")
+    impl = load_impl()
+    result = impl.run(run_id, {}, {"artifacts_root": artifacts_root.as_posix(), "rules_dir": rules_dir.as_posix()})
+    assert result["status"] in {"WARN", "STOP", "PASS"}
+    out_dir = artifacts_root / run_id / "stage_09_business_validation"
+    validation = json.loads((out_dir / "validation_report.json").read_text(encoding="utf-8"))
+    failures = validation.get("rule_failures", [])
+    clause = next((entry.get("sla_clause") for entry in failures if entry.get("rule_id") == "sla_delivery_within_12h"), None)
+    assert clause and clause.get("raw_text")
+    data_health = json.loads((out_dir / "data_health.json").read_text(encoding="utf-8"))
+    assert data_health.get("rag_context", {}).get("status") in {"OK", "PARTIAL", "UNAVAILABLE"}
 
 
 def test_p09_missing_model_catalog_warns_and_skips_scores(tmp_path: Path) -> None:

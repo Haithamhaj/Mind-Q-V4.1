@@ -58,6 +58,7 @@ class InsightItem(BaseModel):
     insight_text: str
     severity: str = Field(description="critical|warning|info")
     deep_dive_filters: Dict[str, Any] = Field(default_factory=dict)
+    business_context: Optional[Dict[str, Any]] = Field(default=None)
 
 
 class InsightsResponse(BaseModel):
@@ -79,6 +80,64 @@ def _resolve_fact_path(run_id: str, artifacts_root: Optional[str]) -> Path:
 def _resolve_insights_path(run_id: str, artifacts_root: Optional[str]) -> Path:
     base = _resolve_artifacts_root(artifacts_root)
     return base / run_id / INSIGHTS_REL_PATH
+
+
+def _resolve_insights_report_path(run_id: str, artifacts_root: Optional[str]) -> Path:
+    base = _resolve_artifacts_root(artifacts_root)
+    return base / run_id / INSIGHTS_REPORT_PATH
+
+
+def _load_business_context_map(path: Path) -> Tuple[Dict[Tuple[str, Optional[str]], List[Dict[str, Any]]], Dict[str, List[Dict[str, Any]]]]:
+    if not path.exists():
+        return {}, {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}, {}
+    context_map: Dict[Tuple[str, Optional[str]], List[Dict[str, Any]]] = {}
+    fallback_map: Dict[str, List[Dict[str, Any]]] = {}
+    insights = payload.get("insights")
+    if not isinstance(insights, list):
+        return context_map, fallback_map
+    for entry in insights:
+        if not isinstance(entry, dict):
+            continue
+        business_context = entry.get("business_context")
+        if not isinstance(business_context, dict):
+            continue
+        kpi = entry.get("kpi")
+        if not isinstance(kpi, str) or not kpi:
+            continue
+        segment = entry.get("segment")
+        normalized_segment = str(segment).strip() if isinstance(segment, str) and segment.strip() else None
+        context_map.setdefault((kpi, normalized_segment), []).append(business_context)
+        fallback_map.setdefault(kpi, []).append(business_context)
+    return context_map, fallback_map
+
+
+def _match_business_context(
+    *,
+    item: Mapping[str, Any],
+    context_map: Mapping[Tuple[str, Optional[str]], List[Dict[str, Any]]],
+    fallback_map: Mapping[str, List[Dict[str, Any]]],
+) -> Optional[Dict[str, Any]]:
+    kpi = item.get("kpi")
+    if not isinstance(kpi, str) or not kpi:
+        return None
+    segment_raw = item.get("where")
+    normalized_segment = (
+        segment_raw.strip()
+        if isinstance(segment_raw, str) and segment_raw.strip() not in {"Data quality", "Pre-analytics"}
+        else None
+    )
+    key = (kpi, normalized_segment)
+    if key in context_map and context_map[key]:
+        return context_map[key][0]
+    if (kpi, None) in context_map and context_map[(kpi, None)]:
+        return context_map[(kpi, None)][0]
+    if kpi in fallback_map and fallback_map[kpi]:
+        return fallback_map[kpi][0]
+    return None
 
 
 def _normalize_value(value: Any) -> Any:
@@ -279,6 +338,9 @@ def get_insights_feed(
 
     demotion_note = _load_demotion_note(insights_path.parent)
 
+    report_path = _resolve_insights_report_path(run_id, artifacts_root)
+    context_map, fallback_context_map = _load_business_context_map(report_path)
+
     response: List[InsightItem] = []
     for idx, item in enumerate(items):
         if not isinstance(item, dict):
@@ -288,6 +350,11 @@ def get_insights_feed(
             insight_text = json.dumps(insight_text_raw, ensure_ascii=False)
         else:
             insight_text = str(insight_text_raw)
+        business_context = _match_business_context(
+            item=item,
+            context_map=context_map,
+            fallback_map=fallback_context_map,
+        )
         response.append(
             InsightItem(
                 id=str(item.get("id") or f"{run_id}-{idx}"),
@@ -298,6 +365,7 @@ def get_insights_feed(
                     "where": item.get("where"),
                     "window": item.get("window"),
                 },
+                business_context=business_context,
             )
         )
     return InsightsResponse(items=response, demotion_note=demotion_note)

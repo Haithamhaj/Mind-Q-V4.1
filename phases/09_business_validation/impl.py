@@ -16,6 +16,7 @@ import yaml  # type: ignore
 from zoneinfo import ZoneInfo
 
 from shared import sla as sla_utils  # type: ignore
+from shared.rag_context import RagClauseLookup, load_rag_clause_lookup  # type: ignore
 from backend.src.app.services.system_health import SystemHealth  # type: ignore
 
 from . import io, models
@@ -1734,6 +1735,75 @@ def _textops_actions(context: Mapping[str, Any]) -> List[models.OpsAction]:
     return actions
 
 
+SLA_RULE_KEYWORDS = ("sla", "rto", "on_time", "otif", "lead_time", "delivery")
+CLIENT_ID_CANDIDATES = ("CLIENT_ID", "client_id", "Account_NO", "ACCOUNT_NO", "PARTNER_ID", "partner_id")
+
+
+def _rule_kpi_code(rule: models.RuleSpec) -> Optional[str]:
+    meta = rule.metadata or {}
+    for key in ("kpi_code", "kpi", "metric", "kpi_id"):
+        value = meta.get(key)
+        if value:
+            return str(value)
+    if rule.column:
+        return str(rule.column)
+    return None
+
+
+def _is_sla_rule(rule: models.RuleSpec) -> bool:
+    rule_id = rule.rule_id.lower()
+    column = (rule.column or "").lower()
+    meta = (rule.metadata or {}).get("kpi")
+    meta_text = str(meta).lower() if meta else ""
+    return any(keyword in rule_id for keyword in SLA_RULE_KEYWORDS) or any(
+        keyword in column for keyword in SLA_RULE_KEYWORDS
+    ) or any(keyword in meta_text for keyword in SLA_RULE_KEYWORDS)
+
+
+def _infer_client_for_rule(df: pl.DataFrame, failing_ids: Sequence[str]) -> Optional[str]:
+    if "entity_id" not in df.columns:
+        return None
+    subset = df.filter(pl.col("entity_id").is_in(failing_ids)) if failing_ids else df.head(0)
+    if subset.is_empty():
+        subset = df
+    for column in CLIENT_ID_CANDIDATES:
+        if column not in subset.columns:
+            continue
+        series = subset[column].drop_nulls()
+        if series.len() == 0:
+            continue
+        value = series[0]
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return None
+
+
+def _attach_sla_clauses_to_failures(
+    failures: List[models.RuleEvaluationResult],
+    rag_lookup: RagClauseLookup,
+    df: pl.DataFrame,
+) -> int:
+    if not failures or not rag_lookup.available:
+        return 0
+    attached = 0
+    for result in failures:
+        if not _is_sla_rule(result.rule):
+            continue
+        kpi_code = _rule_kpi_code(result.rule)
+        if not kpi_code:
+            continue
+        client_id = _infer_client_for_rule(df, result.failing_ids)
+        docs = rag_lookup.lookup(kpi_code=kpi_code, client_id=client_id, limit=1)
+        if not docs:
+            continue
+        result.sla_clause = docs[0]
+        attached += 1
+    return attached
+
+
 def _write_contracts(out_dir: Path) -> None:
     schema_dir = out_dir / "contracts" / "stage_09"
     schema_dir.mkdir(parents=True, exist_ok=True)
@@ -1781,6 +1851,14 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
         "text_sentiment": (textops_dir / "sentiment_features.parquet").as_posix(),
     }
     textops_context = _load_textops_context(textops_inputs)
+    rag_lookup = load_rag_clause_lookup(artifacts_root, run_id, top_k=3)
+    rag_summary: Dict[str, Any] = {
+        "status": rag_lookup.status,
+        "source": rag_lookup.source,
+        "clauses_indexed": rag_lookup.clauses_indexed,
+        "clients_indexed": rag_lookup.clients_indexed,
+        "warnings": rag_lookup.warnings,
+    }
     pre_warnings: List[str] = []
 
     catalog = io.load_kpi_catalog(kpi_path)
@@ -1942,6 +2020,10 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     kpi_deltas = [result.to_delta() for result in kpi_results]
 
     failures, unit_currency_meta = _evaluate_rules(clean_df, rules)
+    rag_rule_hits = _attach_sla_clauses_to_failures(failures, rag_lookup, clean_df)
+    if rag_rule_hits:
+        rag_summary["rule_failures_with_context"] = rag_rule_hits
+    rag_rule_hits = _attach_sla_clauses_to_failures(failures, rag_lookup, clean_df)
     decisions_df, decisions, ops_actions = _row_decisions(clean_df, failures)
     if textops_context:
         ops_actions.extend(_textops_actions(textops_context))
@@ -1988,6 +2070,7 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     data_health["nzv_impact"] = nzv_impact_payload
     if textops_context:
         data_health["text_ops"] = textops_context
+    data_health["rag_context"] = rag_summary
 
     sla_bundle = _load_sla_bundle(run_id, artifacts_root)
     metrics_for_sla: Dict[str, float] = {name: value for name, value in kpi_values.items() if value is not None}
@@ -2100,6 +2183,7 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
             "stop": sla_stop_flags,
         },
         "nzv_impact": nzv_impact_payload,
+        "rag": rag_summary,
     }
     diagnostics_payload = {
         "run_id": run_id,
@@ -2110,6 +2194,7 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
         "ops_metrics": ops_metrics_clean,
         "ops_metric_warnings": ops_metric_warnings,
         "rule_failures": rule_failure_payload,
+        "rag": rag_summary,
         "warnings": warnings,
         "sla_results": sla_summary_payload["results"],
         "gate_status": gate_status,

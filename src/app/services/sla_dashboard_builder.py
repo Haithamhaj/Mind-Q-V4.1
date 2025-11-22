@@ -458,6 +458,7 @@ def _collect_alerts(
         level = str(failure.get("level", "")).upper()
         severity = "critical" if level == "STOP" else "warning"
         message = failure.get("message") or failure.get("rule_id") or "Rule failure"
+        clause_payload = failure.get("sla_clause")
         alerts.append(
             {
                 "id": f"rule::{failure.get('rule_id') or message}",
@@ -467,6 +468,7 @@ def _collect_alerts(
                 "recommendation": None,
                 "related": {
                     "rule_id": failure.get("rule_id"),
+                    "sla_clause": clause_payload,
                 },
             }
         )

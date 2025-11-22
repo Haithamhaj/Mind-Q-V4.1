@@ -6,7 +6,7 @@ import math
 from pathlib import Path
 
 import numpy as np
-from typing import Any, Dict, Optional, Sequence, TYPE_CHECKING, cast
+from typing import Any, Callable, Dict, Optional, Sequence, TYPE_CHECKING, cast
 
 import pytest
 
@@ -291,6 +291,76 @@ def _build_redundancy() -> Dict[str, Any]:
     }
 
 
+def _build_sla_features() -> pl.DataFrame:
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+
+    base_ts = datetime(2024, 1, 1, 9, 0, tzinfo=ZoneInfo("Asia/Riyadh"))
+    rows: list[tuple[Any, ...]] = []
+    for idx in range(24):
+        rows.append(
+            (
+                idx + 1,
+                idx % 2,
+                1 if idx % 3 == 0 else 0,
+                "ACME_DELTA",
+                base_ts + timedelta(hours=idx),
+            )
+        )
+    return pl.DataFrame(
+        rows,
+        schema={
+            "row_id": pl.Int64,
+            "IS_COD": pl.Int64,
+            "SLA_ACHIEVED": pl.Int64,
+            "CLIENT_ID": pl.Utf8,
+            "created_at": pl.Datetime(time_zone="Asia/Riyadh"),
+        },
+        orient="row",
+    )
+
+
+def _seed_rag_bundle(artifacts_root: Path, run_id: str, *, client_id: str = "ACME_DELTA", kpi_id: str = "SLA_ACHIEVED") -> None:
+    text_dir = artifacts_root / run_id / "stage_03_5_textops"
+    text_dir.mkdir(parents=True, exist_ok=True)
+    segments = pl.DataFrame(
+        {
+            "segment_id": [0],
+            "vector_id": [0],
+            "source": ["doc"],
+            "source_key": ["acme_sla.pdf"],
+            "text": ["Deliver within 24 hours for premium service lanes."],
+        }
+    )
+    segments.write_parquet((text_dir / "doc_segments.parquet").as_posix())
+    rules = pl.DataFrame(
+        {
+            "rule_id": ["sla_clause_1"],
+            "partner_id": [client_id],
+            "metric": [kpi_id],
+            "operator": [">="],
+            "value": ["0.95"],
+            "unit": ["ratio"],
+            "scope": ["premium"],
+            "valid_from": ["2024-01-01"],
+            "valid_to": ["2024-12-31"],
+            "source_doc_id": ["acme_sla.pdf"],
+            "citation_segment_ids": [[0]],
+        }
+    )
+    rules.write_parquet((text_dir / "rules_sla_llm.parquet").as_posix())
+    links = pl.DataFrame(
+        {
+            "entity_type": ["SLA"],
+            "entity_id": ["sla_clause_1"],
+            "kpi_id": [kpi_id],
+            "dim_keys": [json.dumps({"partner_id": client_id})],
+            "link_confidence": [0.9],
+        }
+    )
+    links.write_parquet((text_dir / "kpi_links.parquet").as_posix())
+
+
 def _build_text_profile() -> Dict[str, Any]:
     return {
         "global": {"total_docs": 8},
@@ -452,8 +522,19 @@ def test_stage08_supplemental_context(tmp_path: Path) -> None:
     insights_report = json.loads((insights_dir / "insights_report.json").read_text(encoding="utf-8"))
     assert insights_report.get("context", {}).get("llm_summary", {}).get("provider") == "heuristic"
 
-def _run_stage(tmp_path: Path, run_id: str, config: Optional[Dict[str, Any]] = None, *, features: Optional[pl.DataFrame] = None, correlations: Optional[list[Dict[str, Any]]] = None, redundancy: Optional[Dict[str, Any]] = None) -> tuple[Dict[str, Any], Path]:
+def _run_stage(
+    tmp_path: Path,
+    run_id: str,
+    config: Optional[Dict[str, Any]] = None,
+    *,
+    features: Optional[pl.DataFrame] = None,
+    correlations: Optional[list[Dict[str, Any]]] = None,
+    redundancy: Optional[Dict[str, Any]] = None,
+    setup_hook: Optional[Callable[[Path], None]] = None,
+) -> tuple[Dict[str, Any], Path]:
     artifacts_root = _make_artifacts(tmp_path, run_id, features=features, correlations=correlations, redundancy=redundancy)
+    if setup_hook:
+        setup_hook(artifacts_root)
     base_config: Dict[str, Any] = {
         "artifacts_root": artifacts_root.as_posix(),
         "n_min_per_segment": 4,
@@ -505,6 +586,44 @@ def test_happy_path_emits_official_and_candidates(tmp_path: Path) -> None:
     assert (layer2_dir / "variance_analysis.json").exists()
 
 
+
+def test_rag_context_unavailable_when_missing_artifacts(tmp_path: Path) -> None:
+    run_id = "run_no_rag"
+    result, out_dir = _run_stage(tmp_path, run_id)
+    assert result["status"] in {"PASS", "WARN"}
+    insights = _load_json(out_dir / "insights_report.json")
+    rag_context = insights.get("context", {}).get("rag")
+    assert rag_context
+    assert rag_context.get("status") == "UNAVAILABLE"
+    assert all("business_context" not in entry for entry in insights.get("insights", []))
+
+
+def test_business_context_attaches_when_rag_available(tmp_path: Path) -> None:
+    run_id = "run_rag_context"
+    features = _build_sla_features()
+    correlations = [{"kpi": "SLA_ACHIEVED", "feature": "IS_COD", "rel_key": "SLA_ACHIEVED|IS_COD"}]
+
+    def _hook(root: Path) -> None:
+        _seed_rag_bundle(root, run_id)
+
+    result, out_dir = _run_stage(
+        tmp_path,
+        run_id,
+        config={"segments": ["CLIENT_ID"], "emit_threshold": 0.15},
+        features=features,
+        correlations=correlations,
+        setup_hook=_hook,
+    )
+    assert result["status"] in {"PASS", "WARN"}
+    insights = _load_json(out_dir / "insights_report.json")
+    rag_context = insights.get("context", {}).get("rag")
+    assert rag_context and rag_context.get("status") in {"OK", "PARTIAL"}
+    sla_insights = [entry for entry in insights.get("insights", []) if entry.get("kpi") == "SLA_ACHIEVED"]
+    assert sla_insights, "Expected SLA insights to be emitted"
+    payload = sla_insights[0].get("business_context")
+    assert payload and payload.get("docs")
+    assert payload["retrieval_meta"]["rag_status"] == "OK"
+    assert payload["docs"][0]["raw_text"]
 
 
 def test_advanced_outputs_fallback_created(tmp_path: Path) -> None:

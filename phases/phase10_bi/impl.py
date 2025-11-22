@@ -57,6 +57,7 @@ INSIGHT_SCHEMA = {
     "segment": pl.Utf8,
     "direction": pl.Utf8,
     "window": pl.Utf8,
+    "business_context": pl.Utf8,
 }
 
 SUMMARY_SCHEMA = {
@@ -709,6 +710,15 @@ def _official_rows(payload: Mapping[str, Any]) -> List[Dict[str, Any]]:
     for item in payload.get("insights", []):
         if not isinstance(item, Mapping):
             continue
+        business_context = item.get("business_context")
+        context_serialized: Optional[str]
+        if business_context is None:
+            context_serialized = None
+        else:
+            try:
+                context_serialized = json.dumps(business_context, ensure_ascii=False)
+            except Exception:
+                context_serialized = None
         rows.append(
             {
                 "kpi": item.get("kpi"),
@@ -720,6 +730,7 @@ def _official_rows(payload: Mapping[str, Any]) -> List[Dict[str, Any]]:
                 "segment": item.get("segment"),
                 "direction": item.get("direction"),
                 "window": item.get("window"),
+                "business_context": context_serialized,
             }
         )
     return rows

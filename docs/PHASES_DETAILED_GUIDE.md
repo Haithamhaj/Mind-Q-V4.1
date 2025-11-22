@@ -558,6 +558,7 @@ Logistics analytics need consistent, contract-aligned features regardless of ups
 - **Row guard enforcement**: Compares the Stage 06A curated dataset with Stage 05 baselines to guarantee no shipments were lost or duplicated before feature construction.
 - **Curated vs. pre-feature diffing**: Optionally compares prior `features.pre.parquet` snapshots to track dropped/added columns, respecting exclusions handed off from Stage 06A (`exclusions_applied.json`).
 - **Layer 1 dataset assembly**: Iterates over `LAYER1_FIELD_SPECS`, coercing source columns into canonical dtypes, applying derivation rules (order date, COD flags, delivery delays), and generating Arabic/English labels and descriptions.
+- **Config-driven PAYMENT_TYPE**: Loads per-client payment contracts from `contracts/payment/payment_rules.yml`, merges defaults with `run_meta`-inferred client overrides, and derives a normalized `PAYMENT_TYPE` feature (values: COD, Prepaid, Unknown). The helper sanitizes COD strings (treating `"-"`, `"0"`, `""`, currency labels, etc. as zero), applies explicit prepaid flags when present, and logs the final distribution so downstream analytics can trust the feature even when raw `COD_AMOUNT` is noisy.
 - **Schema & samples**: Writes `layer1_schema.json` and `layer1_sample.json` with role counts, sample values, and preview rows to streamline downstream validation or documentation.
 - **Manifest & spec**: Produces `feature_manifest.json` summarizing columns and a lightweight `feature_spec.json` that autodetects the main timestamp column for downstream time-series processing.
 
@@ -1141,6 +1142,7 @@ Stage 08 applies governed statistical analysis to generate actionable business i
 - `_gate_status` evaluates data-health signals, geo coverage, readiness gates, and policy compliance to emit PASS/WARN/STOP via `gate.json`.
 - STOP cases include failing data-health checks (critical missing columns, future timestamps), readiness STOP propagation, or insufficient sample coverage; WARN captures degraded coverage or upstream WARN signals.
 - Gate decisions, along with readiness/TextOps/LLM statuses, are replicated in `diagnostics.json` and the run result, informing Stage 09.
+- `contracts/analytics/gate.yml` drives preflight behavior: `quality_checks.critical_columns` stay hard-stop, `warn_only_columns` (now includes `COD_AMOUNT`) only raise WARN, `skip_columns` remove noisy metrics entirely, and `numeric_rules` (e.g., `cod_amount_non_negative`) emit WARN/STOP based on value thresholds instead of crude missingness heuristics.
 
 #### Tests & Observability
 - Tests: `tests/test_phase08_insights.py`, `tests/test_p09_utils.py`.
@@ -1149,6 +1151,8 @@ Stage 08 applies governed statistical analysis to generate actionable business i
 - **Readiness + analytics aware**: the engine now consumes Stage 07 readiness diagnostics and the Python analytics DQ/forecast summaries. WARN/STOP signals automatically downgrade Stage 08 gate status, inject readiness action cards into `story_ops.json`, and expose `readiness`, `analytics`, `textops`, and `llm_summary` sections inside `diagnostics.json`.
 - **Advanced analytics bundle**: every run writes an `advanced/` bundle alongside the traditional `layer2_*` exports. When KNIME/Python analytics outputs exist, Stage 08 copies `cluster_summary.json`, `anomalies.json`, `correlation_matrix.json`, and `orders_forecast.parquet` into the bundle; otherwise it synthesizes lightweight fallbacks from Stage 06 features and documents the provenance inside `advanced/summary.json`. The returned `result["outputs"]` map now surfaces `cluster_summary`, `anomalies`, `orders_forecast`, and `advanced_summary` paths for Phase 10 and the BI APIs.
 - **NZV propagation**: gate, diagnostics, and insights payloads all embed a shared `nzv_impact` block that lists low-variance columns removed (or protected) plus any high-imbalance features. This mirrors Stage 05/06 metadata so readiness, Stage 07.5/07.6, and Stage 08 consumers reason about the same context-only fields.
+- **SLA RAG traceability**: when Stage 03.5 emits `doc_segments.parquet`, `rules_sla_llm.parquet`, and `kpi_links.parquet`, Stage 08 now hydrates each SLA/RTO/OTIF insight with an optional `business_context` block. The block captures the RAG source (“stage_03_5_rag”), linked clause snippets, and retrieval metadata (`rag_status`, `client_id`, `top_k`). Missing/invalid RAG artifacts simply log WARN entries (`rag.status = "UNAVAILABLE"`) while preserving backward-compatible payloads.
+- **Graceful gating**: preflight now downgrades non-fatal quality issues (e.g., high NZV ratio, missing correlations, low-signal fallback) from STOP to WARN so diagnostics/artifacts still emit. True STOP is reserved for structural blockers (critical coverage loss, future timestamps, STOP-severity numeric rules). The resulting WARN status is reflected in `gate.json`, `diagnostics.json`, and the run result.
 - **TextOps + LLM transparency**: Stage 03.5 findings and sentiment stats are folded into `data_health` and `story` contexts, while Stage 07.6 `metrics.json` flags heuristic/cached runs so downstream teams know when to re-run with alternate providers.
 - **Shared story context**: `insights_report.json`, `story_ops.json`, and `cards.json` now export a `context` payload that carries readiness, analytics, TextOps, and LLM metadata forward to Stage 09/10 and BI consumers without manual joins.
 
@@ -1165,6 +1169,7 @@ Operations leadership needs curated, non-causal insights that highlight where lo
 #### Operational Mechanics
 - **Input orchestration**: Loads Stage 06 features, Stage 07 correlation/redundancy artifacts, optional layer-2/text analytics files, and KPI/policy configs through `Stage08Settings`.
 - **Preflight gating**: Validates geo coverage, missingness, and row thresholds; can STOP early with detailed gate diagnostics.
+- **Policy-aware diagnostics**: Embeds the resolved gate configuration (critical/warn-only columns, numeric rule violations) and Stage 05/06 NZV impact into `diagnostics.json` so downstream reviewers can see which config drove a STOP vs WARN.
 - **Candidate generation**: Computes segment comparisons, effect sizes, and confidence/stability metrics; flags low-signal or Simpson’s paradox risks; records sampling notes.
 - **Policy enforcement**: Applies KPI prioritization, forbidden wording filters, and grouping rules defined in YAML policies; masks PII tokens automatically.
 - **Packaging & storytelling**: Emits `insights_report.json` with official recommendations, optional `insights_candidates.json`, `story_ops.json` cards, diagnostics, gate decisions, and coverage reports.
@@ -1251,6 +1256,7 @@ Executives and operations managers need vetted SLA %, RTO %, lead-time percentil
 - **Model inference (catalog-driven)**: Looks up the active model (e.g., `sla_breach`) in `models_catalog.yml`, loads the serialized estimator from `artifacts/models/`, and computes risk scores without any `.fit()` calls. Scores are written to both the BI feed and a dedicated `{model_key}_predictions.json` artifact for auditability. The shim prefers `predict_proba`, falls back to `predict`, and emits WARN logs + skips scoring if the catalog entry, model file, or features are unavailable.
 - **Catalog provenance & observability**: Each catalog entry may include `features`, `lab_report`, and `trained_at` metadata coming from Stage 11 ML Lab. Stage 09 treats these fields as optional metadata—if they are missing or the catalog lookup fails, the stage logs `model_prediction_skipped` and continues with the rest of the BI outputs without blocking the run.
 - **Stage 08 gate propagation**: Reads `stage_08_insights/gate.json` so WARN/STOP reasons (e.g., low-signal fallbacks) carry into Stage 09 `gate.json`, `validation_report.json`, and `logs`. Non-PASS statuses from Stage 08 now act as warn/stop flags when computing the final readiness decision.
+- **Clause-aware validation**: Reuses the Stage 03.5 RAG bundle so SLA-related rule failures and `validation_report.rule_failures[*].sla_clause` include the cited contract text (document name + snippet). `data_health.json` and `gate.json` mirror this `rag` status summary, while WARN-only degradation is logged when the RAG assets are missing or malformed.
 - **NZV transparency**: Reuses Stage 05/06 NZV metadata to filter context-only columns while still reporting protected low-variance fields; `validation_report`, `data_health`, `gate.json`, and the new `diagnostics.json` expose a shared `nzv_impact` block consumers can trust.
 - **Logging & metrics**: Streams JSONL logs, data-health details, and metrics payload describing row counts, thresholds, and elapsed time.
 - **System health logging**: Records throughput and duration metrics for each run via `SystemHealth`, so the same `system_health.json` file tracks ingestion and BI latency in one place.
@@ -1685,6 +1691,149 @@ Fix: ensure numeric casting before arithmetic operations in custom transformatio
 - **Large SLA PDFs**: Uploads beyond 20 MB may fail unless reverse proxies are tuned; consider chunked upload support.
 - **Schema baselines**: Automated schema fingerprint alerts require sign-off to avoid alert fatigue when intentional changes occur.
 - **Frontend caching**: Heavy artifact previews may impact browser memory; evaluate pagination or streaming for large JSON outputs.
+
+---
+
+## Pipeline “Rules of Engagement”
+The following summary consolidates every stage’s objective, dependencies, inputs/outputs, gating logic, and failure behavior. Use it as a quick audit checklist in addition to the detailed per-stage sections above.
+
+### Stage 01 – Ingestion
+- **Objective:** Normalize raw shipment/SLA files and capture provenance.
+- **Dependencies:** None.
+- **Inputs/Outputs:** CLI `data_files`, optional SLA PDFs → `stage_01_ingestion/raw.parquet`, `source_meta.json`, `sla_manifest.json`, `row_meta.json`, `logs.jsonl`.
+- **STOP:** File missing/too small, unreadable input, row count below `min_rows_required` (`phases/01_ingestion/impl.py`).
+- **WARN:** Streaming ingestion or SLA OCR failures (logged only).
+- **Behavior:** STOP halts the pipeline immediately.
+
+### Stage 02 – Quality
+- **Objective:** Enforce row guards and highlight structural anomalies.
+- **Dependencies:** Stage 01 raw parquet.
+- **Inputs/Outputs:** `raw.parquet` → `quality_report.json`, `row_meta.json`, logs.
+- **STOP:** Zero rows, row mismatch vs `baselines.json`, parquet read failure (`phases/02_quality/impl.py`).
+- **WARN:** ≥20% missing, phone dtype issues, non-ASCII characters, datetime anomalies.
+
+### Stage 03 – Schema & Terminology
+- **Objective:** Capture schema snapshots and bilingual terminology.
+- **Dependencies:** Stage 01/02 outputs.
+- **Inputs/Outputs:** `schema_v1.json`, terminology bundle, `row_meta.json`.
+- **STOP:** Row guard failure via `baseline_utils`.
+- **WARN:** None—terminology skips are informational.
+
+### Stage 03.5 – TextOps
+- **Objective:** Clean text fields and extract SOP/SLA intelligence.
+- **Dependencies:** Schema data plus uploaded docs.
+- **Inputs/Outputs:** `structured_fields.parquet`, `sentiment.parquet`, `quality_findings.json`, SOP/SLA payloads.
+- **STOP:** Missing inputs or join-key mismatches (`backend/src/app/services/stage_03_5_textops/impl.py`).
+- **WARN:** OCR/LLM fallbacks recorded in findings.
+
+### Stage 04 – Profile
+- **Objective:** Produce descriptive stats and PSI seeds.
+- **Dependencies:** Stage 03 schema + Stage 01 data.
+- **Inputs/Outputs:** `profile.json`, `psi_summary.json`, histograms.
+- **STOP:** Row guard only (`phases/04_profile/impl.py`).
+- **WARN:** Coverage/PSI notes logged.
+
+### Stage 05 – Missing Value Repair
+- **Objective:** Apply imputation policies from `contracts/impute/policy*.yml`.
+- **Dependencies:** Stage 04 profile + Stage 01 raw.
+- **Inputs/Outputs:** `clean_imputed.parquet`, `imputation_plan.json`, `psi_summary.json`.
+- **STOP:** PSI ≥0.3, row-count drift, critical imputation errors (`phases/05_missing/impl.py`).
+- **WARN:** PSI 0.2–0.3, geo warnings, high missingness.
+
+### Stage 06A – Standardize
+- **Objective:** Normalize names/values while protecting KPI columns.
+- **Dependencies:** Stage 05 outputs (+ optional TextOps structured fields).
+- **Inputs/Outputs:** `clean.parquet`, `features.pre.parquet`, `standardize_report.json`.
+- **STOP:** Row mismatch, all columns excluded, empty schema (`phases/06_standardize/impl.py`).
+- **WARN:** None—ignored exclusions are logged only.
+
+### Stage 06B – Feature Engineering
+- **Objective:** Emit curated features + Layer1 datasets and derive config-driven `PAYMENT_TYPE`.
+- **Dependencies:** Stage 06A curated data.
+- **Inputs/Outputs:** `features.parquet`, `layer1_dataset.parquet`, `feature_manifest.json`, `layer1_schema.json`, logs with payment distribution.
+- **STOP:** Row guard failure or empty column set (`phases/06_feature_eng/impl.py`).
+- **WARN:** Payment rules missing/parse errors degrade to defaults (`phases/06_feature_eng/payment.py`, `contracts/payment/payment_rules.yml`).
+
+### Stage 07 – Readiness
+- **Objective:** Detect leakage, NZV, PSI issues, and KPI coverage gaps.
+- **Dependencies:** Stage 06 features, Stage 05 NZV summary, KPI contracts.
+- **Inputs/Outputs:** `readiness_report.json`, `diagnostics.json`, `decision_manifest.json`, `correlations*.json`, `redundancy.json`.
+- **STOP:** PSI ≥0.3, leakage detections, zero surviving features, row guard failure, critical columns from `contracts/kpis/critical_columns.yml` flagged as NZV (`phases/07_readiness/impl.py`).
+- **WARN:** PSI 0.2–0.3, NZV ratio above `contracts/nzv/policy.yml`, geo/KPI coverage issues.
+
+### Stage 07.5 – Feature Report
+- **Objective:** Publish feature cards/flags for ops teams.
+- **Dependencies:** Stage 07 outputs.
+- **Inputs/Outputs:** `report.json`, `cards.json`, `feature_flags.json`.
+- **STOP/WARN:** Informational; missing inputs raise errors.
+
+### Stage 07.6 – LLM Summary
+- **Objective:** Produce bilingual summaries via LLM providers.
+- **Dependencies:** Readiness outputs + env credentials (`backend/llm.env`, `MINDQ_LLM_PROVIDERS`, `<PROVIDER>_MODEL`).
+- **Inputs/Outputs:** `summary.json`, `metrics.json`, cache entries.
+- **STOP:** All providers fail; heuristics fallback logs WARN (`phases/07_6_llm_summary/impl.py`).
+
+### Stage 07.7 – Business Correlations
+- **Objective:** Build correlation/variance insights.
+- **Dependencies:** Stage 07 readiness + Stage 06 features.
+- **Inputs/Outputs:** Correlation reports under `stage_07_7_business_correlations`.
+- **STOP:** Missing inputs/row guard; otherwise PASS.
+
+### Stage 07 Analytics (optional)
+- **Objective:** Python analytics (DQ, clustering, anomalies).
+- **Dependencies:** Stage 06 features & readiness.
+- **Inputs/Outputs:** `phase_07_analytics/outputs/*`.
+- **STOP:** Fatal DQ failures; **WARN:** NZV/imbalance notes logged by the module.
+
+### Stage 07 Timeseries (optional)
+- **Objective:** Dedicated time-series metrics.
+- **Dependencies:** Stage 06 features + CLI config.
+- **Inputs/Outputs:** `stage_07_timeseries/*`.
+- **STOP:** Missing config/time index; WARN when coverage insufficient.
+
+### Stage 07 KNIME Bridge
+- **Objective:** Package artifacts into `phase_07_knime/` for BI.
+- **Dependencies:** Stage 06 features, Stage 07 readiness, Stage 07.5 report.
+- **Inputs/Outputs:** `data.parquet`, `schema.json`, `run_meta.json`, `profile/`.
+- **STOP:** Missing prerequisites.
+
+### Stage 08 – Insights
+- **Objective:** Generate governed KPI insights/diagnostics.
+- **Dependencies:** Stage 06 features, Stage 07 readiness/correlations, analytics overlays, TextOps, LLM context.
+- **Inputs/Outputs:** `insights_report.json`, `insights_candidates.json`, `gate.json`, `diagnostics.json`, `advanced/*`.
+- **STOP:** Critical missing columns beyond stop threshold, future timestamps, numeric rule STOP hits, readiness STOP propagation (`src/app/services/stage_08_insights/impl.py`, `contracts/analytics/gate.yml`).
+- **WARN:** Warn-only columns (e.g., COD_AMOUNT), numeric rule WARN hits, readiness/analytics WARN propagation, heuristic fallbacks.
+
+### Stage 09 – Business Validation
+- **Objective:** Apply SLA/policy rules before BI delivery.
+- **Dependencies:** Stage 08 outputs + processed SLA contracts.
+- **Inputs/Outputs:** `gate.json`, `diagnostics.json`, `violations.json`.
+- **STOP:** STOP-level business rules with violations or Stage 08 STOP propagation (`phases/09_business_validation/impl.py`).
+- **WARN:** WARN rules triggered or missing SLA context.
+
+### Stage 09.5 – Causal Insights (optional)
+- **Objective:** Run causal experiments defined in `contracts/causal_problems/*.yml`.
+- **Dependencies:** Stage 08 insights + selected problem.
+- **Inputs/Outputs:** `stage_09_5_causal/results.json`, `diagnostics.json`.
+- **STOP/WARN:** Based on problem config; fatal errors halt the stage.
+
+### Stage 10 – BI Delivery
+- **Objective:** Copy curated artifacts into BI environments.
+- **Dependencies:** Stage 07 KNIME bundle + Stage 08 outputs.
+- **Inputs/Outputs:** Mirrored files under `phase_07_knime/`, BI-ready exports.
+- **STOP:** Missing mandatory inputs or copy failure; WARN for optional assets.
+
+### Stage 12 – Routing (optional)
+- **Objective:** Execute routing heuristics when requested.
+- **Dependencies:** Stage 08/09 outputs + routing config.
+- **Inputs/Outputs:** `stage_12_routing/*`.
+- **STOP:** Invalid config or solver failure; WARN for partial coverage.
+
+### Configuration Cheat Sheet
+- **NZV thresholds:** `contracts/nzv/policy.yml`.
+- **Critical columns:** `contracts/kpis/critical_columns.yml` (readiness) and `contracts/analytics/gate.yml` (Stage 08 quality checks).
+- **LLM models/providers:** `phases/07_6_llm_summary/impl.py` reads `MINDQ_LLM_PROVIDERS`, `<PROVIDER>_MODEL`, etc.; defaults come from `backend/llm.env`.
+- **API keys:** Configure in `backend/llm.env`, `backend/.env`, or root `llm.env`—`cli/runner.py` loads them via `dotenv`.
 
 ---
 

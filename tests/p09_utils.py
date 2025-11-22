@@ -139,6 +139,47 @@ def _seed_nzv_artifacts(
     (stage06_dir / "standardize_report.json").write_text(json.dumps(stage06_payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def seed_rag_bundle(artifacts_root: Path, run_id: str, *, client_id: str = "CLIENT_001", kpi_id: str = "SLA_ACHIEVED") -> None:
+    text_dir = artifacts_root / run_id / "stage_03_5_textops"
+    text_dir.mkdir(parents=True, exist_ok=True)
+    segments = pl.DataFrame(
+        {
+            "segment_id": [0],
+            "vector_id": [0],
+            "source": ["doc"],
+            "source_key": ["client_sla.pdf"],
+            "text": ["Client requires delivery within same day across all priority lanes."],
+        }
+    )
+    segments.write_parquet((text_dir / "doc_segments.parquet").as_posix())
+    rules = pl.DataFrame(
+        {
+            "rule_id": ["sla_clause_test"],
+            "partner_id": [client_id],
+            "metric": [kpi_id],
+            "operator": [">="],
+            "value": ["0.95"],
+            "unit": ["ratio"],
+            "scope": ["priority"],
+            "valid_from": ["2024-01-01"],
+            "valid_to": ["2024-12-31"],
+            "source_doc_id": ["client_sla.pdf"],
+            "citation_segment_ids": [[0]],
+        }
+    )
+    rules.write_parquet((text_dir / "rules_sla_llm.parquet").as_posix())
+    links = pl.DataFrame(
+        {
+            "entity_type": ["SLA"],
+            "entity_id": ["sla_clause_test"],
+            "kpi_id": [kpi_id],
+            "dim_keys": [json.dumps({"partner_id": client_id})],
+            "link_confidence": [0.9],
+        }
+    )
+    links.write_parquet((text_dir / "kpi_links.parquet").as_posix())
+
+
 def write_stage_artifacts(
     tmp_path: Path,
     run_id: str,
