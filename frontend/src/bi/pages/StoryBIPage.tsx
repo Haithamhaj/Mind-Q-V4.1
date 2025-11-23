@@ -37,6 +37,7 @@ import {
   useBiMetrics,
   useBiCorrelations,
   useBiSchemaGlossary,
+  useKpiCalculations,
 } from '../data';
 import type {
   CorrelationCollection,
@@ -1104,11 +1105,11 @@ const StoryBIContent: React.FC = () => {
             use_llm: true,
           }),
         });
-        
+
         if (!response.ok) {
           throw new Error("Failed to get chart explanation");
         }
-        
+
         const data = await response.json();
         const explanation = data.explanation || translate("لا يوجد شرح متاح.");
         setChartExplanations((prev) => ({ ...prev, [chartKey]: explanation }));
@@ -1125,21 +1126,27 @@ const StoryBIContent: React.FC = () => {
     [language, translate],
   );
 
+  // Calculate KPIs directly from dataset
+  const kpiValues = useKpiCalculations(dataset);
+
   const biSummary = useMemo(() => {
     const items: string[] = [];
-    const orders = rawMetrics?.totals?.orders;
-    if (typeof orders === "number") {
-      items.push(translate("عدد الطلبات الخام: {value}", { value: formatInteger(orders) }));
+
+    // Use calculated KPIs from dataset
+    if (kpiValues.totalOrders !== null) {
+      items.push(translate("عدد الطلبات الخام: {value}", { value: formatInteger(kpiValues.totalOrders) }));
     }
 
-    const codTotal = rawMetrics?.totals?.cod_total;
-    if (typeof codTotal === "number") {
-      items.push(translate("تحصيل الدفع عند الاستلام: {value}", { value: formatCurrency(codTotal) }));
+    if (kpiValues.codTotal !== null) {
+      items.push(translate("تحصيل الدفع عند الاستلام: {value}", { value: formatCurrency(kpiValues.codTotal) }));
     }
 
-    const codShare = rawMetrics?.totals?.orders_cod_share_pct;
-    if (typeof codShare === "number") {
-      items.push(translate("حصة COD من الطلبات: {value}", { value: formatPercent(codShare) }));
+    if (kpiValues.slaPct !== null) {
+      items.push(translate("أداء SLA: {value}", { value: formatPercent(kpiValues.slaPct / 100) }));
+    }
+
+    if (kpiValues.rtoPct !== null) {
+      items.push(translate("معدل RTO: {value}", { value: formatPercent(kpiValues.rtoPct / 100) }));
     }
 
     if (activeFilters.length) {
@@ -1155,7 +1162,7 @@ const StoryBIContent: React.FC = () => {
     }
 
     return items;
-  }, [rawMetrics, activeFilters, insightStats, translate]);
+  }, [kpiValues, activeFilters, insightStats, translate]);
 
   useEffect(() => {
     if (typeof performance !== 'undefined') {
@@ -1543,12 +1550,12 @@ const StoryBIContent: React.FC = () => {
     activeConfig?.chartType === 'line' && timeColumn
       ? timeSeries
       : activeConfig?.dimension
-      ? dimensionSeries.map((entry) => ({
+        ? dimensionSeries.map((entry) => ({
           [activeConfig.dimension ?? 'dimension']: entry.dimension,
           value: entry.value,
           share: entry.share,
         }))
-      : timeSeries;
+        : timeSeries;
 
   const canvasXAxis =
     activeConfig?.chartType === 'line' && timeColumn
@@ -2083,11 +2090,10 @@ const StoryBIContent: React.FC = () => {
                 {rawLlmMessages.map((message, index) => (
                   <div key={`raw-llm-${index}`} className={`flex ${message.role === "user" ? "justify-start" : "justify-end"}`}>
                     <span
-                      className={`inline-flex max-w-[75%] rounded-2xl px-3 py-2 ${
-                        message.role === "user"
-                          ? "bg-primary/10 text-primary"
-                          : "bg-sky-500/10 text-sky-600 dark:text-sky-300"
-                      }`}
+                      className={`inline-flex max-w-[75%] rounded-2xl px-3 py-2 ${message.role === "user"
+                        ? "bg-primary/10 text-primary"
+                        : "bg-sky-500/10 text-sky-600 dark:text-sky-300"
+                        }`}
                     >
                       {message.content}
                     </span>
@@ -2180,18 +2186,18 @@ const StoryBIContent: React.FC = () => {
         </div>
       ) : null}
 
-  {biLayer2 ? <Layer2InsightsPanel className="mt-6" /> : null}
+      {biLayer2 ? <Layer2InsightsPanel className="mt-6" /> : null}
 
-  {biLayer3 ? <Layer3IntelligencePanel intelligence={intelligence} className="mt-6" /> : null}
+      {biLayer3 ? <Layer3IntelligencePanel intelligence={intelligence} className="mt-6" /> : null}
 
-  {knimeBridge && intelligence?.knime ? (
-    <KnimeResultsPanel
-      data={intelligence.knime}
-      dataset={knimeData ?? undefined}
-      report={knimeReport ?? undefined}
-      className="lg:w-3/4"
-    />
-  ) : null}
+      {knimeBridge && intelligence?.knime ? (
+        <KnimeResultsPanel
+          data={intelligence.knime}
+          dataset={knimeData ?? undefined}
+          report={knimeReport ?? undefined}
+          className="lg:w-3/4"
+        />
+      ) : null}
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {metricSummaries.map((summary) => {
@@ -2223,9 +2229,8 @@ const StoryBIContent: React.FC = () => {
             key={tab.id}
             type="button"
             onClick={() => handleTabSelect(tab)}
-            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-              activeTab === tab.id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/40'
-            }`}
+            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${activeTab === tab.id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/40'
+              }`}
           >
             {tab.label}
           </button>
@@ -2343,11 +2348,10 @@ const StoryBIContent: React.FC = () => {
               className={`flex ${message.role === 'user' ? 'justify-start' : 'justify-end'}`}
             >
               <span
-                className={`inline-flex max-w-[75%] rounded-2xl px-3 py-2 ${
-                  message.role === 'user'
-                    ? 'bg-primary/10 text-primary'
-                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
-                }`}
+                className={`inline-flex max-w-[75%] rounded-2xl px-3 py-2 ${message.role === 'user'
+                  ? 'bg-primary/10 text-primary'
+                  : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
+                  }`}
               >
                 {message.content}
               </span>
@@ -2371,9 +2375,8 @@ const StoryBIContent: React.FC = () => {
           <button
             type="submit"
             disabled={chatLoading}
-            className={`rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 ${
-              chatLoading ? 'opacity-70 cursor-not-allowed' : ''
-            }`}
+            className={`rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 ${chatLoading ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
           >
             {chatLoading ? 'جاري التحليل...' : 'Send'}
           </button>
