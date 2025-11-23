@@ -590,7 +590,7 @@ class MindQAPI {
 
   async getOrders(run?: string, limit?: number): Promise<Record<string, unknown>> {
     const query = this.buildQueryString({ run, limit })
-    return this.get(`/api/bi-direct/orders${query}`)
+    return this.get(`/api/bi/orders${query}`)
   }
 
   async converseLayer2Assistant(request: Layer2AssistantRequest): Promise<Layer2AssistantResponse> {
