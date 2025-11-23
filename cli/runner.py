@@ -63,7 +63,13 @@ class PipelineFlags:
     routing_inputs: Optional[Dict[str, Any]] = None
 
 
-def _default_data_files() -> List[str]:
+def _default_data_files(dataset_path: Optional[str] = None) -> List[str]:
+    if dataset_path:
+        path = Path(dataset_path)
+        if path.exists():
+            return [path.resolve().as_posix()]
+        print(f"Warning: Dataset not found at {dataset_path}, falling back to defaults")
+
     data_csv = Path("data/basic.csv")
     fallback_csv = Path("data/header_offset.csv")
     if data_csv.exists():
@@ -306,12 +312,12 @@ async def _run_pipeline(
     return results
 
 
-def flow(run_id: str, flags: PipelineFlags, artifacts_root: Path) -> None:
+def flow(run_id: str, flags: PipelineFlags, artifacts_root: Path, dataset_path: Optional[str] = None) -> None:
     _ensure_bi_prep_mode()
     artifacts_root = artifacts_root.expanduser().resolve()
     artifacts_root.mkdir(parents=True, exist_ok=True)
 
-    data_files = _default_data_files()
+    data_files = _default_data_files(dataset_path)
     llm_summary = _llm_credentials_available()
 
     results = anyio.run(_run_pipeline, run_id, data_files, artifacts_root, llm_summary, flags)
@@ -381,6 +387,10 @@ def main() -> None:
         "--artifacts-root",
         default="artifacts",
         help="Root directory where run artifacts are stored (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--dataset",
+        help="Path to the input dataset CSV file",
     )
     parser.add_argument(
         "--textops",
@@ -467,7 +477,7 @@ def main() -> None:
         run_routing=run_routing,
         routing_inputs=routing_inputs,
     )
-    flow(args.run_id, flags, artifacts_root)
+    flow(args.run_id, flags, artifacts_root, dataset_path=args.dataset)
 
 
 if __name__ == "__main__":

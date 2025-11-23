@@ -1,0 +1,18 @@
+{
+  "column": "sender_address_sans_valid",
+  "mappings": [
+    {
+      "original": "True",
+      "normalized": "صحيح (True)",
+      "confidence": 1.0,
+      "source": "llm"
+    },
+    {
+      "original": "False",
+      "normalized": "خطأ (False)",
+      "confidence": 1.0,
+      "source": "llm"
+    }
+  ],
+  "updated_at": "2025-11-23T08:48:18.818333"
+}

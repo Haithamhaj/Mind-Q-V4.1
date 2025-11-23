@@ -213,7 +213,7 @@ def _apply_structured_fields(
     logs: List[Dict[str, Any]] = []
     if structured_df.empty or join_key not in structured_df.columns:
         return df, logs
-    structured_indexed = structured_df.dropna(subset=[join_key]).set_index(join_key)
+    structured_indexed = structured_df.dropna(subset=[join_key]).drop_duplicates(subset=[join_key]).set_index(join_key)
     if structured_indexed.empty:
         return df, logs
     column_lookup = {col.lower(): col for col in df.columns}
