@@ -6,11 +6,98 @@ import clsx from "clsx";
 import { useBiData } from "../data";
 
 const MAX_PER_DIMENSION = 40;
+const MAX_FILTERS_TO_SHOW = 12; // Maximum number of filter dimensions to display
+const MIN_UNIQUE_VALUES = 2; // Minimum unique values to be useful
+const MAX_UNIQUE_VALUES = 100; // Maximum unique values to avoid overwhelming UI
+const MIN_COMPLETENESS = 0.1; // At least 10% of rows should have values
+
+/**
+ * Intelligently selects the most useful dimensions for filtering
+ * based on data characteristics:
+ * 1. Cardinality: Not too few (boring) or too many (overwhelming)
+ * 2. Completeness: Has enough non-null values
+ * 3. Business relevance: Prioritizes common business fields
+ */
+const selectFilterDimensions = (
+  allDimensions: Array<{ name: string }>,
+  dataset: Array<Record<string, unknown>>,
+): Array<{ name: string; score: number }> => {
+  if (!dataset.length) return [];
+
+  const sampleSize = Math.min(2000, dataset.length);
+  const sample = dataset.slice(0, sampleSize);
+
+  const dimensionScores = allDimensions.map((dim) => {
+    const name = dim.name;
+    const values = new Set<string>();
+    let nonNullCount = 0;
+
+    sample.forEach((row) => {
+      const raw = row[name];
+      if (raw !== undefined && raw !== null && String(raw).trim()) {
+        values.add(String(raw));
+        nonNullCount++;
+      }
+    });
+
+    const uniqueCount = values.size;
+    const completeness = nonNullCount / sampleSize;
+
+    // Skip if not useful
+    if (uniqueCount < MIN_UNIQUE_VALUES || uniqueCount > MAX_UNIQUE_VALUES || completeness < MIN_COMPLETENESS) {
+      return { name, score: 0 };
+    }
+
+    // Calculate score based on multiple factors
+    let score = 0;
+
+    // 1. Cardinality score: prefer moderate number of unique values (5-30 is ideal)
+    const idealCardinality = 15;
+    const cardinalityScore = 1 - Math.abs(uniqueCount - idealCardinality) / idealCardinality;
+    score += Math.max(0, cardinalityScore) * 40;
+
+    // 2. Completeness score: prefer columns with more data
+    score += completeness * 30;
+
+    // 3. Business relevance: boost common business fields
+    const businessKeywords = [
+      'status', 'origin', 'destination', 'type', 'mode', 'payment',
+      'category', 'region', 'city', 'hub', 'carrier', 'company',
+      'area', 'zone', 'system', 'channel'
+    ];
+    const nameLower = name.toLowerCase();
+    const hasBusinessKeyword = businessKeywords.some(keyword => nameLower.includes(keyword));
+    if (hasBusinessKeyword) {
+      score += 30;
+    }
+
+    return { name, score };
+  });
+
+  // Sort by score and return top dimensions
+  return dimensionScores
+    .filter(d => d.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_FILTERS_TO_SHOW);
+};
 
 export const FilterBar: React.FC = () => {
   const { dimensions, dataset, filters, setFilter, loading } = useBiData();
 
-  const categorical = useMemo(() => dimensions.categorical ?? [], [dimensions.categorical]);
+  const categorical = useMemo(() => {
+    const allCategorical = dimensions.categorical ?? [];
+    if (!allCategorical.length || !dataset.length) {
+      return [];
+    }
+
+    // Dynamically select the best dimensions for filtering
+    const selectedDimensions = selectFilterDimensions(allCategorical, dataset);
+
+    // Return dimensions in order of usefulness
+    return selectedDimensions.map(sd =>
+      allCategorical.find(d => d.name === sd.name)!
+    ).filter(Boolean);
+  }, [dimensions.categorical, dataset]);
 
   const options = useMemo(() => {
     const lookup: Record<string, string[]> = {};

@@ -1188,43 +1188,44 @@ const StoryBIContent: React.FC = () => {
     setLayer1PendingRecommendation(null);
   }, [layer1PendingRecommendation, dataset, metrics, dimensions]);
 
-  useEffect(() => {
-    let isMounted = true;
-    const controller = new AbortController();
+  // DISABLED: No longer needed since we calculate KPIs client-side with useKpiCalculations
+  // useEffect(() => {
+  //   let isMounted = true;
+  //   const controller = new AbortController();
 
-    const loadRawMetrics = async () => {
-      try {
-        setRawMetricsLoading(true);
-        setRawMetricsError(null);
-        const response = await fetch(`/api/bi/metrics/raw?run=${encodeURIComponent(runId)}&top=6`, { signal: controller.signal });
-        if (!response.ok) {
-          throw new Error(`Failed to load raw metrics: ${response.status}`);
-        }
-        const data = (await response.json()) as RawMetricsSummary;
-        if (isMounted) {
-          setRawMetrics(data);
-        }
-      } catch (error) {
-        if (!isMounted || (error instanceof DOMException && error.name === 'AbortError')) {
-          return;
-        }
-        console.error('[story-bi] failed to load raw metrics', error);
-        setRawMetricsError(error instanceof Error ? error.message : 'تعذّر تحميل الإحصاءات الخام.');
-        setRawMetrics(null);
-      } finally {
-        if (isMounted) {
-          setRawMetricsLoading(false);
-        }
-      }
-    };
+  //   const loadRawMetrics = async () => {
+  //     try {
+  //       setRawMetricsLoading(true);
+  //       setRawMetricsError(null);
+  //       const response = await fetch(`/api/bi/metrics/raw?run=${encodeURIComponent(runId)}&top=6`, { signal: controller.signal });
+  //       if (!response.ok) {
+  //         throw new Error(`Failed to load raw metrics: ${response.status}`);
+  //       }
+  //       const data = (await response.json()) as RawMetricsSummary;
+  //       if (isMounted) {
+  //         setRawMetrics(data);
+  //       }
+  //     } catch (error) {
+  //       if (!isMounted || (error instanceof DOMException && error.name === 'AbortError')) {
+  //         return;
+  //       }
+  //       console.error('[story-bi] failed to load raw metrics', error);
+  //       setRawMetricsError(error instanceof Error ? error.message : 'تعذّر تحميل الإحصاءات الخام.');
+  //       setRawMetrics(null);
+  //     } finally {
+  //       if (isMounted) {
+  //         setRawMetricsLoading(false);
+  //       }
+  //     }
+  //   };
 
-    loadRawMetrics();
+  //   loadRawMetrics();
 
-    return () => {
-      isMounted = false;
-      controller.abort();
-    };
-  }, []);
+  //   return () => {
+  //     isMounted = false;
+  //     controller.abort();
+  //   };
+  // }, []);
 
   const activeConfig = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
   const metricId = selectedKpi ?? activeConfig?.metricId ?? metrics[0]?.id ?? null;
