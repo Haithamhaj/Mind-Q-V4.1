@@ -58,7 +58,11 @@ async def get_bi_metrics(run: Optional[str] = None, artifacts_root: Optional[str
     run_id = _resolve_run_id(run)
     root = _resolve_artifacts_root(artifacts_root)
     
-    metrics_file = root / run_id / "stage_10_bi" / "semantic" / "metrics.json"
+    # Try generated file first, fallback to original
+    metrics_file = root / run_id / "stage_10_bi" / "semantic" / "metrics_generated.json"
+    if not metrics_file.exists():
+        metrics_file = root / run_id / "stage_10_bi" / "semantic" / "metrics.json"
+    
     data = _load_json_file(metrics_file)
     
     return JSONResponse(content=data if data else [])
@@ -69,7 +73,11 @@ async def get_bi_dimensions(run: Optional[str] = None, artifacts_root: Optional[
     run_id = _resolve_run_id(run)
     root = _resolve_artifacts_root(artifacts_root)
     
-    dims_file = root / run_id / "stage_10_bi" / "semantic" / "dimensions.json"
+    # Try generated file first, fallback to original
+    dims_file = root / run_id / "stage_10_bi" / "semantic" / "dimensions_generated.json"
+    if not dims_file.exists():
+        dims_file = root / run_id / "stage_10_bi" / "semantic" / "dimensions.json"
+    
     data = _load_json_file(dims_file)
     
     return JSONResponse(content=data if data else {"date": [], "numeric": [], "categorical": [], "bool": []})
