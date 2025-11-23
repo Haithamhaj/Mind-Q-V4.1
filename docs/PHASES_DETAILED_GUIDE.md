@@ -33,6 +33,18 @@ Feel free to reuse this structure when documenting enhancements or reviewing oth
 
 ---
 
+## 🔀 Data vs Business Gating
+
+Mind-Q now distinguishes the **technical data gate** from the **business performance gate** across Stages 05–10.
+
+- **Data Gate (Structural Health).** Captures hard failures such as unreadable sources, schema/row-count violations, missing KPI-critical fields, or impossible timestamps. These are the only STOP conditions allowed when `MINDQ_BUSINESS_MODE=business_first` (default remains `strict_lab` to preserve legacy CI behavior). Each stage emits structured `reasons` with a `type` of `STRUCTURAL` or `BUSINESS_PERFORMANCE`, plus a `status_data` field so downstream consumers can trace why a STOP/WARN fired.
+- **Business Gate (Operational KPIs).** Encodes SLA%, RTO, COD collection, PSI drift, NZV balance, and seasonality alerts. These alarms never block pipeline execution in business-first mode; instead, they surface as `business_gate_status` (`OK` / `ALERT` / `CRITICAL_ALERT`) and are woven into Stage 09 `gate.json`, `validation_report.json`, and the new Stage 10 `business_state.json`.
+
+Use `MINDQ_BUSINESS_MODE=strict_lab` during lab debugging to keep PSI/NZV and SLA breaches as hard STOPs. Use `MINDQ_BUSINESS_MODE=business_first` (recommended for BI) to stop only when structural data health is compromised while still broadcasting business alerts in diagnostics, gate artifacts, and Stage 10 meta feeds.
+On local machines such as Haitham's, the default is now `business_first` when `MINDQ_BUSINESS_MODE` is unset; set `MINDQ_BUSINESS_MODE=strict_lab` explicitly to run with the legacy strict mode.
+
+---
+
 ## 📥 Phase Group 1: Data Foundation
 
 ### Stage 01: Ingestion
@@ -397,9 +409,9 @@ Stage 05 orchestrates hybrid imputation for logistics features, generating curat
 - Last checked: {{TO_FILL_DATE}}
 
 #### Quality Gates & STOP/WARN
-- STOP is triggered when row-count baselines are violated, PSI exceeds `psi_stop_threshold`, or geo-missing ratios cross `geo_stop_threshold`; gating reasons are persisted in `metrics.json`/`imputation_report.json`.
-- WARN occurs for PSI warn-band breaches and geo-missing warnings, enabling downstream consumers to review `gating_reasons` without halting the flow.
-- Additional STOP cases include numeric group-by strategies lacking enough rows and Stage 05 detecting critical geo features missing beyond allowed bypass lists.
+- **Structural STOP (data gate).** Row-count baselines, unreadable inputs, numeric group-by strategies without enough rows, or KPI-critical geo columns beyond the bypass list still halt the run in both modes. These reasons land inside `metrics.json["gating"]` / `imputation_report.json["gating"]` with `type="STRUCTURAL"` and power `status_data`.
+- **Business-performance WARN.** PSI stop-band hits and geo coverage drops are now tagged as `BUSINESS_PERFORMANCE`. In `MINDQ_BUSINESS_MODE=business_first` they are downgraded to WARN (still recorded in `reasons` with `original_severity=STOP` when applicable). In `strict_lab` the behavior matches legacy STOP/WARN semantics so CI baselines stay intact.
+- Structured gating delivers machine-readable payloads (`status_data`, `mode`, `reasons`) alongside the legacy `gating_reasons` list, ensuring Stage 07, Stage 08, and Stage 09 can summarize upstream alerts without guessing from strings.
 
 #### Tests & Observability
 - Tests: `tests/test_phase05_missing.py`, `tests/test_p05_missing_autoplan.py`.
@@ -605,9 +617,9 @@ Stage 07 evaluates feature readiness by detecting leakage risks, high redundancy
 - Last checked: {{TO_FILL_DATE}}
 
 #### Quality Gates & STOP/WARN
-- STOP when PSI exceeds `PSI_STOP_THRESHOLD`, when leakage heuristics find ID-like columns tied to outcome timestamps, when no features survive gating (`gate_status: STOP`), or when row guards fail.
-- WARN when PSI falls between warn/stop thresholds, when geo/NZV ratios exceed warn bands, or when critical KPI coverage is insufficient; WARN details sit inside `diagnostics.json` and `gate_status`.
-- Network/correlation artifacts still write even for WARN/STOP runs, allowing operators to diagnose gating reasons using `gate_reasons`.
+- **Structural STOP (data gate).** Row guards, schema mismatches, or cases where no usable features remain still force `data_gate_status: STOP` regardless of business mode. These reasons show up in `readiness_report["gate"]["reasons_structured"]` and `diagnostics.json["gating"]`.
+- **Business-performance Alerts.** PSI/NZV/imbalance/leakage warnings are tagged `BUSINESS_PERFORMANCE`. In `business_first` mode they downgrade to WARN while populating `feature_quality_alerts`, giving Stage 08/09 visibility without halting execution. In `strict_lab` the legacy STOP/WARN semantics remain intact for regression tests.
+- Readiness artifacts (`readiness_report.json`, `diagnostics.json`, `feature_flags.json`) keep emitting even on WARN/STOP to aid remediation, and now include `business_mode` and `data_gate_status` so orchestrators can decide whether to proceed based on operator preference.
 
 #### Tests & Observability
 - Tests: `tests/test_phase06_readiness.py` (full integration: standardize + feature eng + readiness).
@@ -1139,10 +1151,9 @@ Stage 08 applies governed statistical analysis to generate actionable business i
 - Last checked: {{TO_FILL_DATE}}
 
 #### Quality Gates & STOP/WARN
-- `_gate_status` evaluates data-health signals, geo coverage, readiness gates, and policy compliance to emit PASS/WARN/STOP via `gate.json`.
-- STOP cases include failing data-health checks (critical missing columns, future timestamps), readiness STOP propagation, or insufficient sample coverage; WARN captures degraded coverage or upstream WARN signals.
-- Gate decisions, along with readiness/TextOps/LLM statuses, are replicated in `diagnostics.json` and the run result, informing Stage 09.
-- `contracts/analytics/gate.yml` drives preflight behavior: `quality_checks.critical_columns` stay hard-stop, `warn_only_columns` (now includes `COD_AMOUNT`) only raise WARN, `skip_columns` remove noisy metrics entirely, and `numeric_rules` (e.g., `cod_amount_non_negative`) emit WARN/STOP based on value thresholds instead of crude missingness heuristics.
+- Stage 08 now reports a **data-first gate**: STOP is reserved for structural issues (missing critical columns, future timestamps, failed numeric rules). Business-first mode ignores pure performance drift when deciding whether to STOP, but every alert is still recorded under `gate.json["reasons"]`.
+- `gate.json`/`diagnostics.json` expose `data_gate_status`, `upstream_gates.stage05` / `.stage07`, and the readiness/analytics overlays so Stage 09 can summarize upstream health without re-reading earlier artifacts.
+- Preflight remains governed by `contracts/analytics/gate.yml`: `quality_checks.critical_columns` are structural STOP, `warn_only_columns` and `skip_columns` only log WARN, while `numeric_rules` emit STOP/WARN based on thresholds rather than raw missingness. All gating reasons are mirrored under `diagnostics["gating"]` for downstream orchestration.
 
 #### Tests & Observability
 - Tests: `tests/test_phase08_insights.py`, `tests/test_p09_utils.py`.
@@ -1228,8 +1239,8 @@ Stage 09 Business Validation reconciles operational KPIs, SLA contracts, and Sta
 - Last checked: {{TO_FILL_DATE}}
 
 #### Quality Gates & STOP/WARN
-- `_gate_status` aggregates SLA breaches, coverage shortfalls, and Stage 08 gate signals to emit PASS/WARN/STOP; STOP halts BI publishing and records reasons in `gate.json`.
-- Row guards (via Stage 06 baselines) and KPI readiness checks cause STOP when essential facts are missing; WARN surfaces for degraded coverage or advisory-only insights.
+- **Data Gate vs Business Gate.** `gate.json` now exposes `data_gate_status` (structural health) and `business_gate_status` (SLA/RTO/COD alerts). In `business_first` mode only the data gate can STOP Stage 09; SLA-only breaches become `business_gate_status: ALERT/CRITICAL_ALERT`, populating `reasons_business` and `business_alerts` while BI publishing continues. `strict_lab` mode preserves legacy behavior by elevating CRITICAL alerts to STOP/WARN for regression coverage.
+- **Structured reasons.** Both data and business gates emit separate reason lists (`reasons_data`, `reasons_business`), plus `business_alerts` carries per-metric alert levels and the exact KPI values used. `validation_report.json` mirrors these additions so Stage 10 and BI consumers can surface banners without rescanning `gate.json`.
 
 #### Tests & Observability
 - Tests: `tests/test_p09_basic.py`, `tests/test_p09_gate_logic.py`, `tests/test_p09_tiles.py`, `tests/test_p09_outputs_schema.py`, `tests/test_p09_segment_insights.py`, `tests/test_p09_sla_contract_policies.py`.
@@ -1287,6 +1298,7 @@ artifacts/{run_id}/stage_09_business_validation/
 ├── logs.jsonl                          # Execution trace
 └── supporting manifests (e.g., `benchmarks`, `ops selections`) referenced inside reports
 ```
+`gate.json` now mirrors both gate dimensions (`status`, `data_gate_status`, `business_gate_status`, `reasons_*`, `business_alerts`) and feeds Stage 10’s `business_state.json`. `validation_report.json` carries the same `business_alerts` block so BI clients can render banners without rehydrating upstream artifacts.
 
 #### Core Libraries & Components
 - `polars` — columnar processing, joins, and feature derivations.
@@ -1376,12 +1388,12 @@ Stage 10 packages governed data artifacts—semantic definitions, marts, dataset
 - Last checked: {{TO_FILL_DATE}}
 
 #### Quality Gates & STOP/WARN
-- Stage 10 reports `status: READY` after building datasets; it inherits Stage 09 gate context and does not introduce new STOP/WARN logic beyond raising on missing inputs.
+- Stage 10 reports `status: READY` after building datasets; it inherits Stage 09 data/business gate context and surfaces it via `business_state.json`/`meta.json` without adding new STOP logic. Missing inputs or filesystem write failures still raise immediately.
 - Column policy filters ensure restricted columns are excluded from exports, logging suppressed fields for governance.
 
 #### Tests & Observability
 - Tests: `tests/test_phase10_bi.py`, `tests/test_p09_utils.py` (shared fixtures verifying Stage 10 consumes Stage 09 outputs).
-- Observability outputs: `marts/*.parquet`, `semantic/metrics.yaml`, `dimensions.json`, `insights.json`, `datasets/orders.parquet`, `meta.json`, `metrics.json`, `logs.jsonl`.
+- Observability outputs: `marts/*.parquet`, `semantic/metrics.yaml`, `dimensions.json`, `insights.json`, `datasets/orders.parquet`, `meta.json`, `business_state.json`, `metrics.json`, `logs.jsonl`.
 
 #### Inputs
 - `inputs["bi_feed"]`: Stage 09 `bi_feed.parquet`.
@@ -1398,6 +1410,7 @@ Business intelligence teams require ready-to-load datasets with consistent time 
 - **Fact mart generation**: Copies Stage 09 fact tables (`bi_feed`, `row_decisions`, `benchmarks`, `segment_insights`) into `marts/` with standardized filenames.
 - **Insight context propagation**: Reads Stage 09 `data_health.json`/`ops_actions.json` (including TextOps sentiment) and Stage 08 story context so the published `insights.json` carries a lightweight `context` block for dashboards without re-hydrating upstream artifacts.
 - **RAG metadata exposure**: When Stage 08 emits `business_context` and Stage 09 attaches `sla_clause`, Stage 10 copies those JSON snippets into `insights_official.parquet`, `insights.json`, and downstream feeds so BI dashboards can display cited SLA text without recomputing RAG.
+- **Business-state summary**: Consolidates Stage 05–09 gate results into `business_state.json` (data and business gate chains) and `meta.json` (overall statuses + alert levels) so BI dashboards can render “Data OK – SLA ALERT” banners without hitting backend APIs.
 - **Semantic layer assembly**: Builds `semantic/metrics.yaml`, `dimensions.json`, and supporting metadata based on column policies and Stage 09 outputs.
 - **Insight packaging**: Converts official and candidate insights into JSON feeds (`insights.json`, `insights_candidates.json`) suitable for BI or downstream APIs.
 - **Tile export**: Mirrors aggregated tiles (`bi_tiles/`) into a BI-friendly structure, preserving time-grain metadata.

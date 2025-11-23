@@ -103,6 +103,27 @@ def _load_stage05_nzv(artifacts_root: Path, run_id: str) -> Tuple[List[Dict[str,
     return column_entries, summary, nzv_path
 
 
+def _load_stage05_gate_summary(artifacts_root: Path, run_id: str) -> Dict[str, Any]:
+    metrics_path = artifacts_root / run_id / "stage_05_missing" / "metrics.json"
+    payload = _read_json_safe(metrics_path) or {}
+    gating_raw = payload.get("gating")
+    gating_payload = gating_raw if isinstance(gating_raw, Mapping) else {}
+    structured_reasons = gating_payload.get("reasons")
+    if not isinstance(structured_reasons, list):
+        structured_reasons = []
+    legacy_reasons = payload.get("gating_reasons")
+    if not isinstance(legacy_reasons, list):
+        legacy_reasons = []
+    data_status = gating_payload.get("status_data") or payload.get("data_gate_status")
+    mode = gating_payload.get("mode") or payload.get("business_mode")
+    return {
+        "data_gate_status": data_status,
+        "mode": mode,
+        "reasons_structured": structured_reasons,
+        "reasons": legacy_reasons,
+    }
+
+
 def _load_standardize_columns(artifacts_root: Path, run_id: str) -> Tuple[Dict[str, Dict[str, Any]], Optional[Path]]:
     report_path = artifacts_root / run_id / "stage_06_standardize" / "standardize_report.json"
     payload = _read_json_safe(report_path)
@@ -1067,6 +1088,16 @@ def _summarize_readiness(
         "actions": [],
         "layer1": {},
     }
+    overlay["data_gate_status"] = (diagnostics or {}).get("data_gate_status") or (manifest or {}).get("data_gate_status")
+    overlay["feature_quality_alerts"] = (diagnostics or {}).get("feature_quality_alerts") or (manifest or {}).get("feature_quality_alerts")
+    gating_ctx = (diagnostics or {}).get("gating")
+    if isinstance(gating_ctx, Mapping):
+        overlay["gating_structured"] = gating_ctx
+        overlay["business_mode"] = gating_ctx.get("mode")
+    elif isinstance((manifest or {}).get("gate"), Mapping):
+        overlay["gating_structured"] = (manifest or {}).get("gate")
+    if overlay.get("business_mode") is None and isinstance(manifest, Mapping):
+        overlay["business_mode"] = manifest.get("business_mode")
     entries = []
     if manifest:
         raw_entries = manifest.get("entries") or []
@@ -2609,6 +2640,7 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
         artifacts_root,
         run_id,
     )
+    stage05_gate_summary = _load_stage05_gate_summary(artifacts_root, run_id)
 
     policy_path = Path(settings.policy_path)
     if not policy_path.is_absolute():
@@ -2715,6 +2747,17 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
         paths["layer1_preview"],
         paths["layer1_dataset"],
     )
+    stage07_gate_summary = {
+        "gate_status": readiness_overlay.get("gate_status"),
+        "data_gate_status": readiness_overlay.get("data_gate_status"),
+        "feature_quality_alerts": readiness_overlay.get("feature_quality_alerts"),
+        "business_mode": readiness_overlay.get("business_mode"),
+        "reasons": readiness_overlay.get("gate_reasons"),
+    }
+    upstream_gates = {
+        "stage05": stage05_gate_summary,
+        "stage07": stage07_gate_summary,
+    }
     textops_overlay = _summarize_textops(text_profile, text_findings, sentiment_df)
     analytics_overlay = _summarize_analytics(dq_summary, forecast_summary, paths["forecast"])
     llm_overlay = _summarize_llm(llm_metrics)
@@ -2866,6 +2909,8 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
             },
             "diag": {"preflight": preflight},
         }
+        gate_payload["data_gate_status"] = gate_payload["status"]
+        gate_payload["upstream_gates"] = upstream_gates
         _write_json(out_dir / "gate.json", gate_payload)
         diagnostics_payload = {
             "run_id": run_id,
@@ -2886,6 +2931,8 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
             "numeric_rule_violations": preflight.get("numeric_rule_violations"),
             "rag": rag_summary,
         }
+        diagnostics_payload["data_gate_status"] = gate_payload["status"]
+        diagnostics_payload["upstream_gates"] = upstream_gates
         _write_json(out_dir / "diagnostics.json", diagnostics_payload)
         logs.append({"event": "gate", **gate_payload})
         logs.append({"event": "phase_end", "duration_sec": round(time.time() - start_time, 4)})
@@ -3119,6 +3166,8 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
         "column_roles": column_roles_payload,
     }
     diagnostics_payload["nzv_impact"] = nzv_impact_payload
+    diagnostics_payload["data_gate_status"] = gate_status
+    diagnostics_payload["upstream_gates"] = upstream_gates
     _write_json(out_dir / "diagnostics.json", diagnostics_payload)
 
     low_signal_count = sum(1 for record in records if record.low_signal)
@@ -3136,6 +3185,10 @@ def run(run_id: str, context: Mapping[str, Any], config: Optional[Mapping[str, A
         },
     }
     gate_payload["nzv_impact"] = nzv_impact_payload
+    gate_payload["data_gate_status"] = gate_status
+    gate_payload["upstream_gates"] = upstream_gates
+    gate_payload["data_gate_status"] = gate_status
+    gate_payload["upstream_gates"] = upstream_gates
     _write_json(out_dir / "gate.json", gate_payload)
 
     supplemental_cards = _build_supplemental_cards(

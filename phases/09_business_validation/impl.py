@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 from shared import sla as sla_utils  # type: ignore
 from shared.rag_context import RagClauseLookup, load_rag_clause_lookup  # type: ignore
 from backend.src.app.services.system_health import SystemHealth  # type: ignore
+from backend.src.app.core.business_mode import BusinessMode, get_business_mode
 
 from . import io, models
 
@@ -1318,6 +1319,84 @@ def _gate_status(
     return "PASS", reasons
 
 
+def _first_metric_value(metrics: Mapping[str, float], keys: Sequence[str]) -> Optional[float]:
+    for key in keys:
+        value = metrics.get(key)
+        if value is None:
+            continue
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            continue
+        if math.isnan(numeric):
+            continue
+        return numeric
+    return None
+
+
+def _metric_alert_level(value: Optional[float], *, higher_is_better: bool, warn_threshold: float, critical_threshold: float) -> str:
+    if value is None or math.isnan(value):
+        return "ALERT"
+    if higher_is_better:
+        if value < critical_threshold:
+            return "CRITICAL_ALERT"
+        if value < warn_threshold:
+            return "ALERT"
+    else:
+        if value > critical_threshold:
+            return "CRITICAL_ALERT"
+        if value > warn_threshold:
+            return "ALERT"
+    return "OK"
+
+
+def _business_gate_status(
+    sla_stop_flags: Sequence[str],
+    sla_warn_flags: Sequence[str],
+    metrics: Mapping[str, float],
+) -> Tuple[models.BusinessGateStatus, List[str], Dict[str, Any]]:
+    sla_value = _first_metric_value(metrics, ["kpi_sla_pct", "sla_pct", "sla_contract_pct"])
+    rto_value = _first_metric_value(metrics, ["kpi_rto_pct", "rto_pct"])
+    cod_value = _first_metric_value(metrics, ["kpi_cod_rate", "cod_rate"])
+    alert_levels: Dict[str, Any] = {
+        "sla_alert_level": _metric_alert_level(sla_value, higher_is_better=True, warn_threshold=0.9, critical_threshold=0.8),
+        "rto_alert_level": _metric_alert_level(rto_value, higher_is_better=False, warn_threshold=0.25, critical_threshold=0.35),
+        "cod_alert_level": _metric_alert_level(cod_value, higher_is_better=True, warn_threshold=0.8, critical_threshold=0.6),
+        "metrics": {
+            "sla_pct": sla_value,
+            "rto_pct": rto_value,
+            "cod_rate": cod_value,
+        },
+    }
+    reasons = list(sla_stop_flags) + list(sla_warn_flags)
+    status = models.BusinessGateStatus.OK
+    if sla_stop_flags or any(level == "CRITICAL_ALERT" for key, level in alert_levels.items() if key.endswith("_alert_level")):
+        status = models.BusinessGateStatus.CRITICAL_ALERT
+    elif sla_warn_flags or any(level == "ALERT" for key, level in alert_levels.items() if key.endswith("_alert_level")):
+        status = models.BusinessGateStatus.ALERT
+    if status != models.BusinessGateStatus.OK:
+        alert_levels["notes"] = "Business performance below guardrails; review SLA and COD trends."
+    return status, reasons, alert_levels
+
+
+def _project_gate_status(
+    data_status: models.GateStatus,
+    data_reasons: List[str],
+    business_status: models.BusinessGateStatus,
+    business_reasons: List[str],
+    mode: BusinessMode,
+) -> Tuple[models.GateStatus, List[str]]:
+    if mode == BusinessMode.BUSINESS_FIRST:
+        return data_status, data_reasons
+    if business_status == models.BusinessGateStatus.CRITICAL_ALERT:
+        return "STOP", business_reasons + data_reasons
+    if business_status == models.BusinessGateStatus.ALERT and data_status == "PASS":
+        return "WARN", business_reasons + data_reasons
+    if business_status == models.BusinessGateStatus.ALERT and data_status == "WARN":
+        return data_status, list(dict.fromkeys(data_reasons + business_reasons))
+    return data_status, data_reasons
+
+
 def _row_decisions(df: pl.DataFrame, failures: List[models.RuleEvaluationResult]) -> Tuple[pl.DataFrame, List[models.RowDecision], List[models.OpsAction]]:
     hits: Dict[str, List[Tuple[models.RuleSpec, str]]] = defaultdict(list)
     for result in failures:
@@ -1826,6 +1905,7 @@ def _write_contracts(out_dir: Path) -> None:
 def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
     start = time.time()
     config = dict(config or {})
+    current_mode = get_business_mode()
     artifacts_root = Path(config.get("artifacts_root", "artifacts")).expanduser().resolve()
     health = SystemHealth(artifacts_root=artifacts_root)
     models_catalog_override = config.get("models_catalog")
@@ -2078,10 +2158,12 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
         if value is not None:
             metrics_for_sla.setdefault(key, value)
     sla_results, sla_stop_flags, sla_warn_flags = _evaluate_sla_terms(sla_bundle, metrics_for_sla)
+    business_stop_flags = list(sla_stop_flags)
+    business_warn_flags = list(sla_warn_flags)
     if sla_bundle.entries and not sla_results:
-        sla_warn_flags.append("sla::no_terms_detected")
-    gate_warn_flags = list(sla_warn_flags)
-    gate_stop_flags = list(sla_stop_flags)
+        business_warn_flags.append("sla::no_terms_detected")
+    gate_warn_flags: List[str] = []
+    gate_stop_flags: List[str] = []
     sla_summary_payload = {
         "run_id": run_id,
         "generated_at": datetime.now(TZ).isoformat(),
@@ -2115,13 +2197,25 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
     if model_warning:
         warnings.append(model_warning)
 
-    gate_status, gate_reasons = _gate_status(
+    data_gate_status, data_gate_reasons = _gate_status(
         kpi_deltas,
         failures,
         catalog.thresholds,
         warnings,
         stop_flags=gate_stop_flags,
         warn_flags=gate_warn_flags,
+    )
+    business_gate_status, business_reasons, business_alert_levels = _business_gate_status(
+        business_stop_flags,
+        business_warn_flags,
+        metrics_for_sla,
+    )
+    gate_status, gate_reasons = _project_gate_status(
+        data_gate_status,
+        data_gate_reasons,
+        business_gate_status,
+        business_reasons,
+        current_mode,
     )
 
     total_decisions = max(len(decisions), 1)
@@ -2158,8 +2252,22 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
         "bi_contract_version": contract.version,
     }
 
+    gate_block = {
+        "status": gate_status,
+        "reasons": gate_reasons,
+        "data_gate_status": data_gate_status,
+        "reasons_data": data_gate_reasons,
+    }
+    business_alert_details = dict(business_alert_levels)
+    business_alert_details.update(
+        {
+            "status": business_gate_status.value,
+            "reasons": business_reasons,
+        }
+    )
+
     validation_report = models.ValidationReport(
-        gate={"status": gate_status, "reasons": gate_reasons},
+        gate=gate_block,
         kpi_recalc=kpi_deltas,
         rule_failures=[failure.to_failure() for failure in failures],
         provenance=provenance,
@@ -2172,6 +2280,7 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
         },
         sla=sla_summary_payload["results"],
         nzv_impact=nzv_impact_payload,
+        business_alerts=business_alert_details,
     )
     gate_payload = {
         "status": gate_status,
@@ -2185,6 +2294,12 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
         "nzv_impact": nzv_impact_payload,
         "rag": rag_summary,
     }
+    gate_payload["data_gate_status"] = data_gate_status
+    gate_payload["business_gate_status"] = business_gate_status.value
+    gate_payload["reasons_data"] = data_gate_reasons
+    gate_payload["reasons_business"] = business_reasons
+    gate_payload["business_alerts"] = business_alert_details
+    gate_payload["business_mode"] = current_mode.value
     diagnostics_payload = {
         "run_id": run_id,
         "generated_at": datetime.now(TZ).isoformat(),
@@ -2200,6 +2315,12 @@ def run(run_id: str, inputs: Mapping[str, Any], config: Optional[Mapping[str, An
         "gate_status": gate_status,
         "nzv_impact": nzv_impact_payload,
     }
+    diagnostics_payload["data_gate_status"] = data_gate_status
+    diagnostics_payload["business_gate_status"] = business_gate_status.value
+    diagnostics_payload["business_alerts"] = business_alert_details
+    diagnostics_payload["reasons_data"] = data_gate_reasons
+    diagnostics_payload["reasons_business"] = business_reasons
+    diagnostics_payload["business_mode"] = current_mode.value
 
     io.write_json_sorted(validation_report.model_dump(mode="json"), out_dir / "validation_report.json")
     io.write_json_sorted(gate_payload, out_dir / "gate.json")

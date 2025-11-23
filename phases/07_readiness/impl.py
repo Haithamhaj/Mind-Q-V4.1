@@ -5,6 +5,7 @@ import math
 import re
 from collections import defaultdict
 from datetime import datetime, timezone
+from enum import Enum
 from itertools import combinations
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
@@ -19,6 +20,7 @@ try:
 except Exception as exc:  # pragma: no cover
     raise RuntimeError("pandas is required for phase 07 readiness") from exc
 
+from backend.src.app.core.business_mode import BusinessMode, get_business_mode
 from backend.src.app.services import nzv_policy
 from shared import baseline as baseline_utils  # type: ignore
 from shared.terminology_loader import TerminologyRepository  # type: ignore
@@ -56,6 +58,58 @@ ID_STRICT_NAMES: Set[str] = {
     "customer_id",
     "invoice_id",
 }
+
+
+class GateReasonType(str, Enum):
+    STRUCTURAL = "STRUCTURAL"
+    BUSINESS_PERFORMANCE = "BUSINESS_PERFORMANCE"
+
+
+def _append_gate_reason(
+    reasons: List[Dict[str, Any]],
+    *,
+    code: str,
+    severity: str,
+    reason_type: GateReasonType,
+    details: Optional[Mapping[str, Any]] = None,
+) -> None:
+    entry: Dict[str, Any] = {"code": code, "severity": severity, "type": reason_type.value}
+    if details:
+        entry["details"] = dict(details)
+    reasons.append(entry)
+
+
+def _apply_business_mode_to_reasons(
+    reasons: Sequence[Mapping[str, Any]],
+    *,
+    mode: BusinessMode,
+) -> List[Dict[str, Any]]:
+    processed: List[Dict[str, Any]] = []
+    for entry in reasons:
+        record = {
+            "code": entry.get("code"),
+            "severity": entry.get("severity"),
+            "type": entry.get("type"),
+        }
+        if "details" in entry:
+            record["details"] = entry["details"]
+        if (
+            mode == BusinessMode.BUSINESS_FIRST
+            and record["type"] == GateReasonType.BUSINESS_PERFORMANCE.value
+            and record["severity"] == "STOP"
+        ):
+            record["original_severity"] = "STOP"
+            record["severity"] = "WARN"
+        processed.append(record)
+    return processed
+
+
+def _status_from_reasons(reasons: Sequence[Mapping[str, Any]]) -> str:
+    if any(reason.get("severity") == "STOP" for reason in reasons):
+        return "STOP"
+    if any(reason.get("severity") == "WARN" for reason in reasons):
+        return "WARN"
+    return "PASS"
 
 
 def _id_like_reason(name: str) -> Optional[str]:
@@ -1409,17 +1463,53 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
     gate_status = "PASS"
     stop_reasons: List[str] = []
     warn_reasons: List[str] = []
+    gate_reason_entries: List[Dict[str, Any]] = []
 
     if psi_stop_features:
         stop_reasons.append("psi_drift")
+        _append_gate_reason(
+            gate_reason_entries,
+            code="PSI_DRIFT",
+            severity="STOP",
+            reason_type=GateReasonType.BUSINESS_PERFORMANCE,
+            details={"features": psi_stop_features},
+        )
     if nzv_ratio > 0.10:
         warn_reasons.append("nzv_ratio_high")
+        _append_gate_reason(
+            gate_reason_entries,
+            code="NZV_RATIO_HIGH",
+            severity="WARN",
+            reason_type=GateReasonType.BUSINESS_PERFORMANCE,
+            details={"ratio": nzv_ratio},
+        )
     if corr_ratio > 0.05:
         warn_reasons.append("high_corr_ratio")
+        _append_gate_reason(
+            gate_reason_entries,
+            code="HIGH_CORR_RATIO",
+            severity="WARN",
+            reason_type=GateReasonType.BUSINESS_PERFORMANCE,
+            details={"ratio": corr_ratio, "flagged_pairs": len(corr_flagged)},
+        )
     if psi_warn_features:
         warn_reasons.append("psi_warn")
+        _append_gate_reason(
+            gate_reason_entries,
+            code="PSI_WARN",
+            severity="WARN",
+            reason_type=GateReasonType.BUSINESS_PERFORMANCE,
+            details={"features": psi_warn_features},
+        )
     if missing_ratio > 0.30:
         warn_reasons.append("missing_cells_high")
+        _append_gate_reason(
+            gate_reason_entries,
+            code="MISSING_CELLS_HIGH",
+            severity="WARN",
+            reason_type=GateReasonType.BUSINESS_PERFORMANCE,
+            details={"missing_ratio": missing_ratio},
+        )
 
     readiness_notes: List[str] = []
     if policy.enable_readiness_adjustment:
@@ -1462,18 +1552,34 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
                     }
                 )
 
-    if stop_reasons:
-        gate_status = "STOP"
-        gate_reasons = stop_reasons
-    elif warn_reasons:
-        gate_status = "WARN"
-        gate_reasons = warn_reasons
+    current_mode = get_business_mode()
+    structured_reasons = _apply_business_mode_to_reasons(gate_reason_entries, mode=current_mode)
+    data_gate_status = _status_from_reasons(structured_reasons)
+    if data_gate_status == "STOP":
+        gate_reasons = stop_reasons or warn_reasons
+    elif data_gate_status == "WARN":
+        gate_reasons = warn_reasons or stop_reasons
     else:
         gate_reasons = []
+    gate_status = data_gate_status
+    feature_quality_alerts = [
+        {
+            "code": reason.get("code"),
+            "level": reason.get("severity"),
+            "details": reason.get("details"),
+        }
+        for reason in structured_reasons
+        if reason.get("type") == GateReasonType.BUSINESS_PERFORMANCE.value
+    ]
 
     readiness_report = {
         "run_id": run_id,
-        "gate": {"status": gate_status, "reasons": gate_reasons},
+        "gate": {
+            "status": gate_status,
+            "reasons": gate_reasons,
+            "data_gate_status": data_gate_status,
+            "reasons_structured": structured_reasons,
+        },
         "key_stats": key_stats,
         "schema_hash": schema_hash,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -1481,6 +1587,9 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         "nzv_summary": nzv_summary_payload,
         "critical_nzv_columns": critical_hits,
     }
+    readiness_report["business_mode"] = current_mode.value
+    readiness_report["data_gate_status"] = data_gate_status
+    readiness_report["feature_quality_alerts"] = feature_quality_alerts
     if nzv_source_path:
         readiness_report["nzv_source"] = nzv_source_path.as_posix()
     if readiness_notes:
@@ -1595,6 +1704,13 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "gate_status": gate_status,
         "gate_reasons": gate_reasons,
+        "data_gate_status": data_gate_status,
+        "feature_quality_alerts": feature_quality_alerts,
+        "gating": {
+            "mode": current_mode.value,
+            "status_data": data_gate_status,
+            "reasons": structured_reasons,
+        },
         "key_stats": key_stats,
         "summary": {
             "n_rows": n_rows,

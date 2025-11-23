@@ -842,6 +842,20 @@ def _collect_summary_rows(
     return rows
 
 
+def _status_score(status: Optional[str]) -> float:
+    mapping = {
+        "PASS": 1.0,
+        "OK": 1.0,
+        "WARN": 0.5,
+        "ALERT": 0.5,
+        "STOP": 0.0,
+        "CRITICAL_ALERT": 0.0,
+    }
+    if status is None:
+        return 0.0
+    return mapping.get(status.upper(), 0.0)
+
+
 def _build_semantic_payload(
     timezone: str,
     currency: str,
@@ -1161,11 +1175,99 @@ def run(run_id: str, inputs: Optional[Mapping[str, Any]], config: Optional[Mappi
 
     # Build summary metrics parquet
     validation_report = _load_json(stage09_dir / "validation_report.json")
+    stage08_gate_payload = _load_json(stage08_dir / "gate.json")
+    stage09_gate_payload = _load_json(stage09_dir / "gate.json")
     perf_metrics = _load_json(stage09_dir / "metrics.json")
     summary_rows = _collect_summary_rows(
         validation_report,
         perf_metrics,
         insights_payload.get("summary") if isinstance(insights_payload, Mapping) else {},
+    )
+    upstream_gates = (stage08_gate_payload or {}).get("upstream_gates") if isinstance(stage08_gate_payload, Mapping) else {}
+    stage05_gate = upstream_gates.get("stage05") if isinstance(upstream_gates, Mapping) else {}
+    stage07_gate = upstream_gates.get("stage07") if isinstance(upstream_gates, Mapping) else {}
+    stage05_data_status = stage05_gate.get("data_gate_status") if isinstance(stage05_gate, Mapping) else None
+    stage07_data_status = stage07_gate.get("data_gate_status") if isinstance(stage07_gate, Mapping) else None
+    stage08_data_status = (
+        stage08_gate_payload.get("data_gate_status")
+        if isinstance(stage08_gate_payload, Mapping)
+        else None
+    )
+    if stage08_data_status is None and isinstance(stage08_gate_payload, Mapping):
+        stage08_data_status = stage08_gate_payload.get("status")
+    stage09_data_status = None
+    if isinstance(stage09_gate_payload, Mapping):
+        stage09_data_status = stage09_gate_payload.get("data_gate_status") or stage09_gate_payload.get("status")
+    if stage09_data_status is None:
+        gate_block = validation_report.get("gate") if isinstance(validation_report, Mapping) else {}
+        if isinstance(gate_block, Mapping):
+            stage09_data_status = gate_block.get("data_gate_status") or gate_block.get("status")
+    business_alerts = validation_report.get("business_alerts") if isinstance(validation_report, Mapping) else None
+    if not isinstance(business_alerts, Mapping):
+        business_alerts = stage09_gate_payload.get("business_alerts") if isinstance(stage09_gate_payload, Mapping) else {}
+    business_gate_status = (
+        stage09_gate_payload.get("business_gate_status")
+        if isinstance(stage09_gate_payload, Mapping)
+        else business_alerts.get("status") if isinstance(business_alerts, Mapping) else None
+    )
+    if business_gate_status is None and isinstance(business_alerts, Mapping):
+        business_gate_status = business_alerts.get("status")
+    if business_gate_status is None:
+        business_gate_status = "OK"
+    sla_alert_level = business_alerts.get("sla_alert_level") if isinstance(business_alerts, Mapping) else None
+    rto_alert_level = business_alerts.get("rto_alert_level") if isinstance(business_alerts, Mapping) else None
+    cod_alert_level = business_alerts.get("cod_alert_level") if isinstance(business_alerts, Mapping) else None
+    data_gate_summary = {
+        "stage05": stage05_data_status,
+        "stage07": stage07_data_status,
+        "stage08": stage08_data_status,
+        "stage09": stage09_data_status,
+    }
+    business_gate_summary = {
+        "overall": business_gate_status,
+        "sla_alert_level": sla_alert_level or "OK",
+        "rto_alert_level": rto_alert_level or "OK",
+        "cod_alert_level": cod_alert_level or "OK",
+        "notes": business_alerts.get("notes") if isinstance(business_alerts, Mapping) else None,
+    }
+    summary_rows.extend(
+        [
+            {
+                "metric": "data_gate_overall",
+                "category": "governance",
+                "value": _status_score(stage09_data_status),
+                "unit": (stage09_data_status or "")[:16],
+                "source": "phase09",
+            },
+            {
+                "metric": "business_gate_overall",
+                "category": "governance",
+                "value": _status_score(business_gate_status),
+                "unit": (business_gate_status or "")[:16],
+                "source": "phase09",
+            },
+            {
+                "metric": "sla_alert_level",
+                "category": "governance",
+                "value": _status_score(business_gate_summary["sla_alert_level"]),
+                "unit": business_gate_summary["sla_alert_level"],
+                "source": "phase09",
+            },
+            {
+                "metric": "rto_alert_level",
+                "category": "governance",
+                "value": _status_score(business_gate_summary["rto_alert_level"]),
+                "unit": business_gate_summary["rto_alert_level"],
+                "source": "phase09",
+            },
+            {
+                "metric": "cod_alert_level",
+                "category": "governance",
+                "value": _status_score(business_gate_summary["cod_alert_level"]),
+                "unit": business_gate_summary["cod_alert_level"],
+                "source": "phase09",
+            },
+        ]
     )
     summary_df = pl.DataFrame(summary_rows) if summary_rows else _empty_frame(SUMMARY_SCHEMA)
     if not summary_df.is_empty():
@@ -1175,6 +1277,33 @@ def run(run_id: str, inputs: Optional[Mapping[str, Any]], config: Optional[Mappi
     summary_path = marts_dir / "summary_metrics.parquet"
     _write_parquet(summary_df, summary_path)
     created_marts.append({"id": "summary_metrics.parquet", "source": "validation_report.json", "origin_stage": "stage_09_business_validation"})
+    summary_text_parts = [
+        f"Stage 09 data gate: {stage09_data_status or 'UNKNOWN'}.",
+        f"Upstream data gates (05→07→08): {stage05_data_status or 'UNKNOWN'} → {stage07_data_status or 'UNKNOWN'} → {stage08_data_status or 'UNKNOWN'}.",
+        f"Business gate: {business_gate_status} (SLA {business_gate_summary['sla_alert_level']}, RTO {business_gate_summary['rto_alert_level']}, COD {business_gate_summary['cod_alert_level']}).",
+    ]
+    if business_gate_summary.get("notes"):
+        summary_text_parts.append(str(business_gate_summary["notes"]))
+    business_state_payload = {
+        "run_id": run_id,
+        "generated_at": datetime.now().isoformat(),
+        "data_gate": data_gate_summary,
+        "business_gate": business_gate_summary,
+        "summary": " ".join(summary_text_parts),
+    }
+    business_state_path = stage10_dir / "business_state.json"
+    business_state_path.write_text(json.dumps(business_state_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    meta_payload = {
+        "run_id": run_id,
+        "generated_at": datetime.now().isoformat(),
+        "data_gate_overall": stage09_data_status,
+        "business_gate_overall": business_gate_status,
+        "sla_alert_level": business_gate_summary["sla_alert_level"],
+        "rto_alert_level": business_gate_summary["rto_alert_level"],
+        "cod_alert_level": business_gate_summary["cod_alert_level"],
+    }
+    meta_path = stage10_dir / "meta.json"
+    meta_path.write_text(json.dumps(meta_payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     # Determine timezone/currency
     timezone = (
@@ -1255,6 +1384,8 @@ def run(run_id: str, inputs: Optional[Mapping[str, Any]], config: Optional[Mappi
             "dimensions_path": dimensions_path.as_posix(),
             "insights_path": insights_path.as_posix(),
             "dataset_path": dataset_path.as_posix(),
+            "meta_path": meta_path.as_posix(),
+            "business_state": business_state_path.as_posix(),
         },
         "metrics": {
             "marts_created": len(created_marts),
@@ -1269,6 +1400,10 @@ def run(run_id: str, inputs: Optional[Mapping[str, Any]], config: Optional[Mappi
             "column_policy": {
                 "config": kpi_cfg_path.as_posix(),
                 "suppressed_exports": suppressed_export_columns,
+            },
+            "gate": {
+                "data": data_gate_summary,
+                "business": business_gate_summary,
             },
         },
     }

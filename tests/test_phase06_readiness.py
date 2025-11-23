@@ -5,12 +5,17 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 
 import importlib.util
 import numpy as np
 import pandas as pd
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _strict_lab_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MINDQ_BUSINESS_MODE", "strict_lab")
 
 
 def _load_phase_impl(phase_dir: str):
@@ -171,6 +176,74 @@ def test_phase06_and_readiness_artifacts(tmp_path: Path) -> None:
     assert key_stats["nzv_count"] >= 1
     assert key_stats["psi_columns_evaluated"] >= 1
     assert report["gate"]["status"] in {"WARN", "STOP"}
+
+
+def test_readiness_business_mode_downgrades_psi(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    run_id_strict = "psi_strict"
+    artifacts_root = tmp_path / "artifacts"
+    raw_path = tmp_path / "raw_strict.parquet"
+    df = _build_dataset()
+    df.to_parquet(raw_path, index=False)
+    _write_baseline(artifacts_root, run_id_strict, len(df), len(df.columns))
+    _write_stage05_nzv(
+        artifacts_root,
+        run_id_strict,
+        n_rows=len(df),
+        columns_payload=[],
+        summary_payload={"n_nzv_columns": 0, "n_constant_like": 0, "n_high_imbalance": 0, "n_total_columns": len(df.columns), "nzv_ratio": 0.0},
+    )
+    cfg = {"artifacts_root": artifacts_root.as_posix()}
+    feature_spec = {"main_ts": "main_ts", "business_event_ts": "future_ts"}
+    feature_dir = artifacts_root / run_id_strict / "stage_06_feature_eng"
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    (feature_dir / "feature_spec.json").write_text(json.dumps(feature_spec, ensure_ascii=False, indent=2), encoding="utf-8")
+    std_result = standardize.run(run_id_strict, {"raw": raw_path.as_posix()}, cfg)  # type: ignore[arg-type]
+    feat_result = feature_eng.run(  # type: ignore[arg-type]
+        run_id_strict,
+        {"raw": std_result["outputs"]["features_curated"], "features_pre": std_result["outputs"]["features_pre"]},
+        cfg,
+    )
+    features_path = Path(feat_result["outputs"]["features"])
+
+    def fake_psi(*_: Any, **__: Any) -> Tuple[Dict[str, Any], int, List[str], List[str]]:
+        return {"status": "mock", "psi": []}, 1, [], ["COD_AMOUNT"]
+
+    monkeypatch.setattr(readiness, "_psi_analysis", fake_psi)
+    strict_result = readiness.run(run_id_strict, {"raw": features_path.as_posix()}, cfg)  # type: ignore[arg-type]
+    assert strict_result["status"] == "STOP"
+    diag_path = artifacts_root / run_id_strict / "stage_07_readiness" / "diagnostics.json"
+    diagnostics = json.loads(diag_path.read_text(encoding="utf-8"))
+    assert diagnostics["data_gate_status"] == "STOP"
+
+    run_id_business = "psi_business"
+    raw_path_biz = tmp_path / "raw_business.parquet"
+    df.to_parquet(raw_path_biz, index=False)
+    _write_baseline(artifacts_root, run_id_business, len(df), len(df.columns))
+    _write_stage05_nzv(
+        artifacts_root,
+        run_id_business,
+        n_rows=len(df),
+        columns_payload=[],
+        summary_payload={"n_nzv_columns": 0, "n_constant_like": 0, "n_high_imbalance": 0, "n_total_columns": len(df.columns), "nzv_ratio": 0.0},
+    )
+    feature_dir_biz = artifacts_root / run_id_business / "stage_06_feature_eng"
+    feature_dir_biz.mkdir(parents=True, exist_ok=True)
+    (feature_dir_biz / "feature_spec.json").write_text(json.dumps(feature_spec, ensure_ascii=False, indent=2), encoding="utf-8")
+    std_result_biz = standardize.run(run_id_business, {"raw": raw_path_biz.as_posix()}, cfg)  # type: ignore[arg-type]
+    feat_result_biz = feature_eng.run(  # type: ignore[arg-type]
+        run_id_business,
+        {"raw": std_result_biz["outputs"]["features_curated"], "features_pre": std_result_biz["outputs"]["features_pre"]},
+        cfg,
+    )
+    features_path_biz = Path(feat_result_biz["outputs"]["features"])
+    monkeypatch.setenv("MINDQ_BUSINESS_MODE", "business_first")
+    business_result = readiness.run(run_id_business, {"raw": features_path_biz.as_posix()}, cfg)  # type: ignore[arg-type]
+    assert business_result["status"] == "WARN"
+    diag_biz_path = artifacts_root / run_id_business / "stage_07_readiness" / "diagnostics.json"
+    biz_diagnostics = json.loads(diag_biz_path.read_text(encoding="utf-8"))
+    assert biz_diagnostics["data_gate_status"] == "WARN"
+    assert biz_diagnostics["feature_quality_alerts"]
+    monkeypatch.delenv("MINDQ_BUSINESS_MODE", raising=False)
 
 
 def test_standardize_report_includes_nzv_metadata(tmp_path: Path) -> None:

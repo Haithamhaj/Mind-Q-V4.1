@@ -5,6 +5,7 @@ import re
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
+from enum import Enum
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 import numpy as np
@@ -12,6 +13,7 @@ import pandas as pd
 import yaml
 from zoneinfo import ZoneInfo
 
+from backend.src.app.core.business_mode import BusinessMode, get_business_mode, is_business_first
 from backend.src.app.services import nzv_policy
 from shared import baseline as baseline_utils  # type: ignore
 from shared import validate  # type: ignore
@@ -24,6 +26,59 @@ INDICATOR_SUFFIX = "__is_missing"
 ID_LIKE_PATTERN = re.compile(r"(phone|mobile|msisdn|whatsapp|awb|reference|ref|id|account|tracking)", re.IGNORECASE)
 GEO_FALLBACK = {"latitude", "longitude"}
 PREDICTION_COL_CANDIDATES = ("prediction_time", "prediction_ts", "prediction_timestamp")
+
+
+class GateReasonType(str, Enum):
+    STRUCTURAL = "STRUCTURAL"
+    BUSINESS_PERFORMANCE = "BUSINESS_PERFORMANCE"
+
+
+def _append_reason(
+    reasons: List[Dict[str, Any]],
+    *,
+    code: str,
+    severity: str,
+    reason_type: GateReasonType,
+    details: Optional[Mapping[str, Any]] = None,
+) -> None:
+    entry: Dict[str, Any] = {"code": code, "severity": severity, "type": reason_type.value}
+    if details:
+        entry["details"] = dict(details)
+    reasons.append(entry)
+
+
+def _apply_business_mode_to_reasons(
+    reasons: Sequence[Mapping[str, Any]],
+    *,
+    mode: BusinessMode,
+) -> List[Dict[str, Any]]:
+    processed: List[Dict[str, Any]] = []
+    for entry in reasons:
+        normalized = {
+            "code": entry.get("code"),
+            "severity": entry.get("severity"),
+            "type": entry.get("type"),
+        }
+        if "details" in entry:
+            normalized["details"] = entry["details"]
+        original = normalized["severity"]
+        if (
+            mode == BusinessMode.BUSINESS_FIRST
+            and normalized["type"] == GateReasonType.BUSINESS_PERFORMANCE.value
+            and normalized["severity"] == "STOP"
+        ):
+            normalized["original_severity"] = original
+            normalized["severity"] = "WARN"
+        processed.append(normalized)
+    return processed
+
+
+def _status_from_reasons(reasons: Sequence[Mapping[str, Any]]) -> str:
+    if any(reason.get("severity") == "STOP" for reason in reasons):
+        return "STOP"
+    if any(reason.get("severity") == "WARN" for reason in reasons):
+        return "WARN"
+    return "PASS"
 
 
 def _normalize(name: str) -> str:
@@ -1170,6 +1225,7 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
 
     row_guard_status = "ok"
     gating_reasons: List[str] = []
+    gate_reason_entries: List[Dict[str, Any]] = []
     stops_entries: List[str] = []
     if expected_rows is not None and gates.get("stop_if_rowcount_changes", True):
         try:
@@ -1186,17 +1242,46 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
             row_guard_status = "mismatch"
             gating_reasons.append("row_count_mismatch")
             stops_entries.append("row_guard_mismatch")
+            _append_reason(
+                gate_reason_entries,
+                code="ROW_COUNT_MISMATCH",
+                severity="STOP",
+                reason_type=GateReasonType.STRUCTURAL,
+                details={"expected_rows": expected_rows, "actual_rows": int(len(df_imputed))},
+            )
 
     psi_info = apply_result["psi"]
     psi_stop = psi_info.get("stop") or []
     psi_warn = psi_info.get("warn") or []
     if psi_stop:
         gating_reasons.append("psi_stop")
+        stop_features = [
+            str(entry.get("feature"))
+            for entry in psi_stop
+            if isinstance(entry, Mapping) and entry.get("feature")
+        ]
+        _append_reason(
+            gate_reason_entries,
+            code="PSI_HIGH",
+            severity="STOP",
+            reason_type=GateReasonType.BUSINESS_PERFORMANCE,
+            details={"features": stop_features, "threshold": stop_threshold},
+        )
         stops_entries.extend(
             f"psi_stop::{entry.get('feature')}::{float(entry.get('psi', 0.0)):.4f}" for entry in psi_stop if isinstance(entry, dict)
         )
     elif psi_warn:
         gating_reasons.append("psi_warn")
+        warn_features = [
+            str(entry.get("feature")) for entry in psi_warn if isinstance(entry, Mapping) and entry.get("feature")
+        ]
+        _append_reason(
+            gate_reason_entries,
+            code="PSI_WARN",
+            severity="WARN",
+            reason_type=GateReasonType.BUSINESS_PERFORMANCE,
+            details={"features": warn_features, "threshold": warn_threshold},
+        )
 
     geo_stop_details = []
     geo_bypassed_details = []
@@ -1222,20 +1307,39 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         stops_entries.extend(
             f"geo_missing::{entry['feature']}::{entry['missing_pct']:.4f}" for entry in geo_stop_details
         )
+        _append_reason(
+            gate_reason_entries,
+            code="GEO_COVERAGE_STOP",
+            severity="STOP",
+            reason_type=GateReasonType.BUSINESS_PERFORMANCE,
+            details={"columns": geo_stop_details, "stop_threshold": geo_stop_threshold},
+        )
     elif geo_bypassed_details:
         formatted = ", ".join(f"{entry['feature']}({entry['missing_pct']:.1%})" for entry in geo_bypassed_details)
         gating_reasons.append(f"geo_missing_warn[{formatted}]")
         # mark reason to indicate bypassed stop for transparency
         gating_reasons.append("geo_missing_stop_bypassed")
+        _append_reason(
+            gate_reason_entries,
+            code="GEO_COVERAGE_STOP_BYPASSED",
+            severity="WARN",
+            reason_type=GateReasonType.BUSINESS_PERFORMANCE,
+            details={"columns": geo_bypassed_details, "stop_threshold": geo_stop_threshold},
+        )
     elif geo_warn_details:
         formatted = ", ".join(f"{entry['feature']}({entry['missing_pct']:.1%})" for entry in geo_warn_details)
         gating_reasons.append(f"geo_missing_warn[{formatted}]")
+        _append_reason(
+            gate_reason_entries,
+            code="GEO_COVERAGE_WARN",
+            severity="WARN",
+            reason_type=GateReasonType.BUSINESS_PERFORMANCE,
+            details={"columns": geo_warn_details, "warn_threshold": geo_warn_threshold},
+        )
 
-    status = "PASS"
-    if row_guard_status == "mismatch" or psi_stop or geo_stop_details:
-        status = "STOP"
-    elif psi_warn or geo_warn_details:
-        status = "WARN"
+    current_mode = get_business_mode()
+    structured_reasons = _apply_business_mode_to_reasons(gate_reason_entries, mode=current_mode)
+    status = _status_from_reasons(structured_reasons)
 
     changelog_path = out_dir / "changelog.jsonl"
     logs_path = out_dir / "logs.jsonl"
@@ -1274,6 +1378,13 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         },
         "column_decisions": column_decisions,
         "nzv_summary": nzv_summary,
+    }
+    metrics_payload["data_gate_status"] = status
+    metrics_payload["business_mode"] = current_mode.value
+    metrics_payload["gating"] = {
+        "status_data": status,
+        "mode": current_mode.value,
+        "reasons": structured_reasons,
     }
     metrics_path = out_dir / "metrics.json"
     _save_json(metrics_path, metrics_payload)
@@ -1314,6 +1425,9 @@ def run(run_id: str, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str
         "nzv_summary": nzv_summary,
         "nzv_summaries": nzv_summary_path.as_posix(),
     }
+    imputation_report["gating"] = metrics_payload["gating"]
+    imputation_report["data_gate_status"] = status
+    imputation_report["business_mode"] = current_mode.value
     _save_json(imputation_report_path, imputation_report)
 
     outputs = {

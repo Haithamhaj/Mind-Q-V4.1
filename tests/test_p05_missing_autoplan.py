@@ -13,6 +13,11 @@ import pandas as pd
 import pytest
 from zoneinfo import ZoneInfo
 
+
+@pytest.fixture(autouse=True)
+def _strict_lab_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MINDQ_BUSINESS_MODE", "strict_lab")
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_POLICY = (PROJECT_ROOT / "contracts" / "impute" / "policy.yml").resolve()
 
@@ -232,6 +237,42 @@ gates:
     assert "psi_stop" in metrics["gating_reasons"]
 
 
+def test_gates_psi_stop_business_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("MINDQ_BUSINESS_MODE", "business_first")
+    policy_path = tmp_path / "policy_override.yml"
+    policy_path.write_text(
+        """numeric:
+  strategy: groupwise_then_median
+  winsor_limits: [0.05, 0.95]
+  group_keys: ["City","Carrier","ServiceType"]
+  group_valid_min_rows: 10
+categorical:
+  strategy: mode_with_unknown
+geo:
+  columns: []
+gates:
+  psi_warn: 0.0
+  psi_stop: 0.0
+  psi_keys: ["COD_AMOUNT"]
+""",
+        encoding="utf-8",
+    )
+    values = [10.0] * 180 + [20.0] * 20
+    df = pd.DataFrame(
+        {
+            "City": ["Riyadh"] * 200,
+            "Carrier": ["C1"] * 200,
+            "ServiceType": ["A"] * 200,
+            "COD_AMOUNT": values,
+        }
+    )
+    df.loc[df.index[:40], "COD_AMOUNT"] = np.nan
+    res = _run_phase(tmp_path, "gate02", df, policy_path=policy_path)
+    assert res["status"] == "WARN"
+    metrics_path = tmp_path / "gate02" / "stage_05_missing" / "metrics.json"
+    metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    assert metrics["gating"]["status_data"] == "WARN"
+    assert metrics["gating"]["reasons"][0]["code"] == "PSI_HIGH"
 def test_psi_keys_gating(tmp_path: Path) -> None:
     run_id = "psi_warn"
     artifacts_root = tmp_path

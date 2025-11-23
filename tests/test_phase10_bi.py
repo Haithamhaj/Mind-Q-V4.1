@@ -97,7 +97,30 @@ def prepared_artifacts(tmp_path: Path) -> tuple[str, Path]:
             "perf": {"approve_pct": 1.0, "exec_seconds": 0.5, "reject_pct": 0.0, "rows": 1},
             "provenance": {"currency": "SAR", "timezone": "Asia/Riyadh"},
             "unit_currency_meta": {"currency": "SAR"},
-            "gate": {"status": "PASS", "reasons": []},
+            "gate": {"status": "PASS", "reasons": [], "data_gate_status": "PASS"},
+            "business_alerts": {
+                "status": "ALERT",
+                "sla_alert_level": "ALERT",
+                "rto_alert_level": "OK",
+                "cod_alert_level": "CRITICAL_ALERT",
+                "notes": "Sample business alert",
+            },
+        },
+    )
+    _write_json(
+        stage09 / "gate.json",
+        {
+            "status": "PASS",
+            "data_gate_status": "PASS",
+            "business_gate_status": "ALERT",
+            "business_alerts": {
+                "status": "ALERT",
+                "sla_alert_level": "ALERT",
+                "rto_alert_level": "OK",
+                "cod_alert_level": "CRITICAL_ALERT",
+            },
+            "reasons_data": [],
+            "reasons_business": ["sla::breach"],
         },
     )
     _write_json(stage09 / "metrics.json", {"rows": 1, "approve_pct": 1.0})
@@ -168,6 +191,17 @@ def prepared_artifacts(tmp_path: Path) -> tuple[str, Path]:
             ],
         },
     )
+    _write_json(
+        stage08 / "gate.json",
+        {
+            "status": "PASS",
+            "data_gate_status": "PASS",
+            "upstream_gates": {
+                "stage05": {"data_gate_status": "PASS"},
+                "stage07": {"data_gate_status": "WARN"},
+            },
+        },
+    )
 
     return run_id, artifacts_root
 
@@ -184,6 +218,14 @@ def test_bi_builder_creates_semantic(prepared_artifacts: tuple[str, Path]) -> No
     assert result["status"] == "READY"
     assert semantic_path.exists()
     assert any(marts_dir.glob("*.parquet"))
+    outputs = result["outputs"]
+    assert "business_state" in outputs
+    business_state = json.loads((stage10_root / "business_state.json").read_text(encoding="utf-8"))
+    assert business_state["business_gate"]["overall"] == "ALERT"
+    meta_payload = json.loads((stage10_root / "meta.json").read_text(encoding="utf-8"))
+    assert meta_payload["data_gate_overall"] == "PASS"
+    summary_df = pl.read_parquet((stage10_root / "marts" / "summary_metrics.parquet").as_posix())
+    assert "data_gate_overall" in summary_df["metric"].to_list()
 
     metrics_payload: Dict[str, Any] = yaml.safe_load(semantic_path.read_text(encoding="utf-8"))  # type: ignore[assignment]
     assert isinstance(metrics_payload, dict)

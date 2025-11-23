@@ -13,6 +13,18 @@ Severity = Literal["low", "medium", "high", "critical"]
 RuleLevel = Literal["WARN", "STOP"]
 
 
+class DataGateStatus(str, Enum):
+    PASS = "PASS"
+    WARN = "WARN"
+    STOP = "STOP"
+
+
+class BusinessGateStatus(str, Enum):
+    OK = "OK"
+    ALERT = "ALERT"
+    CRITICAL_ALERT = "CRITICAL_ALERT"
+
+
 class KPIDelta(BaseModel):
     name: str
     original: Optional[float] = None
@@ -57,6 +69,7 @@ class ValidationReport(BaseModel):
     bi_hints: Dict[str, Any]
     sla: List[Dict[str, Any]] = Field(default_factory=list)
     nzv_impact: Optional[Dict[str, Any]] = None
+    business_alerts: Optional[Dict[str, Any]] = None
 
 
 class KPIThresholds(BaseModel):
