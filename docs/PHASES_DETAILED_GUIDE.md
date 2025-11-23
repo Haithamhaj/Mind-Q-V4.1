@@ -502,6 +502,7 @@ Logistics partners rely on consistent column naming and value semantics across r
 
 #### Operational Mechanics
 - **Schema normalization**: Canonicalizes column names (e.g., trims whitespace, removes special characters) while logging rename maps so downstream consumers can trace legacy headers.
+- **Deduplication Strategy**: Automatically handles duplicate entries in the primary key column (e.g., `AWB_NO`) by retaining the first occurrence and dropping duplicates to prevent join explosions.
 - **Exclusion governance**: Merges user-supplied exclusion lists with sector-protected columns (`cod_amount`, `sla_achieved`, `rto_rate`, etc.), ignoring requests that would drop strategic KPIs.
 - **Value normalization**: Delegates to `normalize_values` (`phases/06_standardize/normalizer.py`) to standardize categorical spellings, trim whitespace, and harmonize enumerations; pending reviews are written to mapping files for data stewardship.
 - **Numeric coercion**: Uses heuristics to coerce string/object columns into numeric types when threshold ratios are met, yielding typed metrics ready for modeling.
