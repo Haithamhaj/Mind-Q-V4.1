@@ -45,6 +45,54 @@ On local machines such as Haitham's, the default is now `business_first` when `M
 
 ---
 
+## 🤖 Using Claude Code with Mind‑Q (VS Code + CLI)
+
+This section shows how to use Anthropic’s Claude Code to speed up edits and reviews in this repo.
+
+### Setup recap
+- VS Code extension installed and signed in.
+- CLI installed and in PATH: `claude --version` should print a version.
+- On macOS zsh, keep your API key in `~/.zshrc`:
+   ```zsh
+   export ANTHROPIC_API_KEY="YOUR_KEY"
+   source ~/.zshrc
+   ```
+
+### Common workflows in this project
+- Improve this document (`docs/PHASES_DETAILED_GUIDE.md`):
+   1) Select the paragraph you want to refine.
+   2) Right‑click → Ask Claude → e.g. “بسّط النص وأضف نقاط تنفيذ مختصرة”.
+   3) Review the proposed diff and click Apply.
+
+- Edit Python files with safe diffs (e.g., `check_data.py`, `diagnose_cod.py`):
+   1) Select the function or block.
+   2) Edit with Claude → “أضف logging موحّد وتعامل مع الاستثناءات”.
+   3) راجع التغييرات قبل اعتمادها؛ قسّم الطلبات الكبيرة إلى دفعات صغيرة.
+
+- Add project context to the chat:
+   - Use “Claude: Add to Context” to attach folders like `stage_08_*` and `requirements.txt`.
+   - Drag‑and‑drop specific files (e.g., `PIPELINE_API.md`, `KNIME_INTEGRATION_GUIDE.md`).
+
+### CLI one‑liners (non‑interactive)
+- Print advice for the current doc:
+   ```zsh
+   claude -p "اقترح تحسينات قصيرة لقسم Data Foundation في هذا الملف" --output-format text
+   ```
+- Get structured JSON suggestions for KPIs to surface in Stage 09–10:
+   ```zsh
+   claude -p "لخّص أبرز مؤشرات الأداء في JSON" --output-format json
+   ```
+
+### Safety & permissions
+- Always review diffs before applying.
+- Avoid `--dangerously-skip-permissions` outside sandboxes.
+- Keep credentials out of committed files; rely on environment variables.
+
+### Where this helps most in Mind‑Q
+- Documentation polish and consistency across phases.
+- Generating test scaffolds for data gates and readiness checks.
+- Writing small refactors (logging, error handling) with clear diffs.
+
 ## 📥 Phase Group 1: Data Foundation
 
 ### Stage 01: Ingestion
