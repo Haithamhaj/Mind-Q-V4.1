@@ -134,6 +134,42 @@ make lint              # Code quality
 python cli/runner.py --stage 08   # Single stage
 ```
 
+### Quick Try It — Stage 08 run snapshot
+Run one of the prepared Stage 08 scenarios, then summarize gates and business state:
+```zsh
+# Example: pick a recent run folder and inspect key artifacts
+RUN_DIR=$(ls -td artifacts/* | head -n 1)
+
+# If you have scenario folders like stage_08_run_*:
+SCENARIO_DIR=$(ls -d stage_08_run-* 2>/dev/null | head -n 1)
+echo "Scenario: ${SCENARIO_DIR:-none}"
+
+# Execute pipeline runner if applicable
+if [ -f ./run_pipeline.sh ]; then
+     ./run_pipeline.sh || true
+fi
+
+# Collect gate statuses
+grep -E '"status"' ${RUN_DIR}/stage_*/gate.json || true
+
+# Show final business state (Stage 10)
+if ls ${RUN_DIR}/stage_10*/business_state.json >/dev/null 2>&1; then
+     cat ${RUN_DIR}/stage_10*/business_state.json
+fi
+```
+
+### Troubleshooting (fast checks)
+```zsh
+# Path issues (ensure local bin is present for CLI tools)
+echo $PATH | grep -q "$HOME/.local/bin" || echo "Add: export PATH=\"$HOME/.local/bin:$PATH\" to ~/.zshrc"
+
+# Missing env keys
+env | grep -E 'ANTHROPIC_API_KEY|OPENAI_API_KEY|MINDQ_BUSINESS_MODE' || echo "Set required env vars in ~/.zshrc"
+
+# Find STOP quickly
+grep -l '"status": "STOP"' artifacts/*/stage_*/gate.json 2>/dev/null || echo "No STOP found"
+```
+
 ### Environment Variables
 ```zsh
 export MINDQ_BUSINESS_MODE=business_first  # Default (recommended)
