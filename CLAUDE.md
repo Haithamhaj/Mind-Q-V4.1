@@ -1,4 +1,6 @@
 ## Mind-Q V4.1 — AI Agent Context
+
+> Primary agent context: see `CLAUDE_QUICK.md` for a compact 1–2 page summary to avoid truncation.
 ⚠️ CRITICAL RULES — READ FIRST
 1. NEVER modify contracts/*.yml without understanding downstream impact
 2. NEVER change impl.py files without running tests
