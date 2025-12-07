@@ -1,52 +1,154 @@
-I've generated a comprehensive CLAUDE.md file for the Mind-Q V4.1 repository. The document includes:
+## Mind-Q V4.1 — AI Agent Context
+⚠️ CRITICAL RULES — READ FIRST
+1. NEVER modify contracts/*.yml without understanding downstream impact
+2. NEVER change impl.py files without running tests
+3. ALWAYS check gate.json after any pipeline run
+4. Mode is business_first: SLA/RTO issues = WARN only, never STOP
 
-## What's Included
+### What Is This?
+Logistics data pipeline. 12+ stages. Ingests CSV/Excel → processes → outputs BI reports.
+Input: Raw delivery/shipment files
+Output: BI dashboards, SLA reports, KPI insights
 
-**1. Quick Start** - 3-command setup for macOS zsh
+### Pipeline Sequence
+01_ingestion → 02_quality → 03_schema → 03.5_textops → 04_profile
+     ↓
+05_missing → 06_standardize → 06_feature_eng → 07_readiness
+     ↓
+07.5_feature_report → 07.6_llm_summary → 07.7_correlations
+     ↓
+08_insights → 09_business_validation → 10_bi
+Optional stages: 07_analytics, 07_timeseries, 09.5_causal, 12_routing
 
-**2. Build & Run**
-- Makefile targets (venv, install, fmt, lint, test, smoke, docs)
-- Shell scripts (run_pipeline.sh, run_app.sh, start_*.sh)
-- CLI runner commands
-- Port information for backend (9000) and frontend (3000/5000)
+### Gating Rules (business_first mode)
+- STRUCTURAL → STOP pipeline (e.g., missing file, zero rows, broken schema)
+- BUSINESS → WARN only, continues (e.g., low SLA%, high RTO%, PSI drift)
 
-**3. Python Environment**
-- pyproject.toml overview (Python 3.11+)
-- Requirements breakdown (requirements.txt, requirements-dev.txt, requirements-adapters.txt)
-- Virtual environment setup and management
+### File Locations
+#### Source Code
+phases/01_ingestion/impl.py      # Stage 01
+phases/02_quality/impl.py        # Stage 02
+phases/05_missing/impl.py        # Stage 05
+phases/06_standardize/impl.py    # Stage 06
+phases/07_readiness/impl.py      # Stage 07
+phases/09_business_validation/   # Stage 09
+src/app/services/stage_08_*/     # Stage 08
+#### Contracts (Business Rules) ⚠️ HIGH IMPACT
+contracts/
+├── impute/policy_relaxed.yml    # Imputation rules
+├── nzv/policy.yml               # Near-zero variance thresholds
+├── kpis/critical_columns.yml    # Critical columns for Stage 07
+├── analytics/gate.yml           # Stage 08 quality checks
+├── sla/sla_defaults.yml         # SLA hour limits
+└── payment/payment_rules.yml    # COD/payment rules
+#### Outputs
+artifacts/{run_id}/stage_XX/
+├── gate.json          # PASS/WARN/STOP status + reasons
+├── logs.jsonl         # Execution trace
+└── [stage outputs]    # Varies by stage
 
-**4. Testing & Validation**
-- pytest commands (unit, integration, smoke tests)
-- Code quality tools (black, ruff, mypy, bandit, safety)
-- Pre-commit hooks setup
-- Documentation validation
+### Before Making Changes
+1) Identify Impact Scope
+Changing Stage 05? → Affects 06, 07, 08, 09, 10
+Changing contracts/? → May affect multiple stages
+Changing Stage 08 only? → Affects 09, 10
+2) Run Relevant Tests
+```zsh
+# Specific stage
+pytest tests/test_phase05_missing.py -v
 
-**5. Documentation Map**
-- Getting started docs (00_START_HERE.md, README.md, QUICK_START.md)
-- Core docs hierarchy under docs/
-- PHASES_DETAILED_GUIDE.md as the master blueprint
-- Stage-specific, advanced features, frontend/BI, and technical docs
+# Full suite
+make test
+```
+3) Verify After Changes
+```zsh
+# Run pipeline
+make run
 
-**6. Stage 08 Context Files**
-- Explanation of stage_08_* files and their purpose
-- Categories: run modes, RAG/context, advanced analytics, correlation, debug
-- Usage examples and best practices
+# Check gates
+cat artifacts/*/stage_*/gate.json | grep -E '"status"'
 
-**7. Best Practices**
-- Diff management with conventional commits
-- Structured logging with structlog
-- Code organization and import order
-- **Documentation sync (CRITICAL: AI_RULES.md compliance)**
-- Testing pyramid strategy
-- Performance tips (Polars vs Pandas)
+# Check for errors
+grep -r "STOP\|ERROR" artifacts/*/stage_*/logs.jsonl
+```
 
-**8. Credentials & Security**
-- .env setup and environment variables
-- LLM API keys (OpenAI, Anthropic, Google)
-- Pipeline configuration (business_first vs strict_lab modes)
-- Security best practices (never commit secrets, PII masking)
-- macOS zsh persistent environment setup
+### Common Tasks
+"Change SLA threshold"
+File: contracts/sla/sla_defaults.yml
+Key: global_hours (default 48)
+Impact: Stage 09 SLA calculations
+"Add critical column"
+File: contracts/kpis/critical_columns.yml
+Impact: Stage 07 readiness, Stage 08 preflight
+Test: pytest tests/test_phase06_readiness.py
+"Change imputation strategy"
+File: contracts/impute/policy_relaxed.yml
+Impact: Stage 05 → all downstream
+Test: pytest tests/test_phase05_missing.py
+"Modify Stage 08 insights"
+File: src/app/services/stage_08_insights/impl.py
+Config: src/app/services/stage_08_insights/settings.py
+Gates: contracts/analytics/gate.yml
+Test: pytest tests/test_phase08_insights.py
 
-**9. Quick Reference Card** - Essential commands, key directories, help resources
+### Debugging
+Pipeline stopped?
+```zsh
+# Find which stage
+grep -l '"status": "STOP"' artifacts/*/stage_*/gate.json
 
-The document is formatted in clear Markdown with short, executable commands optimized for macOS zsh as requested. It emphasizes the AI_RULES.md requirement to keep PHASES_DETAILED_GUIDE.md synced with code changes.
+# Read reasons
+cat artifacts/{run_id}/stage_XX/gate.json | jq '.reasons'
+```
+Too many warnings?
+```zsh
+# Count per stage
+for f in artifacts/*/stage_*/logs.jsonl; do
+     echo "$f: $(grep -c WARN $f 2>/dev/null || echo 0)"
+done
+```
+Understand final state?
+```zsh
+cat artifacts/*/stage_10*/business_state.json
+```
+
+### Stage Dependencies (Change Impact)
+If you change...        You affect...
+─────────────────────────────────────
+Stage 01               → ALL stages
+Stage 05               → 06, 07, 07.*, 08, 09, 10
+Stage 06               → 07, 07.*, 08, 09, 10
+Stage 07               → 07.*, 08, 09, 10
+Stage 08               → 09, 10
+contracts/impute/      → 05 → downstream
+contracts/nzv/         → 05, 06, 07, 08
+contracts/kpis/        → 07, 08, 09
+contracts/analytics/   → 08, 09
+contracts/sla/         → 09, 10
+
+### Quick Commands
+```zsh
+make run               # Full pipeline
+make test              # All tests
+make lint              # Code quality
+python cli/runner.py --stage 08   # Single stage
+```
+
+### Environment Variables
+```zsh
+export MINDQ_BUSINESS_MODE=business_first  # Default (recommended)
+export MINDQ_LLM_PROVIDERS=openai,anthropic
+export OPENAI_API_KEY=...
+export ANTHROPIC_API_KEY=...
+```
+
+### For Deep Understanding
+docs/PHASES_DETAILED_GUIDE.md    # Full 2000-line documentation
+docs/CLAUDE_ARCHITECTURE.md      # Visual maps and relationships
+docs/CLAUDE_DECISION_TREE.md     # Troubleshooting flowcharts
+
+### ⚠️ Final Reminder
+1. Test before committing
+2. Check gate.json after runs
+3. Contracts have wide impact - change carefully
+4. When in doubt, read PHASES_DETAILED_GUIDE.md
