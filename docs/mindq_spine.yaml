@@ -1,0 +1,227 @@
+project: Mind-Q V4.1
+type: logistics_data_pipeline
+generated_at: '2025-12-09T17:29:57.819122'
+phases:
+- id: 01_ingestion
+  name: Data Ingestion
+  order: 0
+  exists: true
+  group: data_foundation
+  optional: false
+- id: 02_quality
+  name: Quality Checks
+  order: 1
+  exists: true
+  group: data_foundation
+  optional: false
+- id: 03_schema
+  name: Schema Validation
+  order: 2
+  exists: true
+  group: data_foundation
+  optional: false
+- id: 03_5_textops
+  name: Text Operations
+  order: 3
+  exists: false
+  group: data_foundation
+  optional: true
+- id: 04_profile
+  name: Data Profiling
+  order: 4
+  exists: true
+  group: data_foundation
+  optional: false
+- id: 05_missing
+  name: Missing Value Repair
+  order: 5
+  exists: true
+  group: advanced_analytics
+  optional: false
+- id: 06_standardize
+  name: Standardization
+  order: 6
+  exists: true
+  group: advanced_analytics
+  optional: false
+- id: 06_feature_eng
+  name: Feature Engineering
+  order: 7
+  exists: true
+  group: advanced_analytics
+  optional: false
+- id: 07_readiness
+  name: Readiness Assessment
+  order: 8
+  exists: true
+  group: advanced_analytics
+  optional: false
+- id: 07_5_feature_report
+  name: Feature Reporting
+  order: 9
+  exists: true
+  group: advanced_analytics
+  optional: false
+- id: 07_6_llm_summary
+  name: LLM Summary
+  order: 10
+  exists: true
+  group: advanced_analytics
+  optional: false
+- id: 07_7_business_correlations
+  name: Business Correlations
+  order: 11
+  exists: true
+  group: advanced_analytics
+  optional: false
+- id: 07_analytics
+  name: Analytics (optional)
+  order: 12
+  exists: false
+  group: advanced_analytics
+  optional: true
+- id: 07_timeseries
+  name: Timeseries Analysis (optional)
+  order: 13
+  exists: false
+  group: advanced_analytics
+  optional: true
+- id: 07_knime_bridge
+  name: KNIME Bridge
+  order: 14
+  exists: false
+  group: advanced_analytics
+  optional: false
+- id: 08_insights
+  name: Insights Generation
+  order: 15
+  exists: false
+  group: ai_insights
+  optional: false
+- id: 09_business_validation
+  name: Business Validation
+  order: 16
+  exists: true
+  group: business_intelligence
+  optional: false
+- id: 09_5_causal
+  name: Causal Inference (optional)
+  order: 17
+  exists: false
+  group: business_intelligence
+  optional: true
+- id: 10_bi
+  name: BI Delivery
+  order: 18
+  exists: false
+  group: business_intelligence
+  optional: false
+- id: 11_ml_lab
+  name: ML Lab
+  order: 19
+  exists: false
+  group: ml_lab
+  optional: true
+- id: 12_routing
+  name: Routing (optional)
+  order: 20
+  exists: false
+  group: optional
+  optional: true
+flows:
+- from: 01_ingestion
+  to: 02_quality
+  type: sequential
+- from: 02_quality
+  to: 03_schema
+  type: sequential
+- from: 04_profile
+  to: 05_missing
+  type: sequential
+- from: 05_missing
+  to: 06_standardize
+  type: sequential
+- from: 06_standardize
+  to: 06_feature_eng
+  type: sequential
+- from: 06_feature_eng
+  to: 07_readiness
+  type: sequential
+- from: 07_readiness
+  to: 07_5_feature_report
+  type: sequential
+- from: 07_5_feature_report
+  to: 07_6_llm_summary
+  type: sequential
+- from: 07_6_llm_summary
+  to: 07_7_business_correlations
+  type: sequential
+- from: 07_knime_bridge
+  to: 08_insights
+  type: sequential
+- from: 08_insights
+  to: 09_business_validation
+  type: sequential
+kpis:
+- name: RTO%
+  description: Return to Origin percentage
+  category: delivery
+  impacted_by:
+  - 01_ingestion
+  - 07_readiness
+  - 08_insights
+  - 09_business_validation
+- name: SLA
+  description: Service Level Agreement compliance
+  category: service
+  impacted_by:
+  - 01_ingestion
+  - 07_readiness
+  - 08_insights
+  - 09_business_validation
+  - 10_bi
+- name: COD
+  description: Cash on Delivery collection rate
+  category: financial
+  impacted_by:
+  - 01_ingestion
+  - 02_quality
+  - 08_insights
+  - 09_business_validation
+- name: PSI
+  description: Population Stability Index for data drift
+  category: quality
+  impacted_by:
+  - 04_profile
+  - 05_missing
+  - 06_standardize
+  - 07_readiness
+- name: NZV
+  description: Near Zero Variance for feature stability
+  category: quality
+  impacted_by:
+  - 04_profile
+  - 06_feature_eng
+  - 07_readiness
+- name: Delivery Success
+  description: Successful delivery rate
+  category: delivery
+  impacted_by:
+  - 01_ingestion
+  - 08_insights
+  - 09_business_validation
+  - 12_routing
+- name: Hub Efficiency
+  description: Hub throughput and processing time
+  category: operations
+  impacted_by:
+  - 08_insights
+  - 12_routing
+- name: Data Quality Score
+  description: Overall data quality and completeness
+  category: quality
+  impacted_by:
+  - 02_quality
+  - 03_schema
+  - 04_profile
+  - 05_missing
