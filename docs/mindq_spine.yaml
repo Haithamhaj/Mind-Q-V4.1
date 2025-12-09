@@ -1,6 +1,6 @@
 project: Mind-Q V4.1
 type: logistics_data_pipeline
-generated_at: '2025-12-09T17:29:57.819122'
+generated_at: '2025-12-09T17:45:01.842015'
 phases:
 - id: 01_ingestion
   name: Data Ingestion

@@ -3,9 +3,8 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Literal, Optional, Sequence, Tuple
-
-from pydantic import BaseModel, Field, RootModel, ValidationError, model_validator
+from typing import Any, Dict, List, Literal, Optional
+from pydantic import BaseModel, Field, RootModel, model_validator
 
 GateStatus = Literal["PASS", "WARN", "STOP"]
 Decision = Literal["APPROVE", "REJECT"]
