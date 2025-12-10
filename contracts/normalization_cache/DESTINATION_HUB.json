@@ -252,7 +252,19 @@
       "normalized": "Jeddah Hub",
       "confidence": 1.0,
       "source": "llm"
+    },
+    {
+      "original": "destination location",
+      "normalized": "مركز الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
+    },
+    {
+      "original": "موقع الوجهة",
+      "normalized": "مركز الوجهة",
+      "confidence": 1.0,
+      "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-16T07:57:19.747156"
+  "updated_at": "2025-12-09T15:27:45.222848"
 }

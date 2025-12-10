@@ -1,7 +1,7 @@
 # Mind-Q V4.1 - Detailed Phase Guide
 ## Detailed Phases Guide
 
-📅 **Last Updated**: October 2025  
+📅 **Last Updated**: December 2025  
 🎯 **Status**: Fully refreshed and reviewed  
 🔧 **Applies To**: Mind-Q V4.1 Pipeline Architecture
 
@@ -102,8 +102,8 @@ Stage 01 ingests heterogeneous logistics source files (CSV, Parquet, Excel expor
 
 #### Implementation Status
 - Status: Implemented
-- Evidence: `phases/01_ingestion/impl.py`, `backend/src/app/services/pipeline_api/app.py#L173`
-- Last checked: {{TO_FILL_DATE}}
+- Evidence: `phases/phase10_bi/impl.py`, `backend/src/app/api/bi/router.py`
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - STOP when any source file falls below `min_file_size_bytes` or the combined frame has fewer rows than `min_rows` (`phases/01_ingestion/impl.py` guards write `shape_mismatch.json` and exit early).
@@ -171,7 +171,7 @@ Stage 02 validates the ingested dataset against logistics-specific quality gates
 #### Implementation Status
 - Status: Implemented
 - Evidence: `phases/02_quality/impl.py`, `shared/baseline.py`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - STOP whenever Stage 02 cannot read the input parquet, the resulting dataframe has zero rows, or the observed row count no longer matches the baseline rows tracked in `baselines.json`.
@@ -234,7 +234,7 @@ Stage 03 extracts a canonical schema for the logistics dataset, aligns it with h
 #### Implementation Status
 - Status: Implemented
 - Evidence: `phases/03_schema/impl.py`, `phases/03_schema/terminology.py`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - Row-count parity is enforced through `shared.baseline.enforce_row_guard`; mismatches escalate to STOP before schema artifacts are persisted.
@@ -313,7 +313,7 @@ Docs TextOps is gated by `docs_textops.enabled` (default `true`). Missing folder
 #### Implementation Status
 - Status: Implemented
 - Evidence: `backend/src/app/services/stage_03_5_textops/impl.py`, `backend/src/app/services/stage_03_5_textops/features.py`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - STOP when unreadable documents exceed `cfg.thresholds.stop_unreadable_docs_pct` or when no candidate text columns exist (an exception is raised before artifacts are emitted).
@@ -389,7 +389,7 @@ Stage 04 performs lightweight statistical profiling on the curated logistics dat
 #### Implementation Status
 - Status: Implemented
 - Evidence: `phases/04_profile/impl.py`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - Row stability uses `shared.validate.assert_row_stability` to assert Stage 04 does not alter counts; violations raise immediately.
@@ -454,7 +454,7 @@ Stage 05 orchestrates hybrid imputation for logistics features, generating curat
 #### Implementation Status
 - Status: Implemented
 - Evidence: `phases/05_missing/impl.py`, `backend/contracts/impute/policy_relaxed.yml`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - **Structural STOP (data gate).** Row-count baselines, unreadable inputs, numeric group-by strategies without enough rows, or KPI-critical geo columns beyond the bypass list still halt the run in both modes. These reasons land inside `metrics.json["gating"]` / `imputation_report.json["gating"]` with `type="STRUCTURAL"` and power `status_data`.
@@ -527,7 +527,7 @@ Stage 06 Standardization ingests the authoritative Stage 05 dataset and standard
 #### Implementation Status
 - Status: Implemented
 - Evidence: `phases/06_standardize/impl.py`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - Row guard invokes `baseline_utils.enforce_row_guard` using Stage 05/01 baselines; mismatches raise before standardization artifacts are committed.
@@ -595,7 +595,7 @@ Stage 06 Feature Engineering transforms the curated dataset into a stable featur
 #### Implementation Status
 - Status: Implemented
 - Evidence: `phases/06_feature_eng/impl.py`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - Row guard uses `baseline_utils.enforce_row_guard` (phase tag `06F`) to block runs when counts deviate from Stage 05/06A expectations.
@@ -663,7 +663,7 @@ Stage 07 evaluates feature readiness by detecting leakage risks, high redundancy
 #### Implementation Status
 - Status: Implemented
 - Evidence: `phases/07_readiness/impl.py`, `contracts/kpis/critical_columns.yml`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - **Structural STOP (data gate).** Row guards, schema mismatches, or cases where no usable features remain still force `data_gate_status: STOP` regardless of business mode. These reasons show up in `readiness_report["gate"]["reasons_structured"]` and `diagnostics.json["gating"]`.
@@ -741,7 +741,7 @@ Stage 07 Analytics is the Python-native alternative to KNIME workflows. It execu
 #### Implementation Status
 - Status: Implemented
 - Evidence: `backend/src/app/services/stage_07_analytics/impl.py`, `cli/runner.py#L243-L386`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - Each analytics engine handles its own try/except block; failures are recorded inside the `results` dictionary and `analytics_summary.json` but do not STOP the pipeline—the stage always returns `status: SUCCESS`.
@@ -812,7 +812,7 @@ There is no standalone `stage_07_correlations` phase. Instead, Stage 07 Readines
 #### Implementation Status
 - Status: Covered inside Stage 07 Readiness
 - Evidence: `phases/07_readiness/impl.py#L1585-L1635`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - Mirroring inherits the readiness gate status; no separate STOP/WARN logic runs. If readiness exits early, the mirrored artifacts may be incomplete and should be inspected alongside `readiness_report.json`.
@@ -868,7 +868,7 @@ Stage 07 Timeseries generates templated forecasts for key operational segments, 
 #### Implementation Status
 - Status: Implemented
 - Evidence: `backend/src/app/services/stage_07_timeseries/impl.py`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - `status: PASS` is returned when `forecast_templates.json` contains at least one forecasted segment/time series.
@@ -929,7 +929,7 @@ Stage 07.5 generates a statistical feature report, combining variance analytics,
 #### Implementation Status
 - Status: Implemented
 - Evidence: `phases/07_5_feature_report/impl.py`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - WARN state is returned when zero columns qualify for reporting or when more than 50% of cells are missing; otherwise Stage 07.5 reports PASS after generating artifacts.
@@ -994,7 +994,7 @@ Stage 07.6 converts the statistical feature report into an Arabic executive summ
 #### Implementation Status
 - Status: Implemented
 - Evidence: `phases/07_6_llm_summary/impl.py`, `contracts/nzv/prompt_hints.yml`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - The stage returns `status: PASS` when a provider-generated summary validates, and `status: WARN` when it falls back to heuristic mode (i.e., `provider == "heuristic"`).
@@ -1060,7 +1060,7 @@ Stage 07.7 mines the curated feature set for statistically significant business 
 #### Implementation Status
 - Status: Implemented
 - Evidence: `phases/07_7_business_correlations/impl.py`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - Returns `status: PASS` for any dataset with rows, even if the resulting correlation lists are sparse or empty after filtering.
@@ -1122,7 +1122,7 @@ Stage 07 KNIME Bridge packages readiness outputs, feature datasets, and semantic
 #### Implementation Status
 - Status: Implemented
 - Evidence: `src/app/services/stage_07_bi_prep_python/impl.py`, `backend/src/app/services/stage_07_knime_bridge/impl.py`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - Mode resolution (`auto` vs. `skip`) governs whether the bridge copies artifacts; missing required outputs (data, layer2 candidate, bridge summary) or analytics errors set the returned status to WARN.
@@ -1197,7 +1197,7 @@ Stage 08 applies governed statistical analysis to generate actionable business i
 #### Implementation Status
 - Status: Implemented
 - Evidence: `src/app/services/stage_08_insights/impl.py`, `src/app/services/stage_08_insights/settings.py`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - Stage 08 now reports a **data-first gate**: STOP is reserved for structural issues (missing critical columns, future timestamps, failed numeric rules). Business-first mode ignores pure performance drift when deciding whether to STOP, but every alert is still recorded under `gate.json["reasons"]`.
@@ -1285,7 +1285,7 @@ Stage 09 Business Validation reconciles operational KPIs, SLA contracts, and Sta
 #### Implementation Status
 - Status: Implemented
 - Evidence: `phases/09_business_validation/impl.py`, `phases/09_business_validation/models.py`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - **Data Gate vs Business Gate.** `gate.json` now exposes `data_gate_status` (structural health) and `business_gate_status` (SLA/RTO/COD alerts). In `business_first` mode only the data gate can STOP Stage 09; SLA-only breaches become `business_gate_status: ALERT/CRITICAL_ALERT`, populating `reasons_business` and `business_alerts` while BI publishing continues. `strict_lab` mode preserves legacy behavior by elevating CRITICAL alerts to STOP/WARN for regression coverage.
@@ -1371,7 +1371,7 @@ Stage 09.5 performs exploratory causal inference on business metrics, estimating
 #### Implementation Status
 - Status: Implemented
 - Evidence: `src/app/services/stage_09_5_causal_inference/impl.py`, `src/app/services/stage_09_5_causal_inference/config_loader.py`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - Advisory status toggles between `SUPPORTED` and `UNSUPPORTED` depending on overlap checks, estimator success, and refuters; failures are logged but do not STOP the main pipeline.
@@ -1434,7 +1434,7 @@ Stage 10 packages governed data artifacts—semantic definitions, marts, dataset
 #### Implementation Status
 - Status: Implemented
 - Evidence: `phases/phase10_bi/impl.py`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - Stage 10 reports `status: READY` after building datasets; it inherits Stage 09 data/business gate context and surfaces it via `business_state.json`/`meta.json` without adding new STOP logic. Missing inputs or filesystem write failures still raise immediately.
@@ -1655,7 +1655,7 @@ Stage 11 is the offline ML Lab where all heavy training, experimentation, and ca
 #### Implementation Status
 - Status: Implemented (skeleton)
 - Evidence: `notebooks/ml_lab/README.md`, `contracts/models/models_catalog.yml`, `artifacts/models/`, `artifacts/ml_lab/`
-- Last checked: {{TO_FILL_DATE}}
+- Last checked: 2025-12-09
 
 #### Quality Gates & STOP/WARN
 - Training happens manually/async; notebooks must log dataset ranges, seeds, and metrics into `artifacts/ml_lab/ml_lab_report_*.json`.

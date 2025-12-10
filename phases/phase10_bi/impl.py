@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone as dt_timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
@@ -1088,6 +1088,7 @@ def run(run_id: str, inputs: Optional[Mapping[str, Any]], config: Optional[Mappi
         or PROJECT_ROOT / "configs" / "kpi" / "kpi_catalog.yaml"
     ).resolve()
     column_policy_map = _load_column_policy_map(kpi_cfg_path)
+    start_time = datetime.now(dt_timezone.utc)
 
     stage09_dir = artifacts_root / run_id / "stage_09_business_validation"
     stage08_dir = artifacts_root / run_id / "stage_08_insights"
@@ -1293,17 +1294,11 @@ def run(run_id: str, inputs: Optional[Mapping[str, Any]], config: Optional[Mappi
     }
     business_state_path = stage10_dir / "business_state.json"
     business_state_path.write_text(json.dumps(business_state_payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    meta_payload = {
-        "run_id": run_id,
-        "generated_at": datetime.now().isoformat(),
-        "data_gate_overall": stage09_data_status,
-        "business_gate_overall": business_gate_status,
-        "sla_alert_level": business_gate_summary["sla_alert_level"],
-        "rto_alert_level": business_gate_summary["rto_alert_level"],
-        "cod_alert_level": business_gate_summary["cod_alert_level"],
-    }
-    meta_path = stage10_dir / "meta.json"
-    meta_path.write_text(json.dumps(meta_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    # Calculate timing for standard meta.json compliance
+    finished_at = datetime.now()
+    duration_ms = int((finished_at.timestamp() - start_time.timestamp()) * 1000)
+
+
 
     # Determine timezone/currency
     timezone = (
@@ -1373,6 +1368,36 @@ def run(run_id: str, inputs: Optional[Mapping[str, Any]], config: Optional[Mappi
     )
     insights_path = insights_dir / INSIGHTS_FILENAME
     insights_path.write_text(json.dumps(insights_output, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # Calculate timing for standard meta.json compliance
+    finished_at = datetime.now(dt_timezone.utc)
+    duration_ms = int((finished_at.timestamp() - start_time.timestamp()) * 1000)
+
+    meta_payload = {
+        "run_id": run_id,
+        "phase_id": "10_bi",
+        "stage_directory": "stage_10_bi",
+        "status": "READY",
+        "generated_at": finished_at.isoformat(),
+        "started_at": start_time.isoformat(),
+        "finished_at": finished_at.isoformat(),
+        "duration_ms": duration_ms,
+        "outputs": {
+             "marts_dir": marts_dir.name,
+             "semantic_path": metrics_yaml_path.name,
+             "dimensions_path": dimensions_path.name,
+             "insights_path": insights_path.name,
+             "dataset_path": dataset_path.name,
+             "business_state": business_state_path.name,
+        },
+        "data_gate_overall": stage09_data_status,
+        "business_gate_overall": business_gate_status,
+        "sla_alert_level": business_gate_summary["sla_alert_level"],
+        "rto_alert_level": business_gate_summary["rto_alert_level"],
+        "cod_alert_level": business_gate_summary["cod_alert_level"],
+    }
+    meta_path = stage10_dir / "meta.json"
+    meta_path.write_text(json.dumps(meta_payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     return {
         "run_id": run_id,

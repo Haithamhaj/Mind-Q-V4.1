@@ -26,10 +26,10 @@
       "source": "terminology"
     },
     {
-      "original": "FORWARD_COMPANY",
+      "original": "FORWARD COMPANY",
       "normalized": "شركة الشحن",
       "confidence": 1.0,
-      "source": "terminology"
+      "source": "llm"
     },
     {
       "original": "delivery company",
@@ -105,19 +105,19 @@
     },
     {
       "original": "SMSA v2",
-      "normalized": "شركة الشحن",
+      "normalized": "SMSA v2",
       "confidence": 1.0,
       "source": "llm"
     },
     {
       "original": "Aramex",
-      "normalized": "شركة الشحن",
+      "normalized": "Aramex",
       "confidence": 1.0,
       "source": "llm"
     },
     {
       "original": "J&T",
-      "normalized": "شركة الشحن",
+      "normalized": "J&T",
       "confidence": 1.0,
       "source": "llm"
     },
@@ -260,5 +260,5 @@
       "source": "llm"
     }
   ],
-  "updated_at": "2025-11-23T08:47:49.514317"
+  "updated_at": "2025-12-09T15:28:58.565106"
 }

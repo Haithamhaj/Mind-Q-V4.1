@@ -1,0 +1,2 @@
+2025-12-09 18:31:57,133 INFO column_roles_loaded total=83 analysis=50 context=29 key=4
+2025-12-09 18:31:57,297 INFO {"gate_status": "WARN", "duration_sec": 0.2204}
