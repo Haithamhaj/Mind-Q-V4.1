@@ -80,7 +80,7 @@
       "source": "terminology"
     },
     {
-      "original": "Third Party Logistics Status",
+      "original": "Third-Party Logistics Status",
       "normalized": "حالة 3PL",
       "confidence": 1.0,
       "source": "terminology"
@@ -234,7 +234,13 @@
       "normalized": "حالة 3PL",
       "confidence": 1.0,
       "source": "terminology"
+    },
+    {
+      "original": "حالة اللوجستيات من طرف ثالث",
+      "normalized": "حالة 3PL",
+      "confidence": 1.0,
+      "source": "terminology"
     }
   ],
-  "updated_at": "2025-11-16T07:58:35.112552"
+  "updated_at": "2025-12-10T06:46:55.888357"
 }
